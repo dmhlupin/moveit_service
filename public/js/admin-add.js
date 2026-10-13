@@ -1,7 +1,8 @@
 // public/js/admin-add.js
 // Логика формы добавления техники
 
-let categories = [];
+// Кэш моделей (для предпросмотра в правой колонке)
+let modelsCache = [];
 
 // Кэш данных для превью места хранения
 let locations = {
@@ -16,8 +17,8 @@ let locations = {
 // ============================================================
 
 document.addEventListener('DOMContentLoaded', async function () {
-  // Справочник (категории)
-  await loadCategories();
+  // Модели ТМЦ
+  await loadModels();
 
   // Плейсхолдер для инвентарного номера
   const invInput = document.getElementById('inventory_number');
@@ -25,84 +26,71 @@ document.addEventListener('DOMContentLoaded', async function () {
     invInput.placeholder = generateInventoryNumber();
   }
 
-  // Склады для места хранения
+  // Склады
   await loadWarehouses();
 
-  // 🆕 2.11.8.2.2: живой предпросмотр
+  // Живой предпросмотр
   bindLivePreview();
+  bindModelPreview();
 });
 
 // ============================================================
-// СПРАВОЧНИК: КАТЕГОРИИ И ТИПЫ
+// МОДЕЛИ ТМЦ
 // ============================================================
 
-async function loadCategories() {
+async function loadModels() {
   try {
-    const response = await fetch('/api/admin/categories');
-    categories = await response.json();
+    const response = await fetch('/api/admin/models');
+    const data = await response.json();
+    modelsCache = Array.isArray(data) ? data : (data.items || []);
 
-    const select = document.getElementById('category_id');
-    if (!select) return;
-
-    const currentValue = select.value;
-
-    select.innerHTML =
-      '<option value="">— Выберите категорию —</option>' +
-      categories
-        .map(
-          (cat) => `
-            <option value="${cat.id}">
-              ${cat.icon || '📁'} ${escapeHtml(cat.name)}
-            </option>
-          `
-        )
-        .join('');
-
-    if (currentValue) select.value = currentValue;
+    // Селект уже заполнен сервером ({{model_options}}),
+    // но подстрахуемся, если пуст — заполним на клиенте.
+    const select = document.getElementById('model_id');
+    if (select && select.options.length <= 1) {
+      let html = '<option value="">— Выберите модель —</option>';
+      modelsCache.forEach(m => {
+        html += `<option value="${m.id}">${escapeHtml(m.corporate_id)} · ${escapeHtml(m.name)}</option>`;
+      });
+      select.innerHTML = html;
+    }
   } catch (error) {
-    console.error('❌ Ошибка загрузки категорий:', error);
-    showToast('❌ Ошибка загрузки категорий', 'error');
+    console.error('❌ Ошибка загрузки моделей:', error);
   }
 }
 
-async function onCategoryChange() {
-  const categoryId = document.getElementById('category_id').value;
-  const typeSelect = document.getElementById('type_id');
+/**
+ * Обновляет карточку предпросмотра при смене модели.
+ */
+function bindModelPreview() {
+  const select = document.getElementById('model_id');
+  if (!select) return;
 
-  typeSelect.innerHTML = '<option value="">— Загрузка... —</option>';
-  typeSelect.disabled = true;
+  const update = () => {
+    const id = select.value;
+    const m = modelsCache.find(x => String(x.id) === String(id));
 
-  if (!categoryId) {
-    typeSelect.innerHTML = '<option value="">— Сначала выберите категорию —</option>';
-    return;
-  }
+    setInfo('info_model_name',   m ? m.name : '—');
+    setInfo('info_corporate_id', m ? m.corporate_id : '—');
+    setInfo('info_manufacturer', m ? (m.manufacturer || '—') : '—');
+    setInfo('info_category',
+      m && m.category_name ? `${m.category_icon || '📁'} ${m.category_name}` : '—'
+    );
+    setInfo('info_type',
+      m && m.type_name ? `${m.type_icon || '📦'} ${m.type_name}` : '—'
+    );
+  };
 
-  try {
-    const response = await fetch(`/api/admin/types?category_id=${categoryId}`);
-    const types = await response.json();
+  select.addEventListener('change', update);
+  // Инициализация — на случай, если браузер восстановил значение
+  update();
+}
 
-    if (types.length === 0) {
-      typeSelect.innerHTML = '<option value="">— Нет типов в категории —</option>';
-      return;
-    }
-
-    typeSelect.innerHTML =
-      '<option value="">— Выберите тип —</option>' +
-      types
-        .map(
-          (type) => `
-            <option value="${type.id}">
-              ${type.icon || '📦'} ${escapeHtml(type.name)}
-            </option>
-          `
-        )
-        .join('');
-
-    typeSelect.disabled = false;
-  } catch (error) {
-    console.error('❌ Ошибка загрузки типов:', error);
-    typeSelect.innerHTML = '<option value="">— Ошибка загрузки —</option>';
-  }
+function setInfo(id, text) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = text || '—';
+  el.classList.toggle('muted', !text || text === '—');
 }
 
 // ============================================================
@@ -117,43 +105,21 @@ async function submitForm(event) {
   submitBtn.textContent = '⏳ Сохранение...';
 
   const formData = {
-    inventory_number: document.getElementById('inventory_number').value.trim(),
-    category_id: document.getElementById('category_id').value || null,
-    type_id: document.getElementById('type_id').value || null,
-    cell_id: document.getElementById('cellId')?.value || null,
-    name: document.getElementById('name').value.trim(),
-    model: document.getElementById('model').value.trim(),
-    serial_number: document.getElementById('serial_number').value.trim(),
-    manufacturer: document.getElementById('manufacturer').value.trim(),
+    model_id: document.getElementById('model_id').value || null,
+    inventory_number: document.getElementById('inventory_number').value.trim() || null,
+    serial_number: document.getElementById('serial_number').value.trim() || null,
+    status: document.getElementById('status').value,
     purchase_date: document.getElementById('purchase_date').value || null,
     warranty_until: document.getElementById('warranty_until').value || null,
-    status: document.getElementById('status').value,
-    description: document.getElementById('description').value.trim(),
+    description: document.getElementById('description').value.trim() || null,
+    cell_id: document.getElementById('cellId')?.value || null,
   };
 
-  // Валидация
-  if (!formData.inventory_number) {
-    showToast('❌ Введите инвентарный номер', 'error');
+  if (!formData.model_id) {
+    showToast('❌ Выберите модель ТМЦ', 'error');
     submitBtn.disabled = false;
     submitBtn.textContent = '💾 Сохранить';
-    return;
-  }
-  if (!formData.category_id) {
-    showToast('❌ Выберите категорию', 'error');
-    submitBtn.disabled = false;
-    submitBtn.textContent = '💾 Сохранить';
-    return;
-  }
-  if (!formData.type_id) {
-    showToast('❌ Выберите тип', 'error');
-    submitBtn.disabled = false;
-    submitBtn.textContent = '💾 Сохранить';
-    return;
-  }
-  if (!formData.name) {
-    showToast('❌ Введите название', 'error');
-    submitBtn.disabled = false;
-    submitBtn.textContent = '💾 Сохранить';
+    document.getElementById('model_id').focus();
     return;
   }
 
@@ -376,7 +342,6 @@ function updateLocationPreview() {
     }
   }
 
-  // Блок .location-preview — под селектами
   if (parts.length === 0) {
     preview.style.display = 'none';
   } else {
@@ -384,7 +349,7 @@ function updateLocationPreview() {
     previewText.textContent = parts.join(' → ');
   }
 
-  // 🆕 Обновляем правую колонку
+  // Правая колонка
   const infoLoc = document.getElementById('info_location');
   if (infoLoc) {
     if (parts.length === 0) {
@@ -398,18 +363,13 @@ function updateLocationPreview() {
 }
 
 // ============================================================
-// 2.11.8.2.2: ЖИВОЙ ПРЕДПРОСМОТР В ПРАВОЙ КОЛОНКЕ
+// ЖИВОЙ ПРЕДПРОСМОТР
 // ============================================================
 
 function bindLivePreview() {
   bindInput('inventory_number', 'info_inv');
-  bindInput('name',             'info_name');
-  bindInput('model',            'info_model');
   bindInput('serial_number',    'info_serial');
-
-  bindSelect('category_id', 'info_category');
-  bindSelect('type_id',     'info_type');
-  bindSelect('status',      'info_status');
+  bindSelect('status',          'info_status');
 }
 
 function bindInput(inputId, infoId) {

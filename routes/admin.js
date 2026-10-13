@@ -14,6 +14,8 @@ const {
   deleteEquipment,
   assignEquipment,
   returnEquipmentByEquipmentId,
+  // Equipment models
+  getAllModels,
   // Users
   getAllUsers,
   getUserById,
@@ -62,7 +64,7 @@ const { renderPage } = require('../utils/layout');
 async function renderAdmin(req, res) {
   try {
     const stats = await getStats();
-    const equipment = await getEquipmentWithLocation();  // ← изменено на getEquipmentWithLocation
+    const equipment = await getEquipmentWithLocation();
     const users = await getAllUsersWithDetails();
     
     const htmlPath = path.join(__dirname, '..', 'views', 'admin.html');
@@ -99,17 +101,17 @@ async function renderAdmin(req, res) {
         assignedInfo = '<span style="color: #a0aec0; font-size: 12px;">не найдено</span>';
       }
       
-      // Категория
+      // Категория (из модели)
       const categoryCell = item.category_name 
         ? `<span class="catalog-badge">${item.category_icon || '📁'} ${item.category_name}</span>`
         : '<span style="color: #cbd5e0;">—</span>';
       
-      // Тип
+      // Тип (из модели)
       const typeCell = item.type_name 
         ? `<span class="catalog-badge type">${item.type_icon || '📦'} ${item.type_name}</span>`
         : '<span style="color: #cbd5e0;">—</span>';
       
-      // 🆕 Место хранения: склад ИЛИ рабочее место
+      // Место хранения: склад ИЛИ рабочее место
       let cellInfo = '<span style="color: #cbd5e0;">—</span>';
       if (item.cell_id) {
         cellInfo = `<div class="location-cell" title="${item.warehouse_name} → ${item.zone_name} → ${item.rack_name} → ${item.cell_name}">
@@ -137,12 +139,13 @@ async function renderAdmin(req, res) {
       };
       const statusLabel = statusLabels[item.status] || item.status;
 
+      // 🆕 Колонки: инв.№ | модель (name) | corporate_id | категория | тип | место | статус | назначена | действия
       equipmentRows += `
         <tr>
           <td>${item.id}</td>
-          <td><strong>${item.inventory_number}</strong></td>
-          <td>${item.name}</td>
-          <td>${item.model || '—'}</td>
+          <td><strong>${item.inventory_number || '—'}</strong></td>
+          <td>${item.model_name || '—'}</td>
+          <td>${item.model_corporate_id || '—'}</td>
           <td>${categoryCell}</td>
           <td>${typeCell}</td>
           <td>${cellInfo}</td>
@@ -161,7 +164,7 @@ async function renderAdmin(req, res) {
     });
     html = html.replace('{{equipment_rows}}', equipmentRows);
     
-    // Таблица пользователей
+    // Таблица пользователей — без изменений
     let userRows = '';
     users.forEach(user => {
       const equipmentCount = user.active_equipment_count || 0;
@@ -257,115 +260,128 @@ async function getEquipmentByIdAPI(req, res) {
   }
 }
 
+/**
+ * POST /api/admin/equipment — создать экземпляр.
+ * Принимает: model_id, inventory_number, serial_number,
+ *            status, cell_id, workplace_id,
+ *            purchase_date, warranty_until, description.
+ */
 async function addEquipmentAPI(req, res) {
   try {
-    const { 
-      inventory_number, name, model, serial_number, 
-      manufacturer, purchase_date, warranty_until, 
-      status, description, category_id, type_id, cell_id
-    } = req.body;
-    
-    if (!inventory_number || !name) {
-      return res.status(400).json({ 
-        error: 'Инвентарный номер и название обязательны' 
-      });
-    }
-    
-    const result = await addEquipment({
+    const {
+      model_id,
       inventory_number,
-      name,
-      model: model || '',
-      serial_number: serial_number || '',
-      manufacturer: manufacturer || '',
+      serial_number,
+      status,
+      description,
+      purchase_date,
+      warranty_until,
+      cell_id,
+      workplace_id,
+    } = req.body;
+
+    if (!model_id) {
+      return res.status(400).json({ error: 'Модель ТМЦ обязательна' });
+    }
+
+    const result = await addEquipment({
+      model_id: parseInt(model_id, 10),
+      inventory_number: inventory_number || null,
+      serial_number: serial_number || null,
+      status: status || 'available',
+      description: description || null,
       purchase_date: purchase_date || null,
       warranty_until: warranty_until || null,
-      status: status || 'available',
-      description: description || '',
-      category_id: category_id ? parseInt(category_id) : null,
-      type_id: type_id ? parseInt(type_id) : null,
-      cell_id: cell_id ? parseInt(cell_id) : null,
+      cell_id: cell_id ? parseInt(cell_id, 10) : null,
+      workplace_id: workplace_id ? parseInt(workplace_id, 10) : null,
     });
-    
+
     await logAction({
       req,
       action: 'equipment_create',
       entityType: 'equipment',
       entityId: result.id,
-      details: JSON.stringify({ 
-        inventory_number: inventory_number,
-        name: name 
-      })
+      details: JSON.stringify({
+        inventory_number: inventory_number || null,
+        model_id: parseInt(model_id, 10),
+      }),
     });
-    
-    res.json({ 
-      success: true, 
+
+    res.json({
+      success: true,
       message: 'Техника добавлена успешно',
-      data: result 
+      data: result,
     });
   } catch (error) {
-    if (error.message.includes('UNIQUE constraint failed')) {
-      res.status(400).json({ 
-        error: 'Техника с таким инвентарным номером уже существует' 
-      });
-    } else {
-      res.status(500).json({ error: error.message });
+    if (error.message.includes('уже используется')) {
+      return res.status(400).json({ error: error.message });
     }
+    if (error.message.includes('Модель не найдена')) {
+      return res.status(400).json({ error: error.message });
+    }
+    if (error.message.includes('UNIQUE constraint failed')) {
+      return res.status(400).json({
+        error: 'Инвентарный или серийный номер уже используется',
+      });
+    }
+    console.error('❌ Ошибка создания техники:', error);
+    res.status(500).json({ error: error.message });
   }
 }
 
+/**
+ * PUT /api/admin/equipment/:id — обновить экземпляр.
+ * Принимает те же поля + assign_user_id / assign_condition (при status=assigned).
+ */
 async function updateEquipmentAPI(req, res) {
   try {
     const id = parseInt(req.params.id);
-    const { 
-      inventory_number, name, model, serial_number, 
-      manufacturer, purchase_date, warranty_until, 
-      status, description, assign_user_id, assign_condition,
-      category_id, type_id, cell_id, workplace_id
+    const {
+      model_id,
+      inventory_number,
+      serial_number,
+      status,
+      description,
+      purchase_date,
+      warranty_until,
+      cell_id,
+      workplace_id,
+      assign_user_id,
+      assign_condition,
     } = req.body;
-    if (!inventory_number || !name) {
-      return res.status(400).json({ 
-        error: 'Инвентарный номер и название обязательны' 
-      });
+
+    if (!model_id) {
+      return res.status(400).json({ error: 'Модель ТМЦ обязательна' });
     }
-    
+
     // Получаем текущую технику
     const existing = await getEquipmentById(id);
     if (!existing) {
       return res.status(404).json({ error: 'Техника не найдена' });
     }
-    
+
     const oldStatus = existing.status;
-    let assignmentResult = null;
-    
-    // 🆕 Финальные значения места хранения: склад ИЛИ рабочее место
-    let finalCellId = cell_id ? parseInt(cell_id) : null;
-    let finalWorkplaceId = workplace_id ? parseInt(workplace_id) : null;
 
-    // Взаимоисключение: если выбрано рабочее место — обнуляем ячейку
-    if (finalWorkplaceId) {
-      finalCellId = null;
-    }
-    // Если выбрана ячейка — обнуляем рабочее место
-    if (finalCellId) {
-      finalWorkplaceId = null;
-    }
+    // Финальные значения места
+    let finalCellId = cell_id ? parseInt(cell_id, 10) : null;
+    let finalWorkplaceId = workplace_id ? parseInt(workplace_id, 10) : null;
 
-    // Если статус = assigned — принудительно обнуляем оба
+    // Взаимоисключение
+    if (finalWorkplaceId) finalCellId = null;
+    if (finalCellId) finalWorkplaceId = null;
+
+    // assigned — без места
     if (status === 'assigned') {
       finalCellId = null;
       finalWorkplaceId = null;
     }
 
-    // 🆕 2.11.13: maintenance / retired не могут быть на рабочем месте.
-    // Место обнуляем, ячейку — оставляем (техника лежит на складе).
+    // maintenance / retired — нельзя на рабочем месте
     if (status === 'maintenance' || status === 'retired') {
       finalWorkplaceId = null;
     }
 
-    // 🆕 Согласование статуса с расположением.
-    // Если статус 'placed', но место не указано — статус становится 'available'.
-    // Если статус 'available' и указано место — статус становится 'placed'.
-    // 'assigned' / 'maintenance' / 'retired' — не трогаем.
+    // Согласование статуса и расположения
     let finalStatus = status || 'available';
     if (finalStatus === 'placed' && !finalWorkplaceId) {
       finalStatus = 'available';
@@ -373,8 +389,7 @@ async function updateEquipmentAPI(req, res) {
       finalStatus = 'placed';
     }
 
-    // 🆕 Проверка ячейки через общий хелпер (2.11.9.3)
-    // Только если ячейка реально меняется (или назначается заново).
+    // Проверка ячейки — только если реально меняется
     if (finalCellId && finalCellId !== existing.cell_id) {
       const result = await checkCellAvailability(finalCellId, id);
 
@@ -384,156 +399,119 @@ async function updateEquipmentAPI(req, res) {
         }
         if (result.reason === 'is_full') {
           return res.status(400).json({
-            error: `Ячейка ${result.label} отмечена как заполненная`
+            error: `Ячейка ${result.label} отмечена как заполненная`,
           });
         }
         if (result.reason === 'over_capacity') {
           return res.status(400).json({
-            error: `Ячейка ${result.label} переполнена (${result.cell.current_count}/${result.cell.capacity})`
+            error: `Ячейка ${result.label} переполнена (${result.cell.current_count}/${result.cell.capacity})`,
           });
         }
         return res.status(400).json({
-          error: `Ячейка недоступна (${result.reason})`
+          error: `Ячейка недоступна (${result.reason})`,
         });
       }
     }
-    
-    // Если назначаем технику пользователю
+
+    // Назначение (status=assigned + assign_user_id)
+    let assignmentResult = null;
     if (status === 'assigned' && assign_user_id) {
-      // Если техника была назначена — закрываем старое назначение
       if (oldStatus === 'assigned') {
-        const { db } = require('../database/db');
-        
-        const oldAssignment = await new Promise((resolve, reject) => {
-          db.get(
-            `SELECT id, user_id FROM user_equipment 
-             WHERE equipment_id = ? AND returned_date IS NULL`,
-            [id],
-            (err, row) => {
-              if (err) reject(err);
-              else resolve(row);
-            }
+        // Сначала возвращаем старую технику, чтобы assignEquipment смог сработать
+        try {
+          await returnEquipmentByEquipmentId(
+            id,
+            'Возвращена при переназначении',
+            'Автовозврат: переназначение'
           );
-        });
-        
-        if (oldAssignment && oldAssignment.user_id !== parseInt(assign_user_id)) {
-          await new Promise((resolve, reject) => {
-            db.run(
-              `UPDATE user_equipment 
-               SET returned_date = CURRENT_TIMESTAMP, 
-                   condition_on_return = 'Автовозврат: переназначение',
-                   notes = COALESCE(notes, '') || ' | Возврат при переназначении'
-               WHERE id = ?`,
-              [oldAssignment.id],
-              function(err) {
-                if (err) reject(err);
-                else resolve();
-              }
-            );
-          });
+        } catch (error) {
+          console.warn('⚠️ Не удалось вернуть технику перед переназначением:', error.message);
         }
-        
-        // Временно меняем статус на available, чтобы assignEquipment сработала
-        await new Promise((resolve, reject) => {
-          db.run(
-            'UPDATE equipment SET status = "available" WHERE id = ?',
-            [id],
-            function(err) {
-              if (err) reject(err);
-              else resolve();
-            }
-          );
-        });
       }
-      
+
       try {
         assignmentResult = await assignEquipment(
-          parseInt(assign_user_id),
+          parseInt(assign_user_id, 10),
           id,
           assign_condition || 'В хорошем состоянии',
           'Назначено через редактирование техники'
         );
-        
+
         await logAction({
           req,
           action: 'equipment_assign',
           entityType: 'equipment',
           entityId: id,
-          details: JSON.stringify({ 
-            inventory_number: existing.inventory_number,
-            user_id: assign_user_id 
-          })
+          details: JSON.stringify({
+            inventory_number: inventory_number || null,
+            user_id: assign_user_id,
+          }),
         });
       } catch (error) {
         return res.status(400).json({ error: error.message });
       }
     }
-    
-    // Если статус меняется с assigned на available — возвращаем технику
-    if (oldStatus === 'assigned' && status === 'available') {
-      const { returnEquipmentByEquipmentId } = require('../database/db');
-      try {
-        await returnEquipmentByEquipmentId(
-          id, 
-          'Возвращена при изменении статуса', 
-          'Автоматический возврат'
-        );
-        
-        await logAction({
-          req,
-          action: 'equipment_return',
-          entityType: 'equipment',
-          entityId: id,
-          details: JSON.stringify({ 
-            inventory_number: existing.inventory_number 
-          })
-        });
-      } catch (error) {
-        console.warn('⚠️ Не удалось вернуть технику:', error.message);
-      }
-    }
-    
-    // Обновляем технику с финальным cell_id
+
+    // Если назначение не нужно, но старый статус был assigned — модуль
+    // сам закроет назначение при status='available' (см. updateEquipment).
+    // Здесь дополнительно логируем возврат для случая assigned → available.
+    const willAutoReturn = oldStatus === 'assigned' && finalStatus === 'available';
+
+    // Обновляем
     const result = await updateEquipment(id, {
-      inventory_number,
-      name,
-      model: model || '',
-      serial_number: serial_number || '',
-      manufacturer: manufacturer || '',
+      model_id: parseInt(model_id, 10),
+      inventory_number: inventory_number || null,
+      serial_number: serial_number || null,
+      status: finalStatus,
+      description: description || null,
       purchase_date: purchase_date || null,
       warranty_until: warranty_until || null,
-      status: finalStatus,
-      description: description || '',
-      category_id: category_id ? parseInt(category_id) : null,
-      type_id: type_id ? parseInt(type_id) : null,
       cell_id: finalCellId,
       workplace_id: finalWorkplaceId,
     });
-    
+
+    if (willAutoReturn) {
+      await logAction({
+        req,
+        action: 'equipment_return',
+        entityType: 'equipment',
+        entityId: id,
+        details: JSON.stringify({
+          inventory_number: inventory_number || null,
+        }),
+      });
+    }
+
     await logAction({
       req,
       action: 'equipment_update',
       entityType: 'equipment',
       entityId: id,
-      details: JSON.stringify({ 
-        inventory_number: inventory_number,
-        status_changed: oldStatus !== status 
-      })
+      details: JSON.stringify({
+        inventory_number: inventory_number || null,
+        status_changed: oldStatus !== finalStatus,
+      }),
     });
-    
-    res.json({ 
-      success: true, 
+
+    res.json({
+      success: true,
       message: 'Техника обновлена успешно',
       data: result,
-      assignment: assignmentResult
+      assignment: assignmentResult,
+      returned: willAutoReturn,
     });
   } catch (error) {
     console.error('❌ Ошибка обновления:', error);
     if (error.message === 'Техника не найдена') {
-      res.status(404).json({ error: error.message });
-    } else {
-      res.status(500).json({ error: error.message });
+      return res.status(404).json({ error: error.message });
     }
+    if (error.message.includes('уже используется')) {
+      return res.status(400).json({ error: error.message });
+    }
+    if (error.message.includes('Модель не найдена')) {
+      return res.status(400).json({ error: error.message });
+    }
+    res.status(500).json({ error: error.message });
   }
 }
 
@@ -571,12 +549,24 @@ async function deleteEquipmentAPI(req, res) {
 // ============================================================
 
 /**
- * GET /admin/add — страница добавления техники
+ * GET /admin/add — страница добавления техники.
+ * Подгружает список моделей для селекта.
  */
-function renderAddEquipment(req, res) {
+async function renderAddEquipment(req, res) {
   try {
     const htmlPath = path.join(__dirname, '..', 'views', 'admin-add.html');
-    const content = fs.readFileSync(htmlPath, 'utf8');
+    let content = fs.readFileSync(htmlPath, 'utf8');
+
+    // Список моделей для селекта
+    const models = await getAllModels();
+    let modelOptions = '<option value="">— Выберите модель —</option>';
+    models.forEach(m => {
+      const manufacturer = m.manufacturer ? ` · ${escapeHtml(m.manufacturer)}` : '';
+      const category = m.category_name ? ` · ${escapeHtml(m.category_name)}` : '';
+      const type = m.type_name ? ` / ${escapeHtml(m.type_name)}` : '';
+      modelOptions += `<option value="${m.id}">${escapeHtml(m.corporate_id)} · ${escapeHtml(m.name)}${manufacturer}${category}${type}</option>`;
+    });
+    content = content.replace('{{model_options}}', modelOptions);
 
     const fullHtml = renderPage({
       title: 'Добавить технику – MoveIT service',
@@ -593,7 +583,8 @@ function renderAddEquipment(req, res) {
 }
 
 /**
- * GET /admin/edit/:id — страница редактирования техники
+ * GET /admin/edit/:id — страница редактирования техники.
+ * Подгружает список моделей и данные текущего экземпляра.
  */
 async function renderEditEquipment(req, res) {
   try {
@@ -612,25 +603,23 @@ async function renderEditEquipment(req, res) {
     const htmlPath = path.join(__dirname, '..', 'views', 'admin-edit.html');
     let content = fs.readFileSync(htmlPath, 'utf8');
 
-    // Скалярные плейсхолдеры — с /g
+    // Скалярные плейсхолдеры
     content = content.replace(/\{\{id\}\}/g, equipment.id);
     content = content.replace(/\{\{inventory_number\}\}/g, escapeHtml(equipment.inventory_number || ''));
-    content = content.replace(/\{\{name\}\}/g, escapeHtml(equipment.name || ''));
-    content = content.replace(/\{\{model\}\}/g, escapeHtml(equipment.model || ''));
     content = content.replace(/\{\{serial_number\}\}/g, escapeHtml(equipment.serial_number || ''));
-    content = content.replace(/\{\{manufacturer\}\}/g, escapeHtml(equipment.manufacturer || ''));
     content = content.replace(/\{\{purchase_date\}\}/g, equipment.purchase_date || '');
     content = content.replace(/\{\{warranty_until\}\}/g, equipment.warranty_until || '');
     content = content.replace(/\{\{status\}\}/g, equipment.status || 'available');
     content = content.replace(/\{\{description\}\}/g, escapeHtml(equipment.description || ''));
 
-    // Категория, тип, ячейка
-    content = content.replace(/\{\{category_id\}\}/g, equipment.category_id || '');
-    content = content.replace(/\{\{type_id\}\}/g, equipment.type_id || '');
+    // Место
     content = content.replace(/\{\{cell_id\}\}/g, equipment.cell_id || '');
     content = content.replace(/\{\{workplace_id\}\}/g, equipment.workplace_id || '');
 
-    // Статусы — русские подписи. Все статусы равноправны и выбираемы.
+    // Модель (model_id — текущее значение)
+    content = content.replace(/\{\{selected_model_id\}\}/g, equipment.model_id || '');
+
+    // Статусы
     const statusLabels = {
       'available':   '✅ Доступна',
       'placed':      '🪑 На месте',
@@ -645,14 +634,27 @@ async function renderEditEquipment(req, res) {
       const selected = s === equipment.status ? 'selected' : '';
       statusOptions += `<option value="${s}" ${selected}>${statusLabels[s]}</option>`;
     });
-
     content = content.replace('{{status_options}}', statusOptions);
 
-    // 🆕 Правая колонка: текущая информация (2.11.8.2)
+    // Список моделей
+    const models = await getAllModels();
+    let modelOptions = '<option value="">— Выберите модель —</option>';
+    models.forEach(m => {
+      const selected = String(m.id) === String(equipment.model_id) ? 'selected' : '';
+      const manufacturer = m.manufacturer ? ` · ${escapeHtml(m.manufacturer)}` : '';
+      const category = m.category_name ? ` · ${escapeHtml(m.category_name)}` : '';
+      const type = m.type_name ? ` / ${escapeHtml(m.type_name)}` : '';
+      modelOptions += `<option value="${m.id}" ${selected}>${escapeHtml(m.corporate_id)} · ${escapeHtml(m.name)}${manufacturer}${category}${type}</option>`;
+    });
+    content = content.replace('{{model_options}}', modelOptions);
+
+    // Правая колонка — инфо о текущем экземпляре
     const infoStatus = statusLabels[equipment.status] || equipment.status || '—';
 
     content = content.replace(/\{\{info_inventory\}\}/g, escapeHtml(equipment.inventory_number || '—'));
-    content = content.replace(/\{\{info_name\}\}/g, escapeHtml(equipment.name || '—'));
+    content = content.replace(/\{\{info_model_name\}\}/g, escapeHtml(equipment.model_name || '—'));
+    content = content.replace(/\{\{info_corporate_id\}\}/g, escapeHtml(equipment.model_corporate_id || '—'));
+    content = content.replace(/\{\{info_manufacturer\}\}/g, escapeHtml(equipment.model_manufacturer || '—'));
     content = content.replace(/\{\{info_category\}\}/g,
       equipment.category_name
         ? `${equipment.category_icon || '📁'} ${escapeHtml(equipment.category_name)}`
@@ -663,11 +665,10 @@ async function renderEditEquipment(req, res) {
         ? `${equipment.type_icon || '📦'} ${escapeHtml(equipment.type_name)}`
         : '—'
     );
-    content = content.replace(/\{\{info_model\}\}/g, escapeHtml(equipment.model || '—'));
     content = content.replace(/\{\{info_serial\}\}/g, escapeHtml(equipment.serial_number || '—'));
     content = content.replace(/\{\{info_status\}\}/g, escapeHtml(infoStatus));
 
-        // 🆕 Загрузка пользователей для назначения
+    // Пользователи для назначения
     const users = await getAllUsers();
     let userOptions = '';
     users.forEach(user => {
@@ -694,6 +695,7 @@ async function renderEditEquipment(req, res) {
 // ============================================================
 // API — ПОЛЬЗОВАТЕЛИ
 // ============================================================
+// (без изменений)
 
 async function getUsersAPI(req, res) {
   try {
@@ -1088,9 +1090,6 @@ async function unblockUserAPI(req, res) {
 // СТРАНИЦЫ ПОЛЬЗОВАТЕЛЕЙ
 // ============================================================
 
-/**
- * GET /admin/user/add — страница добавления пользователя
- */
 function renderAddUser(req, res) {
   try {
     const htmlPath = path.join(__dirname, '..', 'views', 'admin-user-add.html');
@@ -1109,9 +1108,6 @@ function renderAddUser(req, res) {
   }
 }
 
-/**
- * GET /admin/user/edit/:id — страница редактирования пользователя
- */
 async function renderEditUser(req, res) {
   try {
     const id = parseInt(req.params.id);
@@ -1124,7 +1120,6 @@ async function renderEditUser(req, res) {
     const htmlPath = path.join(__dirname, '..', 'views', 'admin-user-edit.html');
     let content = fs.readFileSync(htmlPath, 'utf8');
 
-    // Скалярные плейсхолдеры — с /g и экранированием
     content = content.replace(/\{\{id\}\}/g, user.id);
     content = content.replace(/\{\{username\}\}/g, escapeHtml(user.username || ''));
     content = content.replace(/\{\{email\}\}/g, escapeHtml(user.email || ''));
@@ -1150,9 +1145,6 @@ async function renderEditUser(req, res) {
 // ЛОГИ
 // ============================================================
 
-/**
- * GET /admin/logs — страница логов активности
- */
 async function renderLogs(req, res) {
   try {
     const filters = {
@@ -1182,7 +1174,6 @@ async function renderLogs(req, res) {
     content = content.replace(/\{\{stats\.user_actions\}\}/g, stats.user_actions || 0);
     content = content.replace(/\{\{stats\.deletes\}\}/g, stats.deletes || 0);
 
-    // Список пользователей для фильтра
     let userOptions = '<option value="">Все пользователи</option>';
     users.forEach(u => {
       const selected = filters.userId === u.id ? 'selected' : '';
@@ -1190,7 +1181,6 @@ async function renderLogs(req, res) {
     });
     content = content.replace('{{user_options}}', userOptions);
 
-    // Список действий
     const actionNames = {
       'login': '🔐 Вход',
       'logout': '🚪 Выход',
@@ -1209,6 +1199,9 @@ async function renderLogs(req, res) {
       'equipment_assign': '📦 Назначение техники',
       'equipment_return': '↩️ Возврат техники',
       'equipment_move': '🔄 Перемещение техники',
+      'model_create': '🧩 Создание модели',
+      'model_update': '🧩 Редактирование модели',
+      'model_delete': '🧩 Удаление модели',
       'category_create': '📁 Создание категории',
       'category_update': '📁 Редактирование категории',
       'category_delete': '📁 Удаление категории',
@@ -1242,7 +1235,6 @@ async function renderLogs(req, res) {
     content = content.replace(/\{\{filter\.dateFrom\}\}/g, filters.dateFrom || '');
     content = content.replace(/\{\{filter\.dateTo\}\}/g, filters.dateTo || '');
 
-    // Строки логов
     let logRows = '';
     if (logs.length === 0) {
       logRows = `
@@ -1310,7 +1302,6 @@ async function renderLogs(req, res) {
     }
     content = content.replace('{{log_rows}}', logRows);
 
-    // Пагинация
     const totalPages = Math.ceil(totalCount / filters.limit);
     const currentPage = Math.floor(filters.offset / filters.limit) + 1;
 
@@ -1428,9 +1419,6 @@ async function cleanLogsAPI(req, res) {
 // ДЕТАЛИ ТЕХНИКИ (карточка)
 // ============================================================
 
-/**
- * GET /api/admin/equipment/:id/details — детали техники + история
- */
 async function getEquipmentDetailsAPI(req, res) {
   try {
     const id = parseInt(req.params.id);
@@ -1439,20 +1427,16 @@ async function getEquipmentDetailsAPI(req, res) {
       return res.status(400).json({ error: 'Неверный ID техники' });
     }
     
-    // Получаем технику
     const equipment = await getEquipmentById(id);
     if (!equipment) {
       return res.status(404).json({ error: 'Техника не найдена' });
     }
     
-    // Получаем историю использования
     const { getEquipmentHistory } = require('../database/db');
     const history = await getEquipmentHistory(id);
     
-    // Ищем активное назначение
     const activeAssignment = history.find(h => h.status === 'active');
     
-    // Статистика
     const stats = {
       total: history.length,
       active: activeAssignment ? 1 : 0,
@@ -1468,7 +1452,6 @@ async function getEquipmentDetailsAPI(req, res) {
       } : null
     };
 
-    // 🆕 Текущее расположение: пользователь / рабочее место / ячейка / ничего
     let location = { type: 'none' };
 
     if (activeAssignment) {
@@ -1588,9 +1571,6 @@ function escapeAttr(str) {
 // API — ПЕРЕМЕЩЕНИЕ ТЕХНИКИ
 // ============================================================
 
-/**
- * POST /api/admin/equipment/:id/move — переместить технику в ячейку
- */
 async function moveEquipmentAPI(req, res) {
   try {
     const id = parseInt(req.params.id);
@@ -1600,20 +1580,17 @@ async function moveEquipmentAPI(req, res) {
     
     const { cell_id, notes } = req.body;
     
-    // Проверяем технику
     const equipment = await getEquipmentById(id);
     if (!equipment) {
       return res.status(404).json({ error: 'Техника не найдена' });
     }
     
-    // Нельзя перемещать назначенную технику
     if (equipment.status === 'assigned') {
       return res.status(400).json({ 
         error: 'Нельзя переместить назначенную технику. Сначала верните её.' 
       });
     }
     
-    // Перемещаем
     const result = await moveEquipmentToCellDetailed(
       id,
       cell_id ? parseInt(cell_id) : null,
@@ -1621,7 +1598,6 @@ async function moveEquipmentAPI(req, res) {
       req.session.username
     );
     
-    // Если уже в этой ячейке — ничего не делаем
     if (result.already_there) {
       return res.json({ 
         success: true, 
@@ -1630,7 +1606,6 @@ async function moveEquipmentAPI(req, res) {
       });
     }
     
-    // Логируем
     await logAction({
       req,
       action: 'equipment_move',
@@ -1638,7 +1613,7 @@ async function moveEquipmentAPI(req, res) {
       entityId: id,
       details: JSON.stringify({
         inventory_number: result.inventory_number,
-        equipment_name: result.equipment_name,
+        model_name: result.model_name,
         from_cell: result.from_cell_code || result.from_cell_name || null,
         to_cell: result.to_cell_code || result.to_cell_name || null,
         to_warehouse: result.to_warehouse_name || null,
@@ -1648,7 +1623,6 @@ async function moveEquipmentAPI(req, res) {
       })
     });
     
-    // Формируем сообщение
     let message = '✅ Техника перемещена';
     if (result.from_cell_code && result.to_cell_code) {
       message = `✅ Перемещено из ${result.from_cell_code} в ${result.to_cell_code}`;
@@ -1675,9 +1649,6 @@ async function moveEquipmentAPI(req, res) {
   }
 }
 
-/**
- * GET /api/admin/equipment/:id/moves — история перемещений
- */
 async function getEquipmentMovesAPI(req, res) {
   try {
     const id = parseInt(req.params.id);
@@ -1705,7 +1676,7 @@ module.exports = {
   // API техники
   getEquipmentAPI,
   getEquipmentByIdAPI,
-  getEquipmentDetailsAPI,   // 🆕
+  getEquipmentDetailsAPI,
   addEquipmentAPI,
   updateEquipmentAPI,
   deleteEquipmentAPI,
@@ -1734,7 +1705,7 @@ module.exports = {
   getLogsStatsAPI,
   cleanLogsAPI,
 
-    // 🆕 Перемещение
+  // Перемещение
   moveEquipmentAPI,
   getEquipmentMovesAPI,
 };

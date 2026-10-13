@@ -4,7 +4,7 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">➕ Добавить технику</h1>
-    <div class="page-subtitle">Создание новой единицы учёта</div>
+    <div class="page-subtitle">Создание нового экземпляра ТМЦ</div>
   </div>
   <div class="page-actions">
     <a href="/admin" class="btn btn-ghost btn-sm">← Назад</a>
@@ -28,42 +28,34 @@
         </div>
         <div class="card-body">
 
+          <!-- Модель ТМЦ -->
+          <div class="form-group">
+            <label>Модель ТМЦ <span class="required">*</span></label>
+            <div class="model-select-row">
+              <select id="model_id" required>
+                {{model_options}}
+              </select>
+              <a href="/admin/models" target="_blank" class="btn btn-ghost btn-sm" title="Открыть страницу номенклатуры в новой вкладке">
+                ➕ Создать модель
+              </a>
+            </div>
+            <div class="help-text">
+              Модель — это обобщённое описание устройства (название, производитель, категория, тип).
+              Экземпляры одной модели могут отличаться инвентарным и серийным номером.
+            </div>
+          </div>
+
+          <!-- Сетка полей экземпляра -->
           <div class="form-grid-2">
             <div class="form-group">
-              <label>Инвентарный номер <span class="required">*</span></label>
-              <input type="text" id="inventory_number" required placeholder="Например: EQ-001">
-            </div>
-            <div class="form-group">
-              <label>Название <span class="required">*</span></label>
-              <input type="text" id="name" required placeholder="Например: Ноутбук">
-            </div>
-
-            <div class="form-group">
-              <label>Категория <span class="required">*</span></label>
-              <select id="category_id" required onchange="onCategoryChange()">
-                <option value="">— Загрузка категорий... —</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Тип <span class="required">*</span></label>
-              <select id="type_id" required disabled>
-                <option value="">— Сначала выберите категорию —</option>
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label>Модель</label>
-              <input type="text" id="model" placeholder="Например: MacBook Pro 14&quot;">
+              <label>Инвентарный номер</label>
+              <input type="text" id="inventory_number" placeholder="Например: EQ-001 (необязательно)">
             </div>
             <div class="form-group">
               <label>Серийный номер</label>
               <input type="text" id="serial_number" placeholder="Например: C02ZR0L5MD6P">
             </div>
 
-            <div class="form-group">
-              <label>Производитель</label>
-              <input type="text" id="manufacturer" placeholder="Например: Apple">
-            </div>
             <div class="form-group">
               <label>Статус</label>
               <select id="status">
@@ -73,19 +65,18 @@
                 <option value="retired">❌ Списана</option>
               </select>
             </div>
-
             <div class="form-group">
               <label>Дата покупки</label>
               <input type="date" id="purchase_date">
             </div>
+
             <div class="form-group">
               <label>Гарантия до</label>
               <input type="date" id="warranty_until">
             </div>
-
             <div class="form-group full-width">
               <label>Описание</label>
-              <textarea id="description" rows="3" placeholder="Дополнительная информация о технике..."></textarea>
+              <textarea id="description" rows="3" placeholder="Состояние, заметки, особенности экземпляра..."></textarea>
             </div>
           </div>
 
@@ -160,17 +151,20 @@
         <dt>Инв. №</dt>
         <dd id="info_inv" class="muted">—</dd>
 
-        <dt>Название</dt>
-        <dd id="info_name" class="muted">—</dd>
+        <dt>Модель</dt>
+        <dd id="info_model_name" class="muted">—</dd>
+
+        <dt>Corporate ID</dt>
+        <dd id="info_corporate_id" class="muted">—</dd>
+
+        <dt>Производитель</dt>
+        <dd id="info_manufacturer" class="muted">—</dd>
 
         <dt>Категория</dt>
         <dd id="info_category" class="muted">—</dd>
 
         <dt>Тип</dt>
         <dd id="info_type" class="muted">—</dd>
-
-        <dt>Модель</dt>
-        <dd id="info_model" class="muted">—</dd>
 
         <dt>Серийный</dt>
         <dd id="info_serial" class="muted">—</dd>

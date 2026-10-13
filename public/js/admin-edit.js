@@ -1,159 +1,125 @@
 // public/js/admin-edit.js
 // Логика формы редактирования техники
 
-let categories = [];
+// Кэш моделей
+let modelsCache = [];
 
 // ID для предзаполнения
 const originalCellId = document.getElementById('currentCellId')?.value || '';
 const originalWorkplaceId = document.getElementById('currentWorkplaceId')?.value || '';
 
-// Кэш данных для превью
-let locations = {
-    warehouses: [],
-    zones: [],
-    racks: [],
-    cells: [],
-};
-
-// ID, которые пришли с сервера
+// ID техники и текущей модели
 const equipmentId = parseInt(document.getElementById('equipmentId')?.value || '0');
-const originalCategoryId = document.getElementById('currentCategoryId')?.value || '';
-const originalTypeId = document.getElementById('currentTypeId')?.value || '';
+const originalModelId = document.getElementById('currentModelId')?.value || '';
+
+// Кэш данных для превью места хранения
+let locations = {
+  warehouses: [],
+  zones: [],
+  racks: [],
+  cells: [],
+};
 
 // ============================================================
 // ИНИЦИАЛИЗАЦИЯ
 // ============================================================
 
-document.addEventListener('DOMContentLoaded', async function() {
-    console.log('✏️ Форма редактирования: ID =', equipmentId);
-    
-    if (!equipmentId || isNaN(equipmentId)) {
-        showToast('❌ Ошибка: ID техники не указан', 'error');
-        setTimeout(() => window.location.href = '/admin', 2000);
-        return;
-    }
-    
-    // Загружаем категории
-    await loadCategories();
-    
-    // Если категория уже выбрана — загружаем типы
-    if (originalCategoryId) {
-        await loadTypesForCategory(originalCategoryId, originalTypeId);
-    }
-    
-    // 🆕 Загружаем склады и рабочие места
-    await loadWarehouses();
-    await loadWorkplaces();
+document.addEventListener('DOMContentLoaded', async function () {
+  if (!equipmentId || isNaN(equipmentId)) {
+    showToast('❌ Ошибка: ID техники не указан', 'error');
+    setTimeout(() => window.location.href = '/admin', 2000);
+    return;
+  }
 
-    // 🆕 Определяем тип расположения и предзаполняем
-    if (originalWorkplaceId) {
-        setLocationType('workplace');
-        document.getElementById('workplaceId').value = originalWorkplaceId;
-        updateLocationPreview();
-    } else if (originalCellId) {
-        setLocationType('warehouse');
-        await preloadLocation(originalCellId);
-    } else {
-        setLocationType('none');
-    }
+  // Модели ТМЦ
+  await loadModels();
 
-    // 🆕 2.11.8.2: сохранить initial-значения для подсветки изменений.
-    // ВАЖНО: после loadCategories() и loadTypesForCategory(), иначе
-    // у category_id/type_id будут пустые значения.
-    [
-        'inventory_number', 'name', 'model', 'serial_number',
-        'category_id', 'type_id', 'status'
-    ].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.dataset.initialValue = el.value || '';
-    });
+  // Склады и рабочие места
+  await loadWarehouses();
+  await loadWorkplaces();
+
+  // Определяем тип расположения и предзаполняем
+  if (originalWorkplaceId) {
+    setLocationType('workplace');
+    document.getElementById('workplaceId').value = originalWorkplaceId;
+    updateLocationPreview();
+  } else if (originalCellId) {
+    setLocationType('warehouse');
+    await preloadLocation(originalCellId);
+  } else {
+    setLocationType('none');
+  }
+
+  // Сохраняем initial-значения для подсветки изменений
+  [
+    'inventory_number', 'serial_number', 'model_id', 'status'
+  ].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.dataset.initialValue = el.value || '';
+  });
+
+  // Инициализируем состояние блоков по статусу
+  onStatusChange();
 });
 
-/**
- * Загрузить категории
- */
-async function loadCategories() {
-    try {
-        const response = await fetch('/api/admin/categories');
-        categories = await response.json();
-        
-        const select = document.getElementById('category_id');
-        if (!select) return;
-        
-        select.innerHTML = '<option value="">— Выберите категорию —</option>' +
-            categories.map(cat => `
-                <option value="${cat.id}" ${String(cat.id) === String(originalCategoryId) ? 'selected' : ''}>
-                    ${cat.icon || '📁'} ${escapeHtml(cat.name)}
-                </option>
-            `).join('');
-        
-        console.log(`✅ Загружено категорий: ${categories.length}`);
-    } catch (error) {
-        console.error('❌ Ошибка загрузки категорий:', error);
-        showToast('❌ Ошибка загрузки категорий', 'error');
+// ============================================================
+// МОДЕЛИ ТМЦ
+// ============================================================
+
+async function loadModels() {
+  try {
+    const response = await fetch('/api/admin/models');
+    const data = await response.json();
+    modelsCache = Array.isArray(data) ? data : (data.items || []);
+
+    // Селект уже заполнен сервером ({{model_options}}),
+    // но подстрахуемся, если пуст.
+    const select = document.getElementById('model_id');
+    if (select && select.options.length <= 1) {
+      let html = '<option value="">— Выберите модель —</option>';
+      modelsCache.forEach(m => {
+        const selected = String(m.id) === String(originalModelId) ? 'selected' : '';
+        html += `<option value="${m.id}" ${selected}>${escapeHtml(m.corporate_id)} · ${escapeHtml(m.name)}</option>`;
+      });
+      select.innerHTML = html;
     }
+  } catch (error) {
+    console.error('❌ Ошибка загрузки моделей:', error);
+  }
 }
 
 /**
- * Загрузить типы для конкретной категории
- * @param {string} categoryId — ID категории
- * @param {string} selectedTypeId — ID типа для предзаполнения (опционально)
+ * Обновляет карточку «Текущая информация» при смене модели.
  */
-async function loadTypesForCategory(categoryId, selectedTypeId = '') {
-    const typeSelect = document.getElementById('type_id');
-    
-    typeSelect.innerHTML = '<option value="">— Загрузка... —</option>';
-    typeSelect.disabled = true;
-    
-    if (!categoryId) {
-        typeSelect.innerHTML = '<option value="">— Сначала выберите категорию —</option>';
-        return;
-    }
-    
-    try {
-        const response = await fetch(`/api/admin/types?category_id=${categoryId}`);
-        const types = await response.json();
-        
-        if (types.length === 0) {
-            typeSelect.innerHTML = '<option value="">— Нет типов в категории —</option>';
-            return;
-        }
-        
-        typeSelect.innerHTML = '<option value="">— Выберите тип —</option>' +
-            types.map(type => `
-                <option value="${type.id}" ${String(type.id) === String(selectedTypeId) ? 'selected' : ''}>
-                    ${type.icon || '📦'} ${escapeHtml(type.name)}
-                </option>
-            `).join('');
-        
-        typeSelect.disabled = false;
-        console.log(`✅ Загружено типов: ${types.length}, выбран: ${selectedTypeId || 'нет'}`);
-    } catch (error) {
-        console.error('❌ Ошибка загрузки типов:', error);
-        typeSelect.innerHTML = '<option value="">— Ошибка загрузки —</option>';
-    }
+function bindModelPreview() {
+  const select = document.getElementById('model_id');
+  if (!select) return;
+
+  const update = () => {
+    const id = select.value;
+    const m = modelsCache.find(x => String(x.id) === String(id));
+
+    setInfo('info_model_name',   m ? m.name : '—');
+    setInfo('info_corporate_id', m ? m.corporate_id : '—');
+    setInfo('info_manufacturer', m ? (m.manufacturer || '—') : '—');
+    setInfo('info_category',
+      m && m.category_name ? `${m.category_icon || '📁'} ${m.category_name}` : '—'
+    );
+    setInfo('info_type',
+      m && m.type_name ? `${m.type_icon || '📦'} ${m.type_name}` : '—'
+    );
+  };
+
+  select.addEventListener('change', update);
+  // Первичная инициализация
+  update();
 }
 
-/**
- * Обработка смены категории
- * Если категория изменилась — сбрасываем тип
- */
-async function onCategoryChange() {
-    const categoryId = document.getElementById('category_id').value;
-    const currentTypeId = document.getElementById('type_id').value;
-    
-    // Если категория не изменилась — оставляем тип
-    if (String(categoryId) === String(originalCategoryId)) {
-        await loadTypesForCategory(categoryId, currentTypeId);
-    } else {
-        // Категория изменилась — сбрасываем тип
-        await loadTypesForCategory(categoryId);
-        
-        // Сообщаем пользователю
-        if (currentTypeId) {
-            showToast('ℹ️ Тип сброшен, так как изменилась категория', 'info');
-        }
-    }
+function setInfo(id, text) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = text || '—';
+  el.classList.toggle('muted', !text || text === '—');
 }
 
 // ============================================================
@@ -161,636 +127,549 @@ async function onCategoryChange() {
 // ============================================================
 
 async function submitForm(event) {
-    event.preventDefault();
-    
-    // Проверяем ID техники
-    if (!equipmentId || isNaN(equipmentId)) {
-        showToast('❌ Ошибка: ID техники не указан', 'error');
-        return;
-    }
-    
-    const submitBtn = document.getElementById('submitBtn');
-    let newStatus = document.getElementById('status').value;
-    const currentStatus = document.getElementById('currentStatus')?.value || '';
+  event.preventDefault();
 
-    // 🆕 Защита: если статус 'placed' (disabled), оставляем его как есть
-    // — приходит из <select> корректно, но на всякий случай подстрахуемся
-    if (newStatus === '' && currentStatus === 'placed') {
-      newStatus = 'placed';
-    }
-    
-    // Проверяем, нужно ли назначение
-    if (newStatus === 'assigned') {
-        const assignUserId = document.getElementById('assignUserId')?.value;
-        if (!assignUserId) {
-            showToast('❌ Для назначения техники выберите пользователя', 'error');
-            document.getElementById('assignUserId')?.focus();
-            return;
-        }
-    }
-    
-    submitBtn.disabled = true;
-    submitBtn.textContent = '⏳ Обновление...';
+  if (!equipmentId || isNaN(equipmentId)) {
+    showToast('❌ Ошибка: ID техники не указан', 'error');
+    return;
+  }
 
-    // 🆕 Тип расположения
-    const oldStatusForLoc = document.getElementById('currentStatus')?.value || '';
-    let cellId = null;
-    let workplaceId = null;
+  const submitBtn = document.getElementById('submitBtn');
+  let newStatus = document.getElementById('status').value;
+  const currentStatus = document.getElementById('currentStatus')?.value || '';
 
-    if (newStatus !== 'assigned') {
-        const locationType = document.querySelector('input[name="locationType"]:checked')?.value || 'none';
-        cellId = locationType === 'warehouse' ? (document.getElementById('cellId')?.value || null) : null;
-        workplaceId = locationType === 'workplace' ? (document.getElementById('workplaceId')?.value || null) : null;
+  if (newStatus === '' && currentStatus === 'placed') {
+    newStatus = 'placed';
+  }
+
+  // Проверяем назначение
+  if (newStatus === 'assigned') {
+    const assignUserId = document.getElementById('assignUserId')?.value;
+    if (!assignUserId) {
+      showToast('❌ Для назначения техники выберите пользователя', 'error');
+      document.getElementById('assignUserId')?.focus();
+      return;
     }
+  }
 
-    // 🆕 2.11.13: maintenance / retired — не могут быть на рабочем месте.
-    // Место обнуляем, ячейку оставляем (техника лежит на складе).
-    if (newStatus === 'maintenance' || newStatus === 'retired') {
-        workplaceId = null;
+  submitBtn.disabled = true;
+  submitBtn.textContent = '⏳ Обновление...';
+
+  // Тип расположения
+  const oldStatusForLoc = document.getElementById('currentStatus')?.value || '';
+  let cellId = null;
+  let workplaceId = null;
+
+  if (newStatus !== 'assigned') {
+    const locationType = document.querySelector('input[name="locationType"]:checked')?.value || 'none';
+    cellId = locationType === 'warehouse' ? (document.getElementById('cellId')?.value || null) : null;
+    workplaceId = locationType === 'workplace' ? (document.getElementById('workplaceId')?.value || null) : null;
+  }
+
+  // maintenance / retired — не могут быть на рабочем месте
+  if (newStatus === 'maintenance' || newStatus === 'retired') {
+    workplaceId = null;
+  }
+
+  // Если техника была на рабочем месте, а статус меняется не на placed/assigned
+  if (oldStatusForLoc === 'placed' && newStatus !== 'placed' && newStatus !== 'assigned') {
+    cellId = null;
+    workplaceId = null;
+  }
+
+  // Валидация статус ↔ место
+  if (newStatus === 'placed' && !workplaceId) {
+    showToast('❌ Для статуса «На месте» выберите рабочее место', 'error');
+    submitBtn.disabled = false;
+    submitBtn.textContent = '💾 Обновить';
+    return;
+  }
+  if (newStatus === 'available' && workplaceId) {
+    showToast('❌ Техника на рабочем месте не может быть «Доступна». Измените статус на «На месте»', 'error');
+    submitBtn.disabled = false;
+    submitBtn.textContent = '💾 Обновить';
+    return;
+  }
+
+  const formData = {
+    model_id: document.getElementById('model_id').value || null,
+    inventory_number: document.getElementById('inventory_number').value.trim() || null,
+    serial_number: document.getElementById('serial_number').value.trim() || null,
+    status: newStatus,
+    purchase_date: document.getElementById('purchase_date').value || null,
+    warranty_until: document.getElementById('warranty_until').value || null,
+    description: document.getElementById('description').value.trim() || null,
+    cell_id: cellId,
+    workplace_id: workplaceId,
+  };
+
+  if (!formData.model_id) {
+    showToast('❌ Выберите модель ТМЦ', 'error');
+    submitBtn.disabled = false;
+    submitBtn.textContent = '💾 Обновить';
+    document.getElementById('model_id').focus();
+    return;
+  }
+
+  if (newStatus === 'assigned') {
+    formData.assign_user_id = document.getElementById('assignUserId').value;
+    formData.assign_condition = document.getElementById('assignCondition')?.value || 'В хорошем состоянии';
+  }
+
+  try {
+    const response = await fetch(`/api/admin/equipment/${equipmentId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(formData)
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      let message = '✅ Техника успешно обновлена!';
+      if (result.assignment) {
+        message += ' Техника назначена пользователю.';
+      } else if (result.returned) {
+        message += ' Техника возвращена от пользователя.';
+      }
+      showToast(message, 'success');
+      setTimeout(() => {
+        window.location.href = '/admin';
+      }, 1500);
+    } else {
+      showToast('❌ ' + result.error, 'error');
+      submitBtn.disabled = false;
+      submitBtn.textContent = '💾 Обновить';
     }
-
-    // 🆕 Если техника была на рабочем месте ('placed'), а статус меняется
-    // на что-то кроме 'placed' / 'assigned' — место обнуляем.
-    if (oldStatusForLoc === 'placed' && newStatus !== 'placed' && newStatus !== 'assigned') {
-        cellId = null;
-        workplaceId = null;
-    }
-
-    // 🆕 Валидация связки «статус ↔ место»
-    if (newStatus === 'placed' && !workplaceId) {
-        showToast('❌ Для статуса «На месте» выберите рабочее место', 'error');
-        submitBtn.disabled = false;
-        submitBtn.textContent = '💾 Обновить';
-        return;
-    }
-    if (newStatus === 'available' && workplaceId) {
-        showToast('❌ Техника на рабочем месте не может быть «Доступна». Измените статус на «На месте»', 'error');
-        submitBtn.disabled = false;
-        submitBtn.textContent = '💾 Обновить';
-        return;
-    }
-    if (newStatus === 'placed' && !workplaceId) {
-        // уже покрыто выше — оставлено для наглядности
-        // (если workplaceId null и есть cellId — тоже ошибка)
-    }
-
-    const formData = {
-        inventory_number: document.getElementById('inventory_number').value.trim(),
-        category_id: document.getElementById('category_id').value || null,
-        type_id: document.getElementById('type_id').value || null,
-        cell_id: cellId,
-        workplace_id: workplaceId,
-        name: document.getElementById('name').value.trim(),
-        model: document.getElementById('model').value.trim(),
-        serial_number: document.getElementById('serial_number').value.trim(),
-        manufacturer: document.getElementById('manufacturer').value.trim(),
-        purchase_date: document.getElementById('purchase_date').value || null,
-        warranty_until: document.getElementById('warranty_until').value || null,
-        status: newStatus,
-        description: document.getElementById('description').value.trim(),
-    };
-    
-    // 🆕 Если статус assigned — добавляем данные о назначении
-    if (newStatus === 'assigned') {
-        formData.assign_user_id = document.getElementById('assignUserId').value;
-        formData.assign_condition = document.getElementById('assignCondition')?.value || 'В хорошем состоянии';
-    }
-
-    console.log('📤 Отправка данных для ID:', equipmentId);
-    console.log('📦 Данные:', formData);
-
-    try {
-        const response = await fetch(`/api/admin/equipment/${equipmentId}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(formData)
-        });
-
-        const result = await response.json();
-        console.log('📥 Ответ сервера:', result);
-
-        if (result.success) {
-            let message = '✅ Техника успешно обновлена!';
-            if (result.assignment) {
-                message += ' Техника назначена пользователю.';
-            } else if (result.returned) {
-                message += ' Техника возвращена от пользователя.';
-            }
-            showToast(message, 'success');
-            setTimeout(() => {
-                window.location.href = '/admin';
-            }, 1500);
-        } else {
-            showToast('❌ ' + result.error, 'error');
-            submitBtn.disabled = false;
-            submitBtn.textContent = '💾 Обновить';
-        }
-    } catch (error) {
-        console.error('❌ Ошибка при обновлении:', error);
-        showToast('❌ Ошибка при обновлении техники', 'error');
-        submitBtn.disabled = false;
-        submitBtn.textContent = '💾 Обновить';
-    }
+  } catch (error) {
+    console.error('❌ Ошибка при обновлении:', error);
+    showToast('❌ Ошибка при обновлении техники', 'error');
+    submitBtn.disabled = false;
+    submitBtn.textContent = '💾 Обновить';
+  }
 }
 
 // ============================================================
-// МЕСТО ХРАНЕНИЯ (каскадные селекты)
+// МЕСТО ХРАНЕНИЯ (склады)
 // ============================================================
 
 async function loadWarehouses() {
-    try {
-        const response = await fetch('/api/admin/warehouses');
-        const warehouses = await response.json();
-        
-        locations.warehouses = warehouses;
-        
-        const select = document.getElementById('warehouseId');
-        if (!select) return;
-        
-        select.innerHTML = '<option value="">— Не указано —</option>' +
-            warehouses.map(w => `
-                <option value="${w.id}">
-                    ${w.is_default ? '⭐ ' : ''}${escapeHtml(w.name)}
-                </option>
-            `).join('');
-        
-        console.log(`✅ Загружено складов: ${warehouses.length}`);
-    } catch (error) {
-        console.error('❌ Ошибка загрузки складов:', error);
-    }
+  try {
+    const response = await fetch('/api/admin/warehouses');
+    const warehouses = await response.json();
+
+    locations.warehouses = warehouses;
+
+    const select = document.getElementById('warehouseId');
+    if (!select) return;
+
+    select.innerHTML = '<option value="">— Не указано —</option>' +
+      warehouses.map(w => `
+        <option value="${w.id}">
+          ${w.is_default ? '⭐ ' : ''}${escapeHtml(w.name)}
+        </option>
+      `).join('');
+  } catch (error) {
+    console.error('❌ Ошибка загрузки складов:', error);
+  }
 }
 
 // ============================================================
-// 🆕 РАБОЧИЕ МЕСТА (один select с optgroup офис/кабинет)
+// РАБОЧИЕ МЕСТА
 // ============================================================
 
 async function loadWorkplaces() {
-    const select = document.getElementById('workplaceId');
-    if (!select) return;
+  const select = document.getElementById('workplaceId');
+  if (!select) return;
 
-    try {
-        const response = await fetch('/api/admin/offices/tree');
-        const offices = await response.json();
+  try {
+    const response = await fetch('/api/admin/offices/tree');
+    const offices = await response.json();
 
-        let html = '<option value="">— Не указано —</option>';
+    let html = '<option value="">— Не указано —</option>';
 
-        offices.forEach(office => {
-            (office.rooms || []).forEach(room => {
-                const workplaces = room.workplaces || [];
-                if (workplaces.length === 0) return;
+    offices.forEach(office => {
+      (office.rooms || []).forEach(room => {
+        const workplaces = room.workplaces || [];
+        if (workplaces.length === 0) return;
 
-                const groupLabel = `🏛️ ${office.name} / 🚪 ${room.name}`;
-                let groupHtml = '';
-                workplaces.forEach(wp => {
-                    const code = wp.code ? ` [${wp.code}]` : '';
-                    groupHtml += `<option value="${wp.id}">🪑 ${escapeHtml(wp.name)}${code}</option>`;
-                });
-                html += `<optgroup label="${escapeHtml(groupLabel)}">${groupHtml}</optgroup>`;
-            });
+        const groupLabel = `🏛️ ${office.name} / 🚪 ${room.name}`;
+        let groupHtml = '';
+        workplaces.forEach(wp => {
+          const code = wp.code ? ` [${wp.code}]` : '';
+          groupHtml += `<option value="${wp.id}">🪑 ${escapeHtml(wp.name)}${code}</option>`;
         });
+        html += `<optgroup label="${escapeHtml(groupLabel)}">${groupHtml}</optgroup>`;
+      });
+    });
 
-        select.innerHTML = html;
-        console.log(`✅ Рабочие места загружены`);
-    } catch (error) {
-        console.error('❌ Ошибка загрузки рабочих мест:', error);
-        select.innerHTML = '<option value="">— Ошибка загрузки —</option>';
-    }
+    select.innerHTML = html;
+  } catch (error) {
+    console.error('❌ Ошибка загрузки рабочих мест:', error);
+    select.innerHTML = '<option value="">— Ошибка загрузки —</option>';
+  }
 }
 
 // ============================================================
-// 🆕 ПЕРЕКЛЮЧАТЕЛЬ ТИПА РАСПОЛОЖЕНИЯ
+// ПЕРЕКЛЮЧАТЕЛЬ ТИПА РАСПОЛОЖЕНИЯ
 // ============================================================
 
 function setLocationType(type) {
-    const radios = document.querySelectorAll('input[name="locationType"]');
-    radios.forEach(r => {
-        r.checked = r.value === type;
-    });
-    applyLocationTypeVisibility(type);
+  const radios = document.querySelectorAll('input[name="locationType"]');
+  radios.forEach(r => {
+    r.checked = r.value === type;
+  });
+  applyLocationTypeVisibility(type);
 }
 
 function onLocationTypeChange() {
-    const selected = document.querySelector('input[name="locationType"]:checked');
-    if (!selected) return;
+  const selected = document.querySelector('input[name="locationType"]:checked');
+  if (!selected) return;
 
-    const type = selected.value;
-    applyLocationTypeVisibility(type);
+  const type = selected.value;
+  applyLocationTypeVisibility(type);
 
-    // При переключении — сбрасываем значения "другой" ветки
-    if (type === 'workplace') {
-        // Сбрасываем склад
-        document.getElementById('warehouseId').value = '';
-        document.getElementById('zoneId').innerHTML = '<option value="">— Сначала выберите склад —</option>';
-        document.getElementById('zoneId').disabled = true;
-        document.getElementById('rackId').innerHTML = '<option value="">— Сначала выберите зону —</option>';
-        document.getElementById('rackId').disabled = true;
-        document.getElementById('cellId').innerHTML = '<option value="">— Сначала выберите стеллаж —</option>';
-        document.getElementById('cellId').disabled = true;
-    } else if (type === 'warehouse') {
-        // Сбрасываем рабочее место
-        document.getElementById('workplaceId').value = '';
-    } else {
-        // "Не указано" — сбрасываем всё
-        document.getElementById('workplaceId').value = '';
-        document.getElementById('warehouseId').value = '';
-        document.getElementById('zoneId').innerHTML = '<option value="">— Сначала выберите склад —</option>';
-        document.getElementById('zoneId').disabled = true;
-        document.getElementById('rackId').innerHTML = '<option value="">— Сначала выберите зону —</option>';
-        document.getElementById('rackId').disabled = true;
-        document.getElementById('cellId').innerHTML = '<option value="">— Сначала выберите стеллаж —</option>';
-        document.getElementById('cellId').disabled = true;
-    }
+  if (type === 'workplace') {
+    document.getElementById('warehouseId').value = '';
+    document.getElementById('zoneId').innerHTML = '<option value="">— Сначала выберите склад —</option>';
+    document.getElementById('zoneId').disabled = true;
+    document.getElementById('rackId').innerHTML = '<option value="">— Сначала выберите зону —</option>';
+    document.getElementById('rackId').disabled = true;
+    document.getElementById('cellId').innerHTML = '<option value="">— Сначала выберите стеллаж —</option>';
+    document.getElementById('cellId').disabled = true;
+  } else if (type === 'warehouse') {
+    document.getElementById('workplaceId').value = '';
+  } else {
+    document.getElementById('workplaceId').value = '';
+    document.getElementById('warehouseId').value = '';
+    document.getElementById('zoneId').innerHTML = '<option value="">— Сначала выберите склад —</option>';
+    document.getElementById('zoneId').disabled = true;
+    document.getElementById('rackId').innerHTML = '<option value="">— Сначала выберите зону —</option>';
+    document.getElementById('rackId').disabled = true;
+    document.getElementById('cellId').innerHTML = '<option value="">— Сначала выберите стеллаж —</option>';
+    document.getElementById('cellId').disabled = true;
+  }
 
-    updateLocationPreview();
+  updateLocationPreview();
 }
 
 function applyLocationTypeVisibility(type) {
-    const warehouseBlock = document.getElementById('warehouseBlock');
-    const workplaceBlock = document.getElementById('workplaceBlock');
+  const warehouseBlock = document.getElementById('warehouseBlock');
+  const workplaceBlock = document.getElementById('workplaceBlock');
 
-    if (warehouseBlock) warehouseBlock.style.display = type === 'warehouse' ? 'block' : 'none';
-    if (workplaceBlock) workplaceBlock.style.display = type === 'workplace' ? 'block' : 'none';
+  if (warehouseBlock) warehouseBlock.style.display = type === 'warehouse' ? 'block' : 'none';
+  if (workplaceBlock) workplaceBlock.style.display = type === 'workplace' ? 'block' : 'none';
 }
 
 async function onWarehouseChange() {
-    const warehouseId = document.getElementById('warehouseId').value;
-    const zoneSelect = document.getElementById('zoneId');
-    const rackSelect = document.getElementById('rackId');
-    const cellSelect = document.getElementById('cellId');
-    
-    rackSelect.innerHTML = '<option value="">— Сначала выберите зону —</option>';
-    rackSelect.disabled = true;
-    cellSelect.innerHTML = '<option value="">— Сначала выберите стеллаж —</option>';
-    cellSelect.disabled = true;
-    updateLocationPreview();
-    
-    if (!warehouseId) {
-        zoneSelect.innerHTML = '<option value="">— Сначала выберите склад —</option>';
-        zoneSelect.disabled = true;
-        return;
-    }
-    
-    zoneSelect.innerHTML = '<option value="">⏳ Загрузка...</option>';
+  const warehouseId = document.getElementById('warehouseId').value;
+  const zoneSelect = document.getElementById('zoneId');
+  const rackSelect = document.getElementById('rackId');
+  const cellSelect = document.getElementById('cellId');
+
+  rackSelect.innerHTML = '<option value="">— Сначала выберите зону —</option>';
+  rackSelect.disabled = true;
+  cellSelect.innerHTML = '<option value="">— Сначала выберите стеллаж —</option>';
+  cellSelect.disabled = true;
+  updateLocationPreview();
+
+  if (!warehouseId) {
+    zoneSelect.innerHTML = '<option value="">— Сначала выберите склад —</option>';
     zoneSelect.disabled = true;
-    
-    try {
-        const response = await fetch(`/api/admin/warehouses/${warehouseId}/zones`);
-        const zones = await response.json();
-        
-        locations.zones = zones;
-        
-        if (zones.length === 0) {
-            zoneSelect.innerHTML = '<option value="">— Нет зон —</option>';
-            return;
-        }
-        
-        zoneSelect.innerHTML = '<option value="">— Выберите зону —</option>' +
-            zones.map(z => `<option value="${z.id}">${escapeHtml(z.name)}</option>`).join('');
-        zoneSelect.disabled = false;
-        updateLocationPreview();  // 🆕 Обновляем превью после загрузки ячеек
-    } catch (error) {
-        console.error('❌ Ошибка загрузки зон:', error);
-        zoneSelect.innerHTML = '<option value="">— Ошибка —</option>';
+    return;
+  }
+
+  zoneSelect.innerHTML = '<option value="">⏳ Загрузка...</option>';
+  zoneSelect.disabled = true;
+
+  try {
+    const response = await fetch(`/api/admin/warehouses/${warehouseId}/zones`);
+    const zones = await response.json();
+
+    locations.zones = zones;
+
+    if (zones.length === 0) {
+      zoneSelect.innerHTML = '<option value="">— Нет зон —</option>';
+      return;
     }
+
+    zoneSelect.innerHTML = '<option value="">— Выберите зону —</option>' +
+      zones.map(z => `<option value="${z.id}">${escapeHtml(z.name)}</option>`).join('');
+    zoneSelect.disabled = false;
+    updateLocationPreview();
+  } catch (error) {
+    console.error('❌ Ошибка загрузки зон:', error);
+    zoneSelect.innerHTML = '<option value="">— Ошибка —</option>';
+  }
 }
 
 async function onZoneChange() {
-    const zoneId = document.getElementById('zoneId').value;
-    const rackSelect = document.getElementById('rackId');
-    const cellSelect = document.getElementById('cellId');
-    
-    cellSelect.innerHTML = '<option value="">— Сначала выберите стеллаж —</option>';
-    cellSelect.disabled = true;
-    updateLocationPreview();
-    
-    if (!zoneId) {
-        rackSelect.innerHTML = '<option value="">— Сначала выберите зону —</option>';
-        rackSelect.disabled = true;
-        return;
-    }
-    
-    rackSelect.innerHTML = '<option value="">⏳ Загрузка...</option>';
+  const zoneId = document.getElementById('zoneId').value;
+  const rackSelect = document.getElementById('rackId');
+  const cellSelect = document.getElementById('cellId');
+
+  cellSelect.innerHTML = '<option value="">— Сначала выберите стеллаж —</option>';
+  cellSelect.disabled = true;
+  updateLocationPreview();
+
+  if (!zoneId) {
+    rackSelect.innerHTML = '<option value="">— Сначала выберите зону —</option>';
     rackSelect.disabled = true;
-    
-    try {
-        const response = await fetch(`/api/admin/zones/${zoneId}/racks`);
-        const racks = await response.json();
-        
-        locations.racks = racks;
-        
-        if (racks.length === 0) {
-            rackSelect.innerHTML = '<option value="">— Нет стеллажей —</option>';
-            return;
-        }
-        
-        rackSelect.innerHTML = '<option value="">— Выберите стеллаж —</option>' +
-            racks.map(r => `<option value="${r.id}">${escapeHtml(r.name)}</option>`).join('');
-        rackSelect.disabled = false;
-        updateLocationPreview();  // 🆕 Обновляем превью после загрузки ячеек
-    } catch (error) {
-        console.error('❌ Ошибка загрузки стеллажей:', error);
-        rackSelect.innerHTML = '<option value="">— Ошибка —</option>';
+    return;
+  }
+
+  rackSelect.innerHTML = '<option value="">⏳ Загрузка...</option>';
+  rackSelect.disabled = true;
+
+  try {
+    const response = await fetch(`/api/admin/zones/${zoneId}/racks`);
+    const racks = await response.json();
+
+    locations.racks = racks;
+
+    if (racks.length === 0) {
+      rackSelect.innerHTML = '<option value="">— Нет стеллажей —</option>';
+      return;
     }
+
+    rackSelect.innerHTML = '<option value="">— Выберите стеллаж —</option>' +
+      racks.map(r => `<option value="${r.id}">${escapeHtml(r.name)}</option>`).join('');
+    rackSelect.disabled = false;
+    updateLocationPreview();
+  } catch (error) {
+    console.error('❌ Ошибка загрузки стеллажей:', error);
+    rackSelect.innerHTML = '<option value="">— Ошибка —</option>';
+  }
 }
 
 async function onRackChange() {
-    const rackId = document.getElementById('rackId').value;
-    const cellSelect = document.getElementById('cellId');
-    
-    updateLocationPreview();
-    
-    if (!rackId) {
-        cellSelect.innerHTML = '<option value="">— Сначала выберите стеллаж —</option>';
-        cellSelect.disabled = true;
-        return;
-    }
-    
-    cellSelect.innerHTML = '<option value="">⏳ Загрузка...</option>';
+  const rackId = document.getElementById('rackId').value;
+  const cellSelect = document.getElementById('cellId');
+
+  updateLocationPreview();
+
+  if (!rackId) {
+    cellSelect.innerHTML = '<option value="">— Сначала выберите стеллаж —</option>';
     cellSelect.disabled = true;
-    
-    try {
-        const response = await fetch(`/api/admin/racks/${rackId}/cells`);
-        const cells = await response.json();
-        
-        locations.cells = cells;
-        
-        if (cells.length === 0) {
-            cellSelect.innerHTML = '<option value="">— Нет ячеек —</option>';
-            return;
-        }
-        
-        cellSelect.innerHTML = '<option value="">— Выберите ячейку —</option>' +
-            cells.map(c => {
-                const code = c.code ? ` [${c.code}]` : '';
-                const count = c.equipment_count || 0;
-                const capacity = c.capacity || 0;
-                const countText = capacity > 0 ? ` (${count}/${capacity})` : (count > 0 ? ` (${count})` : '');
-                return `<option value="${c.id}">${escapeHtml(c.name)}${code}${countText}</option>`;
-            }).join('');
-        cellSelect.disabled = false;
-        updateLocationPreview();  // 🆕 Обновляем превью после загрузки ячеек
-    } catch (error) {
-        console.error('❌ Ошибка загрузки ячеек:', error);
-        cellSelect.innerHTML = '<option value="">— Ошибка —</option>';
+    return;
+  }
+
+  cellSelect.innerHTML = '<option value="">⏳ Загрузка...</option>';
+  cellSelect.disabled = true;
+
+  try {
+    const response = await fetch(`/api/admin/racks/${rackId}/cells`);
+    const cells = await response.json();
+
+    locations.cells = cells;
+
+    if (cells.length === 0) {
+      cellSelect.innerHTML = '<option value="">— Нет ячеек —</option>';
+      return;
     }
+
+    cellSelect.innerHTML = '<option value="">— Выберите ячейку —</option>' +
+      cells.map(c => {
+        const code = c.code ? ` [${c.code}]` : '';
+        const count = c.equipment_count || 0;
+        const capacity = c.capacity || 0;
+        const countText = capacity > 0 ? ` (${count}/${capacity})` : (count > 0 ? ` (${count})` : '');
+        return `<option value="${c.id}">${escapeHtml(c.name)}${code}${countText}</option>`;
+      }).join('');
+    cellSelect.disabled = false;
+    updateLocationPreview();
+  } catch (error) {
+    console.error('❌ Ошибка загрузки ячеек:', error);
+    cellSelect.innerHTML = '<option value="">— Ошибка —</option>';
+  }
 }
 
-/**
- * Предзаполнить место хранения по cell_id
- */
 async function preloadLocation(cellId) {
-    try {
-        // Получаем информацию о ячейке
-        const cellResponse = await fetch(`/api/admin/cells/${cellId}`);
-        const cell = await cellResponse.json();
-        
-        if (!cell || !cell.id) return;
-        
-        // Устанавливаем склад
-        const warehouseSelect = document.getElementById('warehouseId');
-        warehouseSelect.value = cell.warehouse_id;
-        
-        // Загружаем зоны и устанавливаем
-        const zonesResponse = await fetch(`/api/admin/warehouses/${cell.warehouse_id}/zones`);
-        const zones = await zonesResponse.json();
-        locations.zones = zones;
-        
-        const zoneSelect = document.getElementById('zoneId');
-        zoneSelect.innerHTML = '<option value="">— Выберите зону —</option>' +
-            zones.map(z => `<option value="${z.id}">${escapeHtml(z.name)}</option>`).join('');
-        zoneSelect.disabled = false;
-        zoneSelect.value = cell.zone_id;
-        
-        // Загружаем стеллажи и устанавливаем
-        const racksResponse = await fetch(`/api/admin/zones/${cell.zone_id}/racks`);
-        const racks = await racksResponse.json();
-        locations.racks = racks;
-        
-        const rackSelect = document.getElementById('rackId');
-        rackSelect.innerHTML = '<option value="">— Выберите стеллаж —</option>' +
-            racks.map(r => `<option value="${r.id}">${escapeHtml(r.name)}</option>`).join('');
-        rackSelect.disabled = false;
-        rackSelect.value = cell.rack_id;
-        
-        // Загружаем ячейки и устанавливаем
-        const cellsResponse = await fetch(`/api/admin/racks/${cell.rack_id}/cells`);
-        const cells = await cellsResponse.json();
-        locations.cells = cells;
-        
-        const cellSelect = document.getElementById('cellId');
-        cellSelect.innerHTML = '<option value="">— Выберите ячейку —</option>' +
-            cells.map(c => {
-                const code = c.code ? ` [${c.code}]` : '';
-                const count = c.equipment_count || 0;
-                const capacity = c.capacity || 0;
-                const countText = capacity > 0 ? ` (${count}/${capacity})` : (count > 0 ? ` (${count})` : '');
-                return `<option value="${c.id}">${escapeHtml(c.name)}${code}${countText}</option>`;
-            }).join('');
-        cellSelect.disabled = false;
-        cellSelect.value = cell.id;
-        
-        updateLocationPreview();
-        
-        console.log('✅ Место хранения предзаполнено');
-    } catch (error) {
-        console.error('❌ Ошибка предзаполнения:', error);
-    }
+  try {
+    const cellResponse = await fetch(`/api/admin/cells/${cellId}`);
+    const cell = await cellResponse.json();
+
+    if (!cell || !cell.id) return;
+
+    const warehouseSelect = document.getElementById('warehouseId');
+    warehouseSelect.value = cell.warehouse_id;
+
+    const zonesResponse = await fetch(`/api/admin/warehouses/${cell.warehouse_id}/zones`);
+    const zones = await zonesResponse.json();
+    locations.zones = zones;
+
+    const zoneSelect = document.getElementById('zoneId');
+    zoneSelect.innerHTML = '<option value="">— Выберите зону —</option>' +
+      zones.map(z => `<option value="${z.id}">${escapeHtml(z.name)}</option>`).join('');
+    zoneSelect.disabled = false;
+    zoneSelect.value = cell.zone_id;
+
+    const racksResponse = await fetch(`/api/admin/zones/${cell.zone_id}/racks`);
+    const racks = await racksResponse.json();
+    locations.racks = racks;
+
+    const rackSelect = document.getElementById('rackId');
+    rackSelect.innerHTML = '<option value="">— Выберите стеллаж —</option>' +
+      racks.map(r => `<option value="${r.id}">${escapeHtml(r.name)}</option>`).join('');
+    rackSelect.disabled = false;
+    rackSelect.value = cell.rack_id;
+
+    const cellsResponse = await fetch(`/api/admin/racks/${cell.rack_id}/cells`);
+    const cells = await cellsResponse.json();
+    locations.cells = cells;
+
+    const cellSelect = document.getElementById('cellId');
+    cellSelect.innerHTML = '<option value="">— Выберите ячейку —</option>' +
+      cells.map(c => {
+        const code = c.code ? ` [${c.code}]` : '';
+        const count = c.equipment_count || 0;
+        const capacity = c.capacity || 0;
+        const countText = capacity > 0 ? ` (${count}/${capacity})` : (count > 0 ? ` (${count})` : '');
+        return `<option value="${c.id}">${escapeHtml(c.name)}${code}${countText}</option>`;
+      }).join('');
+    cellSelect.disabled = false;
+    cellSelect.value = cell.id;
+
+    updateLocationPreview();
+  } catch (error) {
+    console.error('❌ Ошибка предзаполнения:', error);
+  }
 }
 
 function updateLocationPreview() {
-    const selected = document.querySelector('input[name="locationType"]:checked');
-    const type = selected ? selected.value : 'none';
+  const selected = document.querySelector('input[name="locationType"]:checked');
+  const type = selected ? selected.value : 'none';
 
-    const preview = document.getElementById('locationPreview');
-    const previewText = document.getElementById('locationPreviewText');
-    if (!preview || !previewText) return;
+  const preview = document.getElementById('locationPreview');
+  const previewText = document.getElementById('locationPreviewText');
+  if (!preview || !previewText) return;
 
-    const parts = [];
+  const parts = [];
 
-    if (type === 'workplace') {
-        const workplaceId = document.getElementById('workplaceId')?.value;
-        if (workplaceId) {
-            const opt = document.querySelector(`#workplaceId option[value="${workplaceId}"]`);
-            const label = opt ? opt.textContent.trim() : `🪑 WP #${workplaceId}`;
-            // Ищем optgroup-label
-            const group = opt ? opt.closest('optgroup') : null;
-            const groupLabel = group ? group.label : '';
-            if (groupLabel) parts.push(groupLabel);
-            parts.push(label);
-        }
-    } else if (type === 'warehouse') {
-        const warehouseId = document.getElementById('warehouseId')?.value;
-        const zoneId = document.getElementById('zoneId')?.value;
-        const rackId = document.getElementById('rackId')?.value;
-        const cellId = document.getElementById('cellId')?.value;
-
-        if (warehouseId) {
-            const wh = locations.warehouses.find(w => String(w.id) === String(warehouseId));
-            if (wh) parts.push(`🏢 ${wh.name}`);
-        }
-        if (zoneId) {
-            const z = locations.zones.find(z => String(z.id) === String(zoneId));
-            if (z) parts.push(`📍 ${z.name}`);
-        }
-        if (rackId) {
-            const r = locations.racks.find(r => String(r.id) === String(rackId));
-            if (r) parts.push(`🗄️ ${r.name}`);
-        }
-        if (cellId) {
-            const c = locations.cells.find(c => String(c.id) === String(cellId));
-            if (c) {
-                const code = c.code ? ` [${c.code}]` : '';
-                parts.push(`📦 ${c.name}${code}`);
-            }
-        }
+  if (type === 'workplace') {
+    const workplaceId = document.getElementById('workplaceId')?.value;
+    if (workplaceId) {
+      const opt = document.querySelector(`#workplaceId option[value="${workplaceId}"]`);
+      const label = opt ? opt.textContent.trim() : `🪑 WP #${workplaceId}`;
+      const group = opt ? opt.closest('optgroup') : null;
+      const groupLabel = group ? group.label : '';
+      if (groupLabel) parts.push(groupLabel);
+      parts.push(label);
     }
+  } else if (type === 'warehouse') {
+    const warehouseId = document.getElementById('warehouseId')?.value;
+    const zoneId = document.getElementById('zoneId')?.value;
+    const rackId = document.getElementById('rackId')?.value;
+    const cellId = document.getElementById('cellId')?.value;
 
-    if (parts.length === 0) {
-        preview.style.display = 'none';
-    } else {
-        preview.style.display = 'flex';
-        previewText.textContent = parts.join(' → ');
+    if (warehouseId) {
+      const wh = locations.warehouses.find(w => String(w.id) === String(warehouseId));
+      if (wh) parts.push(`🏢 ${wh.name}`);
     }
+    if (zoneId) {
+      const z = locations.zones.find(z => String(z.id) === String(zoneId));
+      if (z) parts.push(`📍 ${z.name}`);
+    }
+    if (rackId) {
+      const r = locations.racks.find(r => String(r.id) === String(rackId));
+      if (r) parts.push(`🗄️ ${r.name}`);
+    }
+    if (cellId) {
+      const c = locations.cells.find(c => String(c.id) === String(cellId));
+      if (c) {
+        const code = c.code ? ` [${c.code}]` : '';
+        parts.push(`📦 ${c.name}${code}`);
+      }
+    }
+  }
+
+  if (parts.length === 0) {
+    preview.style.display = 'none';
+  } else {
+    preview.style.display = 'flex';
+    previewText.textContent = parts.join(' → ');
+  }
 }
 
-
 // ============================================================
-// СМЕНА СТАТУСА ТЕХНИКИ
+// СМЕНА СТАТУСА
 // ============================================================
 
-/**
- * Обработка смены статуса техники
- * - assigned → available: показать предупреждение о возврате
- * - available → assigned: показать секцию назначения
- */
 function onStatusChange() {
-    const newStatus = document.getElementById('status').value;
-    const oldStatus = document.getElementById('currentStatus')?.value || '';
-    const warning = document.getElementById('statusWarning');
-    const info = document.getElementById('statusInfo');
-    const assignSection = document.getElementById('assignSection');
-    const helpText = document.getElementById('statusHelpText');
-    const locationCard = document.getElementById('locationCard');
+  const newStatus = document.getElementById('status').value;
+  const oldStatus = document.getElementById('currentStatus')?.value || '';
+  const warning = document.getElementById('statusWarning');
+  const info = document.getElementById('statusInfo');
+  const assignSection = document.getElementById('assignSection');
+  const helpText = document.getElementById('statusHelpText');
+  const locationCard = document.getElementById('locationCard');
 
-    // Скрываем все служебные блоки
-    if (warning) warning.classList.remove('show');
-    if (info) info.classList.remove('show');
-    if (assignSection) assignSection.classList.remove('show');
+  if (warning) warning.classList.remove('show');
+  if (info) info.classList.remove('show');
+  if (assignSection) assignSection.classList.remove('show');
 
-    // Карточка «Расположение»:
-    //   - assigned → скрыта (техника у пользователя, место не нужно);
-    //   - остальные → показана.
-    if (locationCard) {
-        locationCard.style.display = (newStatus === 'assigned') ? 'none' : '';
+  if (locationCard) {
+    locationCard.style.display = (newStatus === 'assigned') ? 'none' : '';
+  }
+
+  if (newStatus !== 'assigned') {
+    autoSelectLocationType(newStatus);
+  }
+
+  if (newStatus === 'assigned') {
+    if (info) info.classList.add('show');
+    if (assignSection) assignSection.classList.add('show');
+    if (helpText) {
+      helpText.textContent = oldStatus === 'assigned'
+        ? 'Техника уже назначена. Для переназначения выберите другого пользователя.'
+        : 'ℹ️ Выберите пользователя для назначения техники';
     }
-
-    // 🆕 Автовыбор типа расположения по статусу
-    // (не трогаем, если пользователь уже что-то выбрал вручную — только если
-    //  radio не выбрано вообще или не совпадает со "смыслом" статуса)
-    if (newStatus !== 'assigned') {
-        autoSelectLocationType(newStatus);
-    }
-
-    // Логика подсказок и блоков
-    if (newStatus === 'assigned') {
-        if (info) info.classList.add('show');
-        if (assignSection) assignSection.classList.add('show');
-
-        if (helpText) {
-            if (oldStatus === 'assigned') {
-                helpText.textContent = 'Техника уже назначена. Для переназначения выберите другого пользователя.';
-            } else {
-                helpText.textContent = 'ℹ️ Выберите пользователя для назначения техники';
-            }
-        }
-    } else if (oldStatus === 'assigned' && newStatus === 'available') {
-        if (warning) warning.classList.add('show');
-        if (helpText) {
-            helpText.textContent = '⚠️ Техника будет автоматически возвращена от пользователя';
-        }
-    } else if (newStatus === 'placed') {
-        if (helpText) {
-            helpText.textContent = '🪑 Укажите рабочее место ниже — это обязательно';
-        }
-    } else if (newStatus === 'available') {
-        if (helpText) {
-            helpText.textContent = '✅ Техника на складе — при необходимости укажите ячейку';
-        }
-    } else if (newStatus === 'maintenance') {
-        if (helpText) {
-            helpText.textContent = '🔧 Техника в ремонте. Может лежать на складе (в ячейке), но не на рабочем месте';
-        }
-    } else if (newStatus === 'retired') {
-        if (helpText) {
-            helpText.textContent = '❌ Техника списана. Может лежать на складе (в ячейке), но не на рабочем месте';
-        }
-    } else {
-        if (helpText) {
-            helpText.textContent = 'Выберите статус техники';
-        }
-    }
+  } else if (oldStatus === 'assigned' && newStatus === 'available') {
+    if (warning) warning.classList.add('show');
+    if (helpText) helpText.textContent = '⚠️ Техника будет автоматически возвращена от пользователя';
+  } else if (newStatus === 'placed') {
+    if (helpText) helpText.textContent = '🪑 Укажите рабочее место ниже — это обязательно';
+  } else if (newStatus === 'available') {
+    if (helpText) helpText.textContent = '✅ Техника на складе — при необходимости укажите ячейку';
+  } else if (newStatus === 'maintenance') {
+    if (helpText) helpText.textContent = '🔧 Техника в ремонте. Может лежать на складе (в ячейке), но не на рабочем месте';
+  } else if (newStatus === 'retired') {
+    if (helpText) helpText.textContent = '❌ Техника списана. Может лежать на складе (в ячейке), но не на рабочем месте';
+  } else {
+    if (helpText) helpText.textContent = 'Выберите статус техники';
+  }
 }
 
-/**
- * Агрессивный автовыбор типа расположения при смене статуса.
- *   placed    → workplace (всегда)
- *   available → warehouse (всегда)
- * Остальные статусы — radio не трогаем.
- *
- * При переключении radio вызывается onLocationTypeChange(),
- * который сбрасывает поля "другой" ветки (складские селекты или workplace).
- */
 function autoSelectLocationType(status) {
-    let target = null;
+  let target = null;
+  if (status === 'placed') target = 'workplace';
+  else if (status === 'available') target = 'warehouse';
 
-    if (status === 'placed') {
-        target = 'workplace';
-    } else if (status === 'available') {
-        target = 'warehouse';
+  if (!target) return;
+
+  const radio = document.querySelector(`input[name="locationType"][value="${target}"]`);
+  if (!radio) return;
+
+  if (!radio.checked) {
+    radio.checked = true;
+    if (typeof onLocationTypeChange === 'function') {
+      onLocationTypeChange();
     }
-
-    if (!target) return;
-
-    const radio = document.querySelector(`input[name="locationType"][value="${target}"]`);
-    if (!radio) return;
-
-    // Всегда переключаем — даже если пользователь вручную выбрал другое.
-    if (!radio.checked) {
-        radio.checked = true;
-        if (typeof onLocationTypeChange === 'function') {
-            onLocationTypeChange();
-        }
-    }
+  }
 }
 
 // ============================================================
-// ВЫЗОВ ПРИ ЗАГРУЗКЕ
-// ============================================================
-
-document.addEventListener('DOMContentLoaded', function() {
-    // Инициализируем состояние для отображения правильных блоков
-    onStatusChange();
-});
-
-// ============================================================
-// 2.11.8.2: Живой preview в правой колонке
+// ПОДГРУЗКА ТЕКУЩЕГО РАСПОЛОЖЕНИЯ + ПРЕДПРОСМОТР
 // ============================================================
 
 document.addEventListener('DOMContentLoaded', () => {
   if (!equipmentId || isNaN(equipmentId)) return;
 
-  // 1) Первичная загрузка текущего расположения (назначен/склад/место)
   loadCurrentLocation();
-
-  // 2) Живой биндинг полей формы → правая колонка
   bindLivePreview();
+  bindModelPreview();
 });
 
-/**
- * Загрузить текущее расположение: назначен / склад / рабочее место / ничего
- */
 async function loadCurrentLocation() {
   try {
     const res = await fetch(`/api/admin/equipment/${equipmentId}/details`);
@@ -800,7 +679,6 @@ async function loadCurrentLocation() {
     const cur = data.stats?.current_user;
     const loc = data.location || {};
 
-    // Кому назначена
     const assignedEl = document.getElementById('info_assigned');
     if (assignedEl) {
       if (cur) {
@@ -813,7 +691,6 @@ async function loadCurrentLocation() {
       }
     }
 
-    // Расположение
     const locEl = document.getElementById('info_location');
     if (locEl) {
       let text = '—';
@@ -833,18 +710,10 @@ async function loadCurrentLocation() {
   }
 }
 
-/**
- * Связать поля формы с полями правой колонки
- */
 function bindLivePreview() {
   bindInput('inventory_number', 'info_inv');
-  bindInput('name',             'info_name');
-  bindInput('model',            'info_model');
   bindInput('serial_number',    'info_serial');
-
-  bindSelect('category_id', 'info_category');
-  bindSelect('type_id',     'info_type');
-  bindSelect('status',      'info_status');
+  bindSelect('status',          'info_status');
 }
 
 function bindInput(inputId, infoId) {
@@ -874,16 +743,7 @@ function bindSelect(selectId, infoId) {
   });
 }
 
-/**
- * Подсветить поле, если значение отличается от исходного
- */
 function markChanged(infoEl, fieldId) {
-  // Исходное значение берём из скрытого поля current* или из начального value
-  const originalMap = {
-    inventory_number: '{{inventory_number}}',  // ← не сработает, шаблон уже отрендерен
-  };
-  // Проще: считаем, что «изменено» — если отличается от initialValue, снятого при загрузке.
-  // Сохраняем initialValue в data-атрибут при DOMContentLoaded.
   const input = document.getElementById(fieldId);
   if (!input) return;
 
@@ -892,21 +752,16 @@ function markChanged(infoEl, fieldId) {
   infoEl.classList.toggle('changed', current !== initial);
 }
 
-
-
 // ============================================================
 // ВСПОМОГАТЕЛЬНЫЕ
 // ============================================================
 
-
-
-
 function escapeHtml(str) {
-    if (!str) return '';
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }

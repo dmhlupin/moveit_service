@@ -1323,7 +1323,20 @@ tr:last-child td {
     cursor: pointer;
 }
 
+/* ---flex-контейнер для селекта и кнопки --*/
 
+.model-select-row {
+  display: flex;
+  gap: var(--space-sm, 8px);
+  align-items: stretch;
+}
+.model-select-row select {
+  flex: 1;
+  min-width: 0;
+}
+.model-select-row .btn {
+  white-space: nowrap;
+}
 
 
 /* ============================================================

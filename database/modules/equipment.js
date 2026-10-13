@@ -1,79 +1,230 @@
 // database/modules/equipment.js
-// Работа с техникой: CRUD + назначения + место хранения
+// ============================================================
+// Работа с техникой (экземплярами ТМЦ): CRUD + назначения + место.
+//
+// СОГЛАШЕНИЕ ПО ИМЕНАМ (v3.3.1)
+// ------------------------------------------------------------
+// Экземпляр (equipment) ссылается на модель (equipment_models)
+// через model_id. Название, производитель, категория и тип
+// живут ТОЛЬКО на модели — в equipment их больше нет.
+//
+// Что отдаём наружу (алиасы честные, без обманок):
+//   e.id, e.model_id, e.inventory_number, e.serial_number,
+//   e.status, e.cell_id, e.workplace_id,
+//   e.purchase_date, e.warranty_until, e.description,
+//   e.created_at, e.updated_at,
+//
+//   m.name          AS model_name,
+//   m.corporate_id  AS model_corporate_id,
+//   m.manufacturer  AS model_manufacturer,
+//   m.category_id   AS category_id,      -- FK на категорию (на модели)
+//   m.type_id       AS type_id,          -- FK на тип (на модели)
+//
+//   c.name AS category_name, c.icon AS category_icon,
+//   t.name AS type_name,     t.icon AS type_icon,
+//
+//   -- место: склад
+//   cell.name, cell.code, rack.name, zone.name,
+//   wh.id AS warehouse_id, wh.name AS warehouse_name,
+//
+//   -- место: рабочее место
+//   wp.name AS workplace_name, wp.code AS workplace_code,
+//   r.id AS room_id, r.name AS room_name,
+//   o.id AS office_id, o.name AS office_name,
+//
+//   -- владелец (если назначено)
+//   u.id AS user_id, u.full_name AS user_name,
+//   u.department AS user_department,
+//   ue.assigned_date, ue.condition_on_assign,
+//   ue.notes AS assignment_notes, ue.assignment_status
+//
+// Запись (addEquipment / updateEquipment) принимает:
+//   model_id (обязателен), inventory_number, serial_number,
+//   status, cell_id, workplace_id,
+//   purchase_date, warranty_until, description
+//
+// Уникальность inventory_number / serial_number проверяется
+// программно (checkUniqueSerialAndInventory) + SQLite UNIQUE.
+// ============================================================
 
 const { checkCellAvailability } = require('./cells');
 
 module.exports = ({ db, run, get, all }) => ({
-  
+
   // 🆕 Общий хелпер — экспортируем для роутов (admin.js)
   checkCellAvailability(cellId, excludeEquipmentId = null) {
     return checkCellAvailability(db, cellId, excludeEquipmentId);
   },
-  
-  // ============================================================
-  // CRUD ТЕХНИКИ
-  // ============================================================
-  
 
+  // ============================================================
+  // 🆕 ПРОВЕРКА УНИКАЛЬНОСТИ inventory_number / serial_number
+  // ============================================================
 
   /**
-   * Получить всю технику с названиями категорий и типов
+   * Проверяет уникальность inventory_number и serial_number.
+   * NULL разрешён и не считается коллизией.
+   *
+   * @param {string|null} inventoryNumber
+   * @param {string|null} serialNumber
+   * @param {number|null} excludeId — id экземпляра, который исключаем (для update)
+   * @returns {Promise<{ok: boolean, reason?: string, field?: string, conflict_id?: number}>}
+   */
+  async checkUniqueSerialAndInventory(inventoryNumber, serialNumber, excludeId = null) {
+    const inv = inventoryNumber ? String(inventoryNumber).trim() : null;
+    const sn  = serialNumber    ? String(serialNumber).trim()    : null;
+
+    if (inv) {
+      const params = [inv];
+      let sql = `SELECT id FROM equipment WHERE inventory_number = ?`;
+      if (excludeId) { sql += ` AND id != ?`; params.push(excludeId); }
+      const row = await get(sql, params);
+      if (row) {
+        return { ok: false, reason: 'duplicate_inventory_number', field: 'inventory_number', conflict_id: row.id };
+      }
+    }
+
+    if (sn) {
+      const params = [sn];
+      let sql = `SELECT id FROM equipment WHERE serial_number = ?`;
+      if (excludeId) { sql += ` AND id != ?`; params.push(excludeId); }
+      const row = await get(sql, params);
+      if (row) {
+        return { ok: false, reason: 'duplicate_serial_number', field: 'serial_number', conflict_id: row.id };
+      }
+    }
+
+    return { ok: true };
+  },
+
+  // ============================================================
+  // ЧТЕНИЕ
+  // ============================================================
+
+  /**
+   * Получить всю технику с данными модели (name, manufacturer,
+   * категория, тип) и текущим владельцем.
    */
   getAllEquipment() {
     return new Promise((resolve, reject) => {
       db.all(`
-        SELECT 
-          e.*,
-          c.name as category_name,
-          c.icon as category_icon,
-          t.name as type_name,
-          t.icon as type_icon
+        SELECT
+          e.id,
+          e.model_id,
+          e.inventory_number,
+          e.serial_number,
+          e.status,
+          e.cell_id,
+          e.workplace_id,
+          e.purchase_date,
+          e.warranty_until,
+          e.description,
+          e.created_at,
+          e.updated_at,
+
+          m.name         AS model_name,
+          m.corporate_id AS model_corporate_id,
+          m.manufacturer AS model_manufacturer,
+          m.category_id  AS category_id,
+          m.type_id      AS type_id,
+
+          c.name AS category_name,
+          c.icon AS category_icon,
+          t.name AS type_name,
+          t.icon AS type_icon,
+
+          u.id          AS user_id,
+          u.full_name   AS user_name,
+          u.department  AS user_department,
+          ue.assigned_date,
+          ue.condition_on_assign,
+          ue.notes      AS assignment_notes,
+
+          CASE
+            WHEN ue.returned_date IS NULL AND e.status = 'assigned' THEN 'active'
+            WHEN ue.returned_date IS NOT NULL THEN 'returned'
+            ELSE 'available'
+          END AS assignment_status
+
         FROM equipment e
-        LEFT JOIN equipment_categories c ON e.category_id = c.id
-        LEFT JOIN equipment_types t ON e.type_id = t.id
-        ORDER BY e.name
+        JOIN equipment_models m ON m.id = e.model_id
+        LEFT JOIN equipment_categories c ON c.id = m.category_id
+        LEFT JOIN equipment_types      t ON t.id = m.type_id
+        LEFT JOIN user_equipment ue ON e.id = ue.equipment_id AND ue.returned_date IS NULL
+        LEFT JOIN users u ON ue.user_id = u.id
+        ORDER BY m.name, e.inventory_number
       `, (err, rows) => {
         if (err) reject(err);
         else resolve(rows || []);
       });
     });
   },
-  
+
   /**
-   * Получить технику по ID (с полным адресом хранения)
+   * Техника по ID — с моделью, категорией, типом, адресом и владельцем.
    */
   getEquipmentById(id) {
     return new Promise((resolve, reject) => {
       db.get(`
-        SELECT 
-          e.*,
-          c.name as category_name,
-          c.icon as category_icon,
-          t.name as type_name,
-          t.icon as type_icon,
-          cell.name as cell_name,
-          cell.code as cell_code,
-          rack.name as rack_name,
-          zone.name as zone_name,
-          wh.id as warehouse_id,
-          wh.name as warehouse_name,
-          wp.id as workplace_id,
-          wp.name as workplace_name,
-          wp.code as workplace_code,
-          r.id as room_id,
-          r.name as room_name,
-          o.id as office_id,
-          o.name as office_name
+        SELECT
+          e.id,
+          e.model_id,
+          e.inventory_number,
+          e.serial_number,
+          e.status,
+          e.cell_id,
+          e.workplace_id,
+          e.purchase_date,
+          e.warranty_until,
+          e.description,
+          e.created_at,
+          e.updated_at,
+
+          m.name         AS model_name,
+          m.corporate_id AS model_corporate_id,
+          m.manufacturer AS model_manufacturer,
+          m.category_id  AS category_id,
+          m.type_id      AS type_id,
+
+          c.name AS category_name,
+          c.icon AS category_icon,
+          t.name AS type_name,
+          t.icon AS type_icon,
+
+          cell.name  AS cell_name,
+          cell.code  AS cell_code,
+          rack.name  AS rack_name,
+          zone.name  AS zone_name,
+          wh.id      AS warehouse_id,
+          wh.name    AS warehouse_name,
+
+          wp.id      AS workplace_id,
+          wp.name    AS workplace_name,
+          wp.code    AS workplace_code,
+          r.id       AS room_id,
+          r.name     AS room_name,
+          o.id       AS office_id,
+          o.name     AS office_name,
+
+          u.id          AS user_id,
+          u.full_name   AS user_name,
+          u.department  AS user_department,
+          ue.assigned_date,
+          ue.condition_on_assign,
+          ue.notes      AS assignment_notes
+
         FROM equipment e
-        LEFT JOIN equipment_categories c ON e.category_id = c.id
-        LEFT JOIN equipment_types t ON e.type_id = t.id
-        LEFT JOIN cells cell ON e.cell_id = cell.id
-        LEFT JOIN racks rack ON cell.rack_id = rack.id
-        LEFT JOIN zones zone ON rack.zone_id = zone.id
-        LEFT JOIN warehouses wh ON zone.warehouse_id = wh.id
-        LEFT JOIN workplaces wp ON e.workplace_id = wp.id
-        LEFT JOIN rooms r ON wp.room_id = r.id
-        LEFT JOIN offices o ON r.office_id = o.id
+        JOIN equipment_models m ON m.id = e.model_id
+        LEFT JOIN equipment_categories c ON c.id = m.category_id
+        LEFT JOIN equipment_types      t ON t.id = m.type_id
+        LEFT JOIN cells      cell ON e.cell_id = cell.id
+        LEFT JOIN racks      rack ON cell.rack_id = rack.id
+        LEFT JOIN zones      zone ON rack.zone_id = zone.id
+        LEFT JOIN warehouses wh   ON zone.warehouse_id = wh.id
+        LEFT JOIN workplaces wp   ON e.workplace_id = wp.id
+        LEFT JOIN rooms      r    ON wp.room_id = r.id
+        LEFT JOIN offices    o    ON r.office_id = o.id
+        LEFT JOIN user_equipment ue ON e.id = ue.equipment_id AND ue.returned_date IS NULL
+        LEFT JOIN users u ON ue.user_id = u.id
         WHERE e.id = ?
       `, [id], (err, row) => {
         if (err) reject(err);
@@ -81,445 +232,250 @@ module.exports = ({ db, run, get, all }) => ({
       });
     });
   },
-  
+
   /**
-   * Добавить технику
+   * Техника с полным адресом хранения + фильтры + пагинация.
+   * Фильтры: category_id, type_id, status, search, warehouse_id,
+   *          workplace_id, unplaced; limit / offset / include_total.
    */
-  addEquipment(eqData) {
+  getEquipmentWithLocation(filters = {}) {
     return new Promise((resolve, reject) => {
-      const { 
-        inventory_number, name, model, serial_number, 
-        manufacturer, purchase_date, warranty_until, 
-        status, description, category_id, type_id, cell_id 
-      } = eqData;
-      
-      db.run(`
-        INSERT INTO equipment 
-        (inventory_number, name, model, serial_number, manufacturer, 
-         purchase_date, warranty_until, status, description, category_id, type_id, cell_id) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `, [
-        inventory_number, name, model, serial_number, manufacturer, 
-        purchase_date, warranty_until, status || 'available', description,
-        category_id || null, type_id || null, cell_id || null
-      ], function(err) {
-        if (err) {
-          reject(err);
-          return;
-        }
-        resolve({ id: this.lastID, ...eqData });
-      });
-    });
-  },
-  
-  /**
-   * Обновить технику
-   * С автоматическим возвратом при смене статуса assigned → available
-   */
-  updateEquipment(id, eqData) {
-    return new Promise((resolve, reject) => {
-      // Проверяем ID
-      if (!id || isNaN(id)) {
-        reject(new Error('Неверный ID техники'));
+      const {
+        category_id  = null,
+        type_id      = null,
+        status       = null,
+        search       = null,
+        warehouse_id = null,
+        workplace_id = null,
+        unplaced     = false,
+        limit        = null,
+        offset       = 0,
+        include_total = false,
+      } = filters;
+
+      // Общие условия WHERE
+      const where = ['1=1'];
+      const whereParams = [];
+
+      if (category_id) {
+        where.push('m.category_id = ?');
+        whereParams.push(category_id);
+      }
+      if (type_id) {
+        where.push('m.type_id = ?');
+        whereParams.push(type_id);
+      }
+      if (status) {
+        where.push('e.status = ?');
+        whereParams.push(status);
+      }
+      if (warehouse_id) {
+        where.push('wh.id = ?');
+        whereParams.push(warehouse_id);
+      }
+      if (workplace_id) {
+        where.push('e.workplace_id = ?');
+        whereParams.push(workplace_id);
+      }
+      if (unplaced) {
+        where.push(`(e.status = 'available' AND e.cell_id IS NULL AND e.workplace_id IS NULL)`);
+      }
+      if (search) {
+        where.push(`(
+          e.inventory_number LIKE ? OR
+          e.serial_number    LIKE ? OR
+          m.name             LIKE ? OR
+          m.corporate_id     LIKE ? OR
+          m.manufacturer     LIKE ? OR
+          u.full_name        LIKE ? OR
+          u.username         LIKE ? OR
+          cell.code          LIKE ? OR
+          wp.name            LIKE ? OR
+          wp.code            LIKE ?
+        )`);
+        const term = `%${search}%`;
+        for (let i = 0; i < 10; i++) whereParams.push(term);
+      }
+
+      const whereSql = `WHERE ${where.join(' AND ')}`;
+
+      const baseSelect = `
+        SELECT
+          e.id,
+          e.model_id,
+          e.inventory_number,
+          e.serial_number,
+          e.status,
+          e.cell_id,
+          e.workplace_id,
+          e.purchase_date,
+          e.warranty_until,
+          e.description,
+          e.created_at,
+          e.updated_at,
+
+          m.name         AS model_name,
+          m.corporate_id AS model_corporate_id,
+          m.manufacturer AS model_manufacturer,
+          m.category_id  AS category_id,
+          m.type_id      AS type_id,
+
+          c.name AS category_name,
+          c.icon AS category_icon,
+          t.name AS type_name,
+          t.icon AS type_icon,
+
+          u.id         AS user_id,
+          u.full_name  AS user_name,
+          u.department AS user_department,
+          ue.assigned_date,
+          ue.condition_on_assign,
+
+          cell.name AS cell_name,
+          cell.code AS cell_code,
+          rack.name AS rack_name,
+          zone.name AS zone_name,
+          wh.id     AS warehouse_id,
+          wh.name   AS warehouse_name,
+          wp.name   AS workplace_name,
+          wp.code   AS workplace_code,
+          r.id      AS room_id,
+          r.name    AS room_name,
+          o.id      AS office_id,
+          o.name    AS office_name
+        FROM equipment e
+        JOIN equipment_models m ON m.id = e.model_id
+        LEFT JOIN equipment_categories c ON c.id = m.category_id
+        LEFT JOIN equipment_types      t ON t.id = m.type_id
+        LEFT JOIN user_equipment ue ON e.id = ue.equipment_id AND ue.returned_date IS NULL
+        LEFT JOIN users u ON ue.user_id = u.id
+        LEFT JOIN cells      cell ON e.cell_id = cell.id
+        LEFT JOIN racks      rack ON cell.rack_id = rack.id
+        LEFT JOIN zones      zone ON rack.zone_id = zone.id
+        LEFT JOIN warehouses wh   ON zone.warehouse_id = wh.id
+        LEFT JOIN workplaces wp   ON e.workplace_id = wp.id
+        LEFT JOIN rooms      r    ON wp.room_id = r.id
+        LEFT JOIN offices    o    ON r.office_id = o.id
+      `;
+
+      let itemsSql = `${baseSelect} ${whereSql} ORDER BY e.inventory_number ASC`;
+      const itemsParams = [...whereParams];
+
+      if (limit) {
+        itemsSql += ' LIMIT ? OFFSET ?';
+        itemsParams.push(limit, offset);
+      }
+
+      if (!include_total) {
+        db.all(itemsSql, itemsParams, (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows || []);
+        });
         return;
       }
-      
-      const idNum = parseInt(id);
-      const { 
-        inventory_number, name, model, serial_number, 
-        manufacturer, purchase_date, warranty_until, 
-        status, description, category_id, type_id, cell_id, workplace_id 
-      } = eqData;
-      
-      // Проверяем, существует ли техника
-      db.get('SELECT * FROM equipment WHERE id = ?', [idNum], (err, equipment) => {
+
+      // Считаем total по тем же фильтрам (без LIMIT/OFFSET)
+      const countSql = `
+        SELECT COUNT(*) AS total
+        FROM equipment e
+        JOIN equipment_models m ON m.id = e.model_id
+        LEFT JOIN user_equipment ue ON e.id = ue.equipment_id AND ue.returned_date IS NULL
+        LEFT JOIN users u ON ue.user_id = u.id
+        LEFT JOIN cells      cell ON e.cell_id = cell.id
+        LEFT JOIN racks      rack ON cell.rack_id = rack.id
+        LEFT JOIN zones      zone ON rack.zone_id = zone.id
+        LEFT JOIN warehouses wh   ON zone.warehouse_id = wh.id
+        LEFT JOIN workplaces wp   ON e.workplace_id = wp.id
+        ${whereSql}
+      `;
+
+      db.get(countSql, whereParams, (err, countRow) => {
         if (err) {
           reject(err);
           return;
         }
-        
-        if (!equipment) {
-          reject(new Error('Техника не найдена'));
-          return;
-        }
-        
-        const oldStatus = equipment.status;
-        
-        // Если статус меняется с assigned на available — возвращаем технику
-        if (oldStatus === 'assigned' && status === 'available') {
-          db.get(
-            `SELECT id, user_id FROM user_equipment 
-             WHERE equipment_id = ? AND returned_date IS NULL`,
-            [idNum],
-            (err, assignment) => {
-              if (err) {
-                reject(err);
-                return;
-              }
-              
-              // Обновляем технику — обнуляем cell_id (техника на складе, но без адреса)
-              db.run(`
-                UPDATE equipment 
-                SET inventory_number = ?, name = ?, model = ?, serial_number = ?, 
-                    manufacturer = ?, purchase_date = ?, warranty_until = ?, 
-                    status = ?, description = ?, 
-                    category_id = ?, type_id = ?, 
-                    cell_id = NULL,
-                    workplace_id = NULL,
-                    updated_at = CURRENT_TIMESTAMP 
-                WHERE id = ?
-              `, [
-                inventory_number, name, model, serial_number, 
-                manufacturer, purchase_date, warranty_until, 
-                status, description, 
-                category_id || null, type_id || null,
-                idNum
-              ], function(err) {
-                if (err) {
-                  reject(err);
-                  return;
-                }
-                
-                if (this.changes === 0) {
-                  reject(new Error('Техника не найдена'));
-                  return;
-                }
-                
-                // Если есть активное назначение, закрываем его
-                if (assignment) {
-                  db.run(`
-                    UPDATE user_equipment 
-                    SET returned_date = CURRENT_TIMESTAMP, 
-                        condition_on_return = ?
-                    WHERE id = ?
-                  `, ['Возвращена при изменении статуса', assignment.id], (err) => {
-                    if (err) {
-                      console.error('Ошибка при возврате техники:', err.message);
-                    }
-                    resolve({ id: idNum, ...eqData, returned: true });
-                  });
-                } else {
-                  resolve({ id: idNum, ...eqData, returned: false });
-                }
-              });
-            }
-          );
-        } else {
-          // Обычное обновление
-          db.run(`
-            UPDATE equipment 
-            SET inventory_number = ?, name = ?, model = ?, serial_number = ?, 
-                manufacturer = ?, purchase_date = ?, warranty_until = ?, 
-                status = ?, description = ?, 
-                category_id = ?, type_id = ?, cell_id = ?, workplace_id = ?,
-                updated_at = CURRENT_TIMESTAMP 
-            WHERE id = ?
-          `, [
-            inventory_number, name, model, serial_number, 
-            manufacturer, purchase_date, warranty_until, 
-            status, description, 
-            category_id || null, type_id || null, cell_id || null, workplace_id || null,
-            idNum
-          ], function(err) {
-            if (err) {
-              reject(err);
-              return;
-            }
-            
-            if (this.changes === 0) {
-              reject(new Error('Техника не найдена'));
-              return;
-            }
-            
-            resolve({ id: idNum, ...eqData, returned: false });
-          });
-        }
-      });
-    });
-  },
-  
-  /**
-   * Удалить технику
-   * Нельзя удалить, если она назначена пользователю
-   */
-  deleteEquipment(id) {
-    return new Promise((resolve, reject) => {
-      db.get(
-        'SELECT id FROM user_equipment WHERE equipment_id = ? AND returned_date IS NULL',
-        [id],
-        (err, row) => {
+        db.all(itemsSql, itemsParams, (err, rows) => {
           if (err) {
             reject(err);
             return;
           }
-          if (row) {
-            reject(new Error('Невозможно удалить технику, она назначена пользователю'));
-            return;
-          }
-          
-          db.run('DELETE FROM equipment WHERE id = ?', [id], function(err) {
-            if (err) {
-              reject(err);
-              return;
-            }
-            resolve({ deleted: this.changes });
+          resolve({
+            items: rows || [],
+            total: countRow ? countRow.total : 0,
+            limit,
+            offset,
           });
-        }
-      );
+        });
+      });
     });
   },
-  
-  // ============================================================
-  // ПОЛУЧЕНИЕ С ИНФОРМАЦИЕЙ О ПОЛЬЗОВАТЕЛЯХ
-  // ============================================================
-  
+
   /**
-   * Получить технику с информацией о текущем владельце
-   * (базовая версия, без места хранения)
+   * Техника с информацией о текущем владельце.
+   * Возвращает массив (совместимо с routes/catalog.js).
    */
   getEquipmentWithUsers() {
     return new Promise((resolve, reject) => {
       db.all(`
-        SELECT 
-          e.*,
-          u.id as user_id,
-          u.full_name as user_name,
-          u.department as user_department,
+        SELECT
+          e.id,
+          e.model_id,
+          e.inventory_number,
+          e.serial_number,
+          e.status,
+          e.cell_id,
+          e.workplace_id,
+          e.purchase_date,
+          e.warranty_until,
+          e.description,
+          e.created_at,
+          e.updated_at,
+
+          m.name         AS model_name,
+          m.corporate_id AS model_corporate_id,
+          m.manufacturer AS model_manufacturer,
+          m.category_id  AS category_id,
+          m.type_id      AS type_id,
+
+          c.name AS category_name,
+          c.icon AS category_icon,
+          t.name AS type_name,
+          t.icon AS type_icon,
+
+          u.id         AS user_id,
+          u.full_name  AS user_name,
+          u.department AS user_department,
           ue.assigned_date,
           ue.condition_on_assign,
-          ue.notes as assignment_notes,
-          CASE 
+          ue.notes AS assignment_notes,
+
+          CASE
             WHEN ue.returned_date IS NULL AND e.status = 'assigned' THEN 'active'
             WHEN ue.returned_date IS NOT NULL THEN 'returned'
             ELSE 'available'
-          END as assignment_status
+          END AS assignment_status
+
         FROM equipment e
+        JOIN equipment_models m ON m.id = e.model_id
+        LEFT JOIN equipment_categories c ON c.id = m.category_id
+        LEFT JOIN equipment_types      t ON t.id = m.type_id
         LEFT JOIN user_equipment ue ON e.id = ue.equipment_id AND ue.returned_date IS NULL
         LEFT JOIN users u ON ue.user_id = u.id
-        ORDER BY e.name
+        ORDER BY m.name, e.inventory_number
       `, (err, rows) => {
         if (err) reject(err);
         else resolve(rows || []);
       });
     });
   },
-  
-  /**
-   * Получить технику с полным адресом хранения
-   * Поддерживает фильтры: category_id, type_id, status, search, warehouse_id + пагинацию
-   */
-  getEquipmentWithLocation(filters = {}) {
-    return new Promise((resolve, reject) => {
-      const {
-        category_id = null,
-        type_id = null,
-        status = null,
-        search = null,
-        warehouse_id = null,
-        workplace_id = null,   // 🆕
-        unplaced = false,      // 🆕
-        limit = null,
-        offset = 0,
-        include_total = false,
-      } = filters;
-      
-      let sql = `
-        SELECT 
-          e.id,
-          e.inventory_number,
-          e.name,
-          e.model,
-          e.serial_number,
-          e.manufacturer,
-          e.status,
-          e.category_id,
-          e.type_id,
-          e.cell_id,
-          e.workplace_id,
-          c.name as category_name,
-          c.icon as category_icon,
-          t.name as type_name,
-          t.icon as type_icon,
-          u.id as user_id,
-          u.full_name as user_name,
-          u.department as user_department,
-          ue.assigned_date,
-          ue.condition_on_assign,
-          cell.name as cell_name,
-          cell.code as cell_code,
-          rack.name as rack_name,
-          zone.name as zone_name,
-          wh.id as warehouse_id,
-          wh.name as warehouse_name,
-          wp.name as workplace_name,
-          wp.code as workplace_code,
-          r.id as room_id,
-          r.name as room_name,
-          o.id as office_id,
-          o.name as office_name
-        FROM equipment e
-        LEFT JOIN equipment_categories c ON e.category_id = c.id
-        LEFT JOIN equipment_types t ON e.type_id = t.id
-        LEFT JOIN user_equipment ue ON e.id = ue.equipment_id AND ue.returned_date IS NULL
-        LEFT JOIN users u ON ue.user_id = u.id
-        LEFT JOIN cells cell ON e.cell_id = cell.id
-        LEFT JOIN racks rack ON cell.rack_id = rack.id
-        LEFT JOIN zones zone ON rack.zone_id = zone.id
-        LEFT JOIN warehouses wh ON zone.warehouse_id = wh.id
-        LEFT JOIN workplaces wp ON e.workplace_id = wp.id
-        LEFT JOIN rooms r ON wp.room_id = r.id
-        LEFT JOIN offices o ON r.office_id = o.id
-        WHERE 1=1
-      `;
-      const params = [];
-      
-      if (category_id) {
-        sql += ' AND e.category_id = ?';
-        params.push(category_id);
-      }
-      
-      if (type_id) {
-        sql += ' AND e.type_id = ?';
-        params.push(type_id);
-      }
-      
-      if (status) {
-        sql += ' AND e.status = ?';
-        params.push(status);
-      }
-      
-      if (warehouse_id) {
-        sql += ' AND wh.id = ?';
-        params.push(warehouse_id);
-      }
 
-      if (workplace_id) {
-        sql += ' AND e.workplace_id = ?';
-        params.push(workplace_id);
-      }
-
-      // 🆕 Синтетический фильтр «Не размещено»:
-      // available + без cell_id + без workplace_id
-      if (unplaced) {
-        sql += ` AND e.status = 'available'
-                 AND e.cell_id IS NULL
-                 AND e.workplace_id IS NULL`;
-      }
-      
-      if (search) {
-        sql += ` AND (
-          e.inventory_number LIKE ? OR 
-          e.name LIKE ? OR 
-          e.model LIKE ? OR 
-          e.serial_number LIKE ? OR
-          u.full_name LIKE ? OR
-          u.username LIKE ? OR
-          cell.code LIKE ? OR
-          wp.name LIKE ? OR
-          wp.code LIKE ?
-        )`;
-        const term = `%${search}%`;
-        params.push(term, term, term, term, term, term, term, term, term);
-      }
-      
-      sql += ' ORDER BY e.inventory_number ASC';
-      
-      if (limit) {
-        sql += ' LIMIT ? OFFSET ?';
-        params.push(limit, offset);
-      }
-      
-      if (include_total) {
-        let countSql = `
-          SELECT COUNT(*) as total
-          FROM equipment e
-          LEFT JOIN user_equipment ue ON e.id = ue.equipment_id AND ue.returned_date IS NULL
-          LEFT JOIN users u ON ue.user_id = u.id
-          LEFT JOIN cells cell ON e.cell_id = cell.id
-          LEFT JOIN racks rack ON cell.rack_id = rack.id
-          LEFT JOIN zones zone ON rack.zone_id = zone.id
-          LEFT JOIN warehouses wh ON zone.warehouse_id = wh.id
-          LEFT JOIN workplaces wp ON e.workplace_id = wp.id
-          WHERE 1=1
-        `;
-        const countParams = [];
-        
-        if (category_id) {
-          countSql += ' AND e.category_id = ?';
-          countParams.push(category_id);
-        }
-        if (type_id) {
-          countSql += ' AND e.type_id = ?';
-          countParams.push(type_id);
-        }
-        if (status) {
-          countSql += ' AND e.status = ?';
-          countParams.push(status);
-        }
-        if (warehouse_id) {
-          countSql += ' AND wh.id = ?';
-          countParams.push(warehouse_id);
-        }
-        if (workplace_id) {
-          countSql += ' AND e.workplace_id = ?';
-          countParams.push(workplace_id);
-        }
-        if (unplaced) {
-          countSql += ` AND e.status = 'available'
-                        AND e.cell_id IS NULL
-                        AND e.workplace_id IS NULL`;
-        }
-        if (search) {
-          countSql += ` AND (
-            e.inventory_number LIKE ? OR 
-            e.name LIKE ? OR 
-            e.model LIKE ? OR 
-            e.serial_number LIKE ? OR
-            u.full_name LIKE ? OR
-            u.username LIKE ? OR
-            cell.code LIKE ? OR
-            wp.name LIKE ? OR
-            wp.code LIKE ?
-          )`;
-          const term = `%${search}%`;
-          countParams.push(term, term, term, term, term, term, term, term, term);
-        }
-        
-        db.get(countSql, countParams, (err, countRow) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-          
-          db.all(sql, params, (err, rows) => {
-            if (err) {
-              reject(err);
-              return;
-            }
-            resolve({
-              items: rows || [],
-              total: countRow ? countRow.total : 0,
-              limit: limit,
-              offset: offset,
-            });
-          });
-        });
-      } else {
-        db.all(sql, params, (err, rows) => {
-          if (err) reject(err);
-          else resolve(rows || []);
-        });
-      }
-    });
-  },
-  
   /**
-   * Получить историю назначений техники
+   * История назначений экземпляра.
    */
   getEquipmentHistory(equipmentId) {
     return new Promise((resolve, reject) => {
       db.all(`
-        SELECT 
+        SELECT
           ue.id,
           ue.user_id,
           ue.equipment_id,
@@ -532,10 +488,10 @@ module.exports = ({ db, run, get, all }) => ({
           u.full_name,
           u.department,
           u.email,
-          CASE 
+          CASE
             WHEN ue.returned_date IS NULL THEN 'active'
             ELSE 'returned'
-          END as status
+          END AS status
         FROM user_equipment ue
         JOIN users u ON ue.user_id = u.id
         WHERE ue.equipment_id = ?
@@ -546,107 +502,391 @@ module.exports = ({ db, run, get, all }) => ({
       });
     });
   },
-  
-  // ============================================================
-  // НАЗНАЧЕНИЯ
-  // ============================================================
-  
+
   /**
-   * Назначить технику пользователю
-   * Автоматически закрывает предыдущее активное назначение
-   * Обнуляет cell_id (техника у пользователя)
+   * Доступная техника (status = 'available') — с данными модели.
    */
-  assignEquipment(userId, equipmentId, condition, notes = '') {
+  getAvailableEquipment() {
     return new Promise((resolve, reject) => {
-      // Проверяем пользователя
-      db.get('SELECT id, is_active FROM users WHERE id = ?', [userId], (err, user) => {
+      db.all(`
+        SELECT
+          e.id,
+          e.model_id,
+          e.inventory_number,
+          e.serial_number,
+          e.status,
+          e.cell_id,
+          e.workplace_id,
+          m.name         AS model_name,
+          m.corporate_id AS model_corporate_id,
+          m.manufacturer AS model_manufacturer,
+          m.category_id  AS category_id,
+          m.type_id      AS type_id,
+          c.name AS category_name,
+          t.name AS type_name
+        FROM equipment e
+        JOIN equipment_models m ON m.id = e.model_id
+        LEFT JOIN equipment_categories c ON c.id = m.category_id
+        LEFT JOIN equipment_types      t ON t.id = m.type_id
+        WHERE e.status = 'available'
+        ORDER BY m.name, e.inventory_number
+      `, (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows || []);
+      });
+    });
+  },
+
+  /**
+   * Счётчики техники по категориям (category_id живёт на модели).
+   * @returns {Promise<Object>} { [category_id]: count }
+   */
+  getEquipmentCountsByCategory() {
+    return new Promise((resolve, reject) => {
+      db.all(`
+        SELECT m.category_id AS category_id, COUNT(*) AS count
+        FROM equipment e
+        JOIN equipment_models m ON m.id = e.model_id
+        WHERE m.category_id IS NOT NULL
+        GROUP BY m.category_id
+      `, (err, rows) => {
         if (err) {
           reject(err);
           return;
         }
-        if (!user) {
-          reject(new Error('Пользователь не найден'));
+        const counts = {};
+        (rows || []).forEach(row => {
+          counts[row.category_id] = row.count;
+        });
+        resolve(counts);
+      });
+    });
+  },
+
+  /**
+   * Счётчики техники по типам (type_id живёт на модели).
+   * @returns {Promise<Object>} { [type_id]: count }
+   */
+  getEquipmentCountsByType() {
+    return new Promise((resolve, reject) => {
+      db.all(`
+        SELECT m.type_id AS type_id, COUNT(*) AS count
+        FROM equipment e
+        JOIN equipment_models m ON m.id = e.model_id
+        WHERE m.type_id IS NOT NULL
+        GROUP BY m.type_id
+      `, (err, rows) => {
+        if (err) {
+          reject(err);
           return;
         }
-        if (!user.is_active) {
-          reject(new Error('Пользователь заблокирован'));
-          return;
-        }
-        
-        // Проверяем технику
+        const counts = {};
+        (rows || []).forEach(row => {
+          counts[row.type_id] = row.count;
+        });
+        resolve(counts);
+      });
+    });
+  },
+    // ============================================================
+  // СОЗДАНИЕ / ОБНОВЛЕНИЕ / УДАЛЕНИЕ
+  // ============================================================
+
+  /**
+   * Добавить экземпляр техники.
+   *
+   * Принимает:
+   *   model_id          — обязателен
+   *   inventory_number  — NULL разрешён, но UNIQUE
+   *   serial_number     — NULL разрешён, но UNIQUE
+   *   status            — по умолчанию 'available'
+   *   cell_id, workplace_id
+   *   purchase_date, warranty_until, description
+   *
+   * Программно проверяет уникальность inventory_number / serial_number.
+   */
+  async addEquipment(eqData) {
+    const {
+      model_id,
+      inventory_number = null,
+      serial_number    = null,
+      status           = 'available',
+      cell_id          = null,
+      workplace_id     = null,
+      purchase_date    = null,
+      warranty_until   = null,
+      description      = null,
+    } = eqData;
+
+    if (!model_id) {
+      throw new Error('Не указана модель техники (model_id)');
+    }
+
+    // Проверяем, что модель существует
+    const model = await get(
+      'SELECT id FROM equipment_models WHERE id = ?',
+      [model_id]
+    );
+    if (!model) {
+      throw new Error('Модель не найдена');
+    }
+
+    // Программная проверка уникальности
+    const uniq = await this.checkUniqueSerialAndInventory(
+      inventory_number, serial_number, null
+    );
+    if (!uniq.ok) {
+      if (uniq.reason === 'duplicate_inventory_number') {
+        throw new Error(`Инвентарный номер "${inventory_number}" уже используется`);
+      }
+      if (uniq.reason === 'duplicate_serial_number') {
+        throw new Error(`Серийный номер "${serial_number}" уже используется`);
+      }
+      throw new Error('Нарушение уникальности');
+    }
+
+    const inv = inventory_number ? String(inventory_number).trim() : null;
+    const sn  = serial_number    ? String(serial_number).trim()    : null;
+
+    const result = await run(`
+      INSERT INTO equipment
+        (model_id, inventory_number, serial_number, status,
+         cell_id, workplace_id,
+         purchase_date, warranty_until, description)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      model_id, inv, sn, status || 'available',
+      cell_id || null, workplace_id || null,
+      purchase_date || null, warranty_until || null, description || null
+    ]);
+
+    return { id: result.lastID, ...eqData };
+  },
+
+  /**
+   * Обновить экземпляр техники.
+   *
+   * - Программно проверяет уникальность inventory_number / serial_number
+   *   (с исключением текущего id).
+   * - При переходе assigned → available: закрывает активное назначение,
+   *   обнуляет cell_id и workplace_id.
+   */
+  async updateEquipment(id, eqData) {
+    if (!id || isNaN(id)) {
+      throw new Error('Неверный ID техники');
+    }
+    const idNum = parseInt(id, 10);
+
+    const {
+      model_id,
+      inventory_number = null,
+      serial_number    = null,
+      status           = 'available',
+      cell_id          = null,
+      workplace_id     = null,
+      purchase_date    = null,
+      warranty_until   = null,
+      description      = null,
+    } = eqData;
+
+    if (!model_id) {
+      throw new Error('Не указана модель техники (model_id)');
+    }
+
+    // Существует ли экземпляр?
+    const equipment = await get(
+      'SELECT id, status FROM equipment WHERE id = ?',
+      [idNum]
+    );
+    if (!equipment) {
+      throw new Error('Техника не найдена');
+    }
+
+    // Модель существует?
+    const model = await get(
+      'SELECT id FROM equipment_models WHERE id = ?',
+      [model_id]
+    );
+    if (!model) {
+      throw new Error('Модель не найдена');
+    }
+
+    // Программная проверка уникальности (с исключением текущего id)
+    const uniq = await this.checkUniqueSerialAndInventory(
+      inventory_number, serial_number, idNum
+    );
+    if (!uniq.ok) {
+      if (uniq.reason === 'duplicate_inventory_number') {
+        throw new Error(`Инвентарный номер "${inventory_number}" уже используется`);
+      }
+      if (uniq.reason === 'duplicate_serial_number') {
+        throw new Error(`Серийный номер "${serial_number}" уже используется`);
+      }
+      throw new Error('Нарушение уникальности');
+    }
+
+    const inv = inventory_number ? String(inventory_number).trim() : null;
+    const sn  = serial_number    ? String(serial_number).trim()    : null;
+
+    const oldStatus = equipment.status;
+
+    // Сценарий: assigned → available — автовозврат
+    if (oldStatus === 'assigned' && status === 'available') {
+      const assignment = await get(
+        `SELECT id FROM user_equipment
+         WHERE equipment_id = ? AND returned_date IS NULL`,
+        [idNum]
+      );
+
+      const upd = await run(`
+        UPDATE equipment
+        SET model_id = ?,
+            inventory_number = ?,
+            serial_number = ?,
+            status = ?,
+            description = ?,
+            purchase_date = ?,
+            warranty_until = ?,
+            cell_id = NULL,
+            workplace_id = NULL,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `, [
+        model_id, inv, sn, status, description,
+        purchase_date || null, warranty_until || null,
+        idNum
+      ]);
+
+      if (upd.changes === 0) {
+        throw new Error('Техника не найдена');
+      }
+
+      if (assignment) {
+        await run(`
+          UPDATE user_equipment
+          SET returned_date = CURRENT_TIMESTAMP,
+              condition_on_return = ?
+          WHERE id = ?
+        `, ['Возвращена при изменении статуса', assignment.id]);
+      }
+
+      return { id: idNum, ...eqData, returned: !!assignment };
+    }
+
+    // Обычное обновление
+    const upd = await run(`
+      UPDATE equipment
+      SET model_id = ?,
+          inventory_number = ?,
+          serial_number = ?,
+          status = ?,
+          description = ?,
+          purchase_date = ?,
+          warranty_until = ?,
+          cell_id = ?,
+          workplace_id = ?,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `, [
+      model_id, inv, sn, status, description,
+      purchase_date || null, warranty_until || null,
+      cell_id || null, workplace_id || null,
+      idNum
+    ]);
+
+    if (upd.changes === 0) {
+      throw new Error('Техника не найдена');
+    }
+
+    return { id: idNum, ...eqData, returned: false };
+  },
+
+  /**
+   * Удалить экземпляр.
+   * Запрещено, если есть активное назначение или статус assigned.
+   */
+  async deleteEquipment(id) {
+    const row = await get(
+      `SELECT id FROM user_equipment
+       WHERE equipment_id = ? AND returned_date IS NULL`,
+      [id]
+    );
+    if (row) {
+      throw new Error('Невозможно удалить технику, она назначена пользователю');
+    }
+
+    const result = await run('DELETE FROM equipment WHERE id = ?', [id]);
+    return { deleted: result.changes };
+  },
+
+  // ============================================================
+  // НАЗНАЧЕНИЯ
+  // ============================================================
+
+  /**
+   * Назначить технику пользователю.
+   * - Закрывает предыдущее активное назначение (если есть).
+   * - Ставит status = 'assigned', обнуляет cell_id и workplace_id.
+   */
+  assignEquipment(userId, equipmentId, condition, notes = '') {
+    return new Promise((resolve, reject) => {
+      db.get('SELECT id, is_active FROM users WHERE id = ?', [userId], (err, user) => {
+        if (err) { reject(err); return; }
+        if (!user) { reject(new Error('Пользователь не найден')); return; }
+        if (!user.is_active) { reject(new Error('Пользователь заблокирован')); return; }
+
         db.get('SELECT id, status FROM equipment WHERE id = ?', [equipmentId], (err, eq) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-          if (!eq) {
-            reject(new Error('Техника не найдена'));
-            return;
-          }
-          
+          if (err) { reject(err); return; }
+          if (!eq) { reject(new Error('Техника не найдена')); return; }
           if (eq.status !== 'available') {
             reject(new Error(`Техника не может быть назначена (текущий статус: ${eq.status})`));
             return;
           }
-          
-          // Проверяем активные назначения
+
           db.get(
-            `SELECT id, user_id FROM user_equipment 
+            `SELECT id FROM user_equipment
              WHERE equipment_id = ? AND returned_date IS NULL`,
             [equipmentId],
             (err, activeAssignment) => {
-              if (err) {
-                reject(err);
-                return;
-              }
-              
+              if (err) { reject(err); return; }
+
               const createNewAssignment = () => {
                 db.run(`
-                  INSERT INTO user_equipment 
-                  (user_id, equipment_id, condition_on_assign, notes) 
+                  INSERT INTO user_equipment
+                    (user_id, equipment_id, condition_on_assign, notes)
                   VALUES (?, ?, ?, ?)
                 `, [userId, equipmentId, condition || 'В хорошем состоянии', notes], function(err) {
-                  if (err) {
-                    reject(err);
-                    return;
-                  }
-                  
+                  if (err) { reject(err); return; }
                   const assignmentId = this.lastID;
-                  
-                  // 🆕 Обнуляем cell_id — техника у пользователя
+
                   db.run(`
-                    UPDATE equipment 
-                    SET status = 'assigned', 
+                    UPDATE equipment
+                    SET status = 'assigned',
                         cell_id = NULL,
-                        updated_at = CURRENT_TIMESTAMP 
+                        workplace_id = NULL,
+                        updated_at = CURRENT_TIMESTAMP
                     WHERE id = ?
                   `, [equipmentId], function(err) {
-                    if (err) {
-                      reject(err);
-                      return;
-                    }
-                    resolve({ 
-                      assignment_id: assignmentId, 
-                      user_id: userId, 
+                    if (err) { reject(err); return; }
+                    resolve({
+                      assignment_id: assignmentId,
+                      user_id: userId,
                       equipment_id: equipmentId,
-                      previous_returned: false
+                      previous_returned: false,
                     });
                   });
                 });
               };
-              
-              // Если есть активное назначение — закрываем перед новым
+
               if (activeAssignment) {
                 db.run(`
-                  UPDATE user_equipment 
-                  SET returned_date = CURRENT_TIMESTAMP, 
+                  UPDATE user_equipment
+                  SET returned_date = CURRENT_TIMESTAMP,
                       condition_on_return = 'Автовозврат: переназначение',
                       notes = COALESCE(notes, '') || ' | Автовозврат при переназначении'
                   WHERE id = ?
                 `, [activeAssignment.id], (err) => {
-                  if (err) {
-                    console.error('Ошибка закрытия старого назначения:', err.message);
-                  }
+                  if (err) console.error('Ошибка закрытия старого назначения:', err.message);
                   createNewAssignment();
                 });
               } else {
@@ -658,57 +898,47 @@ module.exports = ({ db, run, get, all }) => ({
       });
     });
   },
-  
+
   /**
-   * Вернуть технику по equipmentId
-   * Устанавливает returned_date, меняет статус на available и обнуляет cell_id
+   * Вернуть технику по equipmentId.
+   * Ставит returned_date, status = 'available', обнуляет cell_id и workplace_id.
    */
   returnEquipmentByEquipmentId(equipmentId, condition = 'В хорошем состоянии', notes = '') {
     return new Promise((resolve, reject) => {
       db.get(
-        `SELECT id, user_id FROM user_equipment 
+        `SELECT id, user_id FROM user_equipment
          WHERE equipment_id = ? AND returned_date IS NULL`,
         [equipmentId],
         (err, assignment) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-          
+          if (err) { reject(err); return; }
           if (!assignment) {
             resolve({ success: false, message: 'Активное назначение не найдено' });
             return;
           }
-          
+
           db.run(`
-            UPDATE user_equipment 
-            SET returned_date = CURRENT_TIMESTAMP, 
+            UPDATE user_equipment
+            SET returned_date = CURRENT_TIMESTAMP,
                 condition_on_return = ?,
                 notes = COALESCE(notes, '') || CASE WHEN ? != '' THEN ' | ' || ? ELSE '' END
             WHERE id = ?
           `, [condition, notes, notes, assignment.id], function(err) {
-            if (err) {
-              reject(err);
-              return;
-            }
-            
-            // 🆕 Обнуляем cell_id — техника на складе, но без адреса
+            if (err) { reject(err); return; }
+
             db.run(`
-              UPDATE equipment 
-              SET status = 'available', 
+              UPDATE equipment
+              SET status = 'available',
                   cell_id = NULL,
-                  updated_at = CURRENT_TIMESTAMP 
+                  workplace_id = NULL,
+                  updated_at = CURRENT_TIMESTAMP
               WHERE id = ?
             `, [equipmentId], function(err) {
-              if (err) {
-                reject(err);
-                return;
-              }
-              resolve({ 
-                success: true, 
-                assignment_id: assignment.id, 
+              if (err) { reject(err); return; }
+              resolve({
+                success: true,
+                assignment_id: assignment.id,
                 user_id: assignment.user_id,
-                equipment_id: equipmentId 
+                equipment_id: equipmentId,
               });
             });
           });
@@ -716,177 +946,92 @@ module.exports = ({ db, run, get, all }) => ({
       );
     });
   },
-  
-  /**
-   * Получить доступную технику
-   */
-  getAvailableEquipment() {
-    return new Promise((resolve, reject) => {
-      db.all(
-        'SELECT * FROM equipment WHERE status = "available" ORDER BY name',
-        (err, rows) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-          resolve(rows || []);
-        }
-      );
-    });
-  },
-  
-  /**
-   * Получить количество техники по категориям
-   */
-  getEquipmentCountsByCategory() {
-    return new Promise((resolve, reject) => {
-      db.all(`
-        SELECT category_id, COUNT(*) as count
-        FROM equipment
-        WHERE category_id IS NOT NULL
-        GROUP BY category_id
-      `, (err, rows) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-        
-        const counts = {};
-        (rows || []).forEach(row => {
-          counts[row.category_id] = row.count;
-        });
-        resolve(counts);
-      });
-    });
-  },
-  
-  /**
-   * Получить количество техники по типам
-   */
-  getEquipmentCountsByType() {
-    return new Promise((resolve, reject) => {
-      db.all(`
-        SELECT type_id, COUNT(*) as count
-        FROM equipment
-        WHERE type_id IS NOT NULL
-        GROUP BY type_id
-      `, (err, rows) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-        
-        const counts = {};
-        (rows || []).forEach(row => {
-          counts[row.type_id] = row.count;
-        });
-        resolve(counts);
-      });
-    });
-  }
 
-  ,
-  
   // ============================================================
-  // ПЕРЕМЕЩЕНИЯ ТЕХНИКИ
+  // ПЕРЕМЕЩЕНИЯ
   // ============================================================
-  
+
   /**
-   * Переместить технику в ячейку (расширенная версия)
-   * Проверяет capacity, обновляет статус, возвращает старую и новую ячейки
+   * Переместить технику в ячейку (расширенная версия).
+   * Проверяет capacity/is_full через checkCellAvailability,
+   * обновляет статус, возвращает старую и новую ячейки.
    */
   moveEquipmentToCellDetailed(equipmentId, cellId, userId = null, userName = null) {
     return new Promise((resolve, reject) => {
-      // Проверяем технику
       db.get(`
-        SELECT 
-          e.id, e.name, e.inventory_number, e.cell_id, e.status,
-          cell.name as cell_name, cell.code as cell_code
+        SELECT
+          e.id, e.inventory_number, e.cell_id, e.status,
+          m.name AS model_name,
+          cell.name AS cell_name, cell.code AS cell_code
         FROM equipment e
+        JOIN equipment_models m ON m.id = e.model_id
         LEFT JOIN cells cell ON e.cell_id = cell.id
         WHERE e.id = ?
       `, [equipmentId], (err, eq) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-        if (!eq) {
-          reject(new Error('Техника не найдена'));
-          return;
-        }
-        
-        // Если ячейка не указана — просто убираем из ячейки
+        if (err) { reject(err); return; }
+        if (!eq) { reject(new Error('Техника не найдена')); return; }
+
+        // Убрать из ячейки
         if (!cellId) {
           db.run(`
-            UPDATE equipment 
+            UPDATE equipment
             SET cell_id = NULL,
                 status = CASE WHEN status IN ('available', 'placed') THEN 'available' ELSE status END,
-                updated_at = CURRENT_TIMESTAMP 
+                updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
           `, [equipmentId], function(err) {
-            if (err) {
-              reject(err);
-              return;
-            }
+            if (err) { reject(err); return; }
             resolve({
               success: true,
               equipment_id: equipmentId,
               inventory_number: eq.inventory_number,
-              equipment_name: eq.name,
+              model_name: eq.model_name,
               from_cell_id: eq.cell_id,
               from_cell_name: eq.cell_name,
               from_cell_code: eq.cell_code,
               to_cell_id: null,
               to_cell_name: null,
-              to_cell_code: null
+              to_cell_code: null,
             });
           });
           return;
         }
-        
-        // Если уже в этой ячейке — ничего не делаем
-        if (eq.cell_id === parseInt(cellId)) {
+
+        // Уже в этой ячейке
+        if (eq.cell_id === parseInt(cellId, 10)) {
           resolve({
             success: true,
             already_there: true,
             equipment_id: equipmentId,
-            inventory_number: eq.inventory_number
+            inventory_number: eq.inventory_number,
           });
           return;
         }
 
-        // 🆕 Общая проверка ячейки (is_full + capacity)
+        // Проверка ячейки
         checkCellAvailability(db, cellId, equipmentId)
           .then(({ ok, reason, cell, label }) => {
             if (!ok) {
-              if (reason === 'cell_not_found') {
-                return reject(new Error('Ячейка не найдена'));
-              }
-              if (reason === 'is_full') {
-                return reject(new Error(`Ячейка ${label} отмечена как заполненная`));
-              }
-              if (reason === 'over_capacity') {
-                return reject(new Error(`Ячейка ${label} переполнена (${cell.current_count}/${cell.capacity})`));
-              }
+              if (reason === 'cell_not_found') return reject(new Error('Ячейка не найдена'));
+              if (reason === 'is_full')       return reject(new Error(`Ячейка ${label} отмечена как заполненная`));
+              if (reason === 'over_capacity') return reject(new Error(`Ячейка ${label} переполнена (${cell.current_count}/${cell.capacity})`));
               return reject(new Error(`Ячейка недоступна (${reason})`));
             }
 
-            // Перемещаем
             db.run(`
-              UPDATE equipment 
+              UPDATE equipment
               SET cell_id = ?,
                   workplace_id = NULL,
                   status = CASE WHEN status IN ('available', 'placed') THEN 'available' ELSE status END,
-                  updated_at = CURRENT_TIMESTAMP 
+                  updated_at = CURRENT_TIMESTAMP
               WHERE id = ?
             `, [cellId, equipmentId], function(err) {
-              if (err) return reject(err);
-
+              if (err) { reject(err); return; }
               resolve({
                 success: true,
                 equipment_id: equipmentId,
                 inventory_number: eq.inventory_number,
-                equipment_name: eq.name,
+                model_name: eq.model_name,
                 from_cell_id: eq.cell_id,
                 from_cell_name: eq.cell_name,
                 from_cell_code: eq.cell_code,
@@ -895,7 +1040,7 @@ module.exports = ({ db, run, get, all }) => ({
                 to_cell_code: cell.code,
                 to_warehouse_name: cell.warehouse_name,
                 to_zone_name: cell.zone_name,
-                to_rack_name: cell.rack_name
+                to_rack_name: cell.rack_name,
               });
             });
           })
@@ -903,36 +1048,33 @@ module.exports = ({ db, run, get, all }) => ({
       });
     });
   },
-  
+
   /**
-   * Получить историю перемещений техники
-   * Использует activity_log с action = 'equipment_move'
+   * История перемещений экземпляра (из activity_log).
    */
   getEquipmentMoves(equipmentId) {
     return new Promise((resolve, reject) => {
       db.all(`
-        SELECT 
+        SELECT
           al.id,
           al.user_id,
           al.username,
           al.action,
           al.details,
           al.created_at,
-          u.full_name as user_full_name,
-          u.department as user_department
+          u.full_name  AS user_full_name,
+          u.department AS user_department
         FROM activity_log al
         LEFT JOIN users u ON al.user_id = u.id
-        WHERE al.entity_type = 'equipment' 
+        WHERE al.entity_type = 'equipment'
           AND al.entity_id = ?
           AND al.action = 'equipment_move'
         ORDER BY al.id DESC
       `, [equipmentId], (err, rows) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-        resolve(rows || []);
+        if (err) reject(err);
+        else resolve(rows || []);
       });
     });
-  }
+  },
+
 });

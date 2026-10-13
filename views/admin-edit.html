@@ -14,8 +14,7 @@
 <!-- Скрытые поля -->
 <input type="hidden" id="equipmentId" value="{{id}}">
 <input type="hidden" id="currentStatus" value="{{status}}">
-<input type="hidden" id="currentCategoryId" value="{{category_id}}">
-<input type="hidden" id="currentTypeId" value="{{type_id}}">
+<input type="hidden" id="currentModelId" value="{{selected_model_id}}">
 <input type="hidden" id="currentCellId" value="{{cell_id}}">
 <input type="hidden" id="currentWorkplaceId" value="{{workplace_id}}">
 
@@ -68,43 +67,34 @@
             </div>
           </div>
 
+          <!-- Модель ТМЦ -->
+          <div class="form-group">
+            <label>Модель ТМЦ <span class="required">*</span></label>
+            <div class="model-select-row">
+              <select id="model_id" required>
+                {{model_options}}
+              </select>
+              <a href="/admin/models" target="_blank" class="btn btn-ghost btn-sm" title="Открыть страницу номенклатуры в новой вкладке">
+                ➕ Создать модель
+              </a>
+            </div>
+            <div class="help-text">
+              Модель — это обобщённое описание устройства. При смене модели
+              обновятся категория, тип и производитель.
+            </div>
+          </div>
+
           <!-- Двухколоночная сетка полей -->
           <div class="form-grid-2">
             <div class="form-group">
-              <label>Инвентарный номер <span class="required">*</span></label>
-              <input type="text" id="inventory_number" required value="{{inventory_number}}">
-            </div>
-            <div class="form-group">
-              <label>Название <span class="required">*</span></label>
-              <input type="text" id="name" required value="{{name}}">
-            </div>
-
-            <div class="form-group">
-              <label>Категория <span class="required">*</span></label>
-              <select id="category_id" required onchange="onCategoryChange()">
-                <option value="">— Загрузка категорий... —</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Тип <span class="required">*</span></label>
-              <select id="type_id" required disabled>
-                <option value="">— Сначала выберите категорию —</option>
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label>Модель</label>
-              <input type="text" id="model" value="{{model}}">
+              <label>Инвентарный номер</label>
+              <input type="text" id="inventory_number" value="{{inventory_number}}" placeholder="Необязательно">
             </div>
             <div class="form-group">
               <label>Серийный номер</label>
               <input type="text" id="serial_number" value="{{serial_number}}">
             </div>
 
-            <div class="form-group">
-              <label>Производитель</label>
-              <input type="text" id="manufacturer" value="{{manufacturer}}">
-            </div>
             <div class="form-group">
               <label>Статус</label>
               <select id="status" onchange="onStatusChange()">
@@ -114,16 +104,15 @@
                 <span id="statusHelpText">Выберите статус техники</span>
               </div>
             </div>
-
             <div class="form-group">
               <label>Дата покупки</label>
               <input type="date" id="purchase_date" value="{{purchase_date}}">
             </div>
+
             <div class="form-group">
               <label>Гарантия до</label>
               <input type="date" id="warranty_until" value="{{warranty_until}}">
             </div>
-
             <div class="form-group full-width">
               <label>Описание</label>
               <textarea id="description" rows="3">{{description}}</textarea>
@@ -231,17 +220,20 @@
         <dt>Инв. №</dt>
         <dd id="info_inv">{{info_inventory}}</dd>
 
-        <dt>Название</dt>
-        <dd id="info_name">{{info_name}}</dd>
+        <dt>Модель</dt>
+        <dd id="info_model_name">{{info_model_name}}</dd>
+
+        <dt>Corporate ID</dt>
+        <dd id="info_corporate_id">{{info_corporate_id}}</dd>
+
+        <dt>Производитель</dt>
+        <dd id="info_manufacturer">{{info_manufacturer}}</dd>
 
         <dt>Категория</dt>
         <dd id="info_category">{{info_category}}</dd>
 
         <dt>Тип</dt>
         <dd id="info_type">{{info_type}}</dd>
-
-        <dt>Модель</dt>
-        <dd id="info_model">{{info_model}}</dd>
 
         <dt>Серийный</dt>
         <dd id="info_serial">{{info_serial}}</dd>
