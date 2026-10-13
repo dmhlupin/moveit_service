@@ -1,3 +1,104 @@
+## [3.0.6] - 2026-10-13
+
+**🔧 Дашборд и агрегаты: JOIN с `equipment_models` во всех модулях**
+
+Подшаг 3.3.4. Завершён перевод всех модулей и роутов, работающих
+с техникой, на новую модель данных. Дашборд, инвентаризация
+складов, рабочие места, профиль и карточка пользователя больше
+не обращаются к несуществующим полям `equipment.name`,
+`equipment.model`, `equipment.manufacturer`, `equipment.category_id`,
+`equipment.type_id`.
+
+### Изменено (модули БД)
+
+- **`database/modules/dashboard.js`**:
+  * `getEquipmentNeedingAttention` — все 4 запроса
+    (ремонт / истекающая гарантия / просроченная гарантия /
+    без владельца > 6 мес.) переведены на `JOIN equipment_models m`;
+    поля `name` / `model` заменены на `model_name` / `model_corporate_id`;
+  * `getCategoryStats` — счётчик техники по категории теперь через
+    `JOIN equipment_models` (`m.category_id` вместо `e.category_id`).
+- **`database/modules/warehouses.js`**:
+  * `getEquipmentInCell` — `JOIN equipment_models`, алиасы
+    `model_name`, `model_corporate_id`, `model_manufacturer`;
+  * `getWarehouseInventory` — то же, для страницы инвентаризации.
+- **`database/modules/workplaces.js`**:
+  * `getWorkplaceEquipment` — JOIN с моделью;
+  * `getOfficeEquipment` — JOIN с моделью;
+  * `moveEquipmentToWorkplace` — `SELECT` берёт `m.name AS model_name`,
+    возвращает `model_name` вместо `equipment_name`.
+- **`database/modules/profile.js`**:
+  * `getUserActiveEquipment` — JOIN с моделью, алиасы `model_name` /
+    `model_corporate_id` / `model_manufacturer`;
+  * `getUserEquipmentHistory` — то же.
+- **`database/modules/users.js`**:
+  * `getUsersWithEquipment` — `GROUP_CONCAT` по `m.name` вместо `e.name`.
+
+### Удалено (модули БД)
+
+- **`database/modules/dashboard.js` → `getEquipmentWithoutCategory()`** —
+  в новой модели `category_id NOT NULL` на `equipment_models`,
+  сценарий «техника без категории» невозможен.
+
+### Изменено (роуты)
+
+- **`routes/dashboard.js`**:
+  * в блоке «Требует внимания» — `${eq.name}` → `${escapeHtml(eq.model_name || '—')}`
+    во всех 4 подблоках (ремонт, истекающая гарантия, просроченная
+    гарантия, без владельца);
+  * добавлен локальный `escapeHtml`.
+
+### Изменено (клиентский JS)
+
+- **`public/js/admin.js`**:
+  * `viewEquipment` — шапка карточки (`<h2>` = `model_name`,
+    `model_corporate_id · inventory_number`), блок «Информация
+    о технике» — `model_name` / `model_corporate_id` /
+    `model_manufacturer`;
+  * `openMoveEquipmentModal` — заголовок модалки перемещения
+    через `model_name`;
+  * `viewUser` — карточка пользователя: активная техника и
+    история получений через `model_name` / `model_corporate_id` /
+    `model_manufacturer`.
+- **`public/js/catalog.js`**:
+  * `renderEquipmentTable` — колонки «Название» и «Модель»
+    через `model_name` и `model_corporate_id`;
+  * `viewEquipment` — карточка техники в справочнике
+    (шапка + «Информация о технике»).
+
+### Проверено
+
+- Дашборд `/` — все блоки, включая «Требует внимания» и
+  «Техника по категориям».
+- Инвентаризация `/admin/inventory` — сводка складов, модалка
+  деталей, вкладки «Техника» и «Заполненность».
+- Рабочие места `/admin/workplaces` и `/admin/workplaces/:id` —
+  карточки офисов, дерево, модалка просмотра места.
+- Профиль `/profile` — своя техника и история.
+- Карточка пользователя в `/admin` — активная техника и история.
+- Карточка техники в `/admin` и `/admin/catalog`.
+- Поиск по модулям и роутам (`Select-String` по `e.name` /
+  `e.model` / `e.manufacturer` / `e.category_id` / `e.type_id`) —
+  совпадений по технике **нет** (остались только `zone.name`,
+  `warehouse.name`, `office.name` и т.п. — это места хранения,
+  не экземпляры).
+
+### Технический долг
+
+- **`scripts/seed.js`** — ещё создаёт технику со старыми полями
+  (`name` / `model` / `manufacturer` / `category_id` / `type_id`),
+  падает. Чинится в 3.3.5 — создание моделей + экземпляров.
+- **`README.md`** — раздел «Номенклатура» требует актуализации.
+
+### Теги
+
+- v3.0.1 — модель данных
+- v3.0.2 — API номенклатуры
+- v3.0.3 — UI «Номенклатура»
+- v3.0.4 — переход техники на `model_id` (модуль + роуты + формы)
+- v3.0.5 — таблицы `/admin` и `/equipment` под `model_name`
+- **v3.0.6 — дашборд + агрегаты через JOIN (этот)**
+
 ## [3.0.4] - 2026-10-13
 
 **🧩 Переход техники на `model_id` — модуль БД, роуты, формы**
