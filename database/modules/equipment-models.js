@@ -157,6 +157,43 @@ module.exports = ({ db, run, get, all }) => ({
   async getModelsWithCounts() {
     return this.getAllModels({});
   },
+
+    /**
+   * Экземпляры модели — с полным адресом хранения
+   * (склад/зона/стеллаж/ячейка ИЛИ офис/кабинет/место).
+   */
+  async getModelInstances(modelId) {
+    return all(`
+      SELECT
+        e.id,
+        e.inventory_number,
+        e.serial_number,
+        e.status,
+        e.cell_id,
+        e.workplace_id,
+        -- Склад
+        w.name   AS warehouse_name,
+        z.name   AS zone_name,
+        r.name   AS rack_name,
+        c.name   AS cell_name,
+        c.code   AS cell_code,
+        -- Рабочее место
+        o.name   AS office_name,
+        rm.name  AS room_name,
+        wp.name  AS workplace_name,
+        wp.code  AS workplace_code
+      FROM equipment e
+      LEFT JOIN cells      c  ON c.id  = e.cell_id
+      LEFT JOIN racks      r  ON r.id  = c.rack_id
+      LEFT JOIN zones      z  ON z.id  = r.zone_id
+      LEFT JOIN warehouses w  ON w.id  = z.warehouse_id
+      LEFT JOIN workplaces wp ON wp.id = e.workplace_id
+      LEFT JOIN rooms      rm ON rm.id = wp.room_id
+      LEFT JOIN offices    o  ON o.id  = rm.office_id
+      WHERE e.model_id = ?
+      ORDER BY e.inventory_number ASC, e.id ASC
+    `, [modelId]);
+  },
   
   // ============================================================
   // ПРОВЕРКИ

@@ -296,7 +296,8 @@ const cssFilesToCheck = [
   'workplace-details.css',
   'inventory.css',
   'pdf.css',
-  'workplaces.css',      // ← добавить
+  'workplaces.css',
+  'admin-models.css',
 ];
 
 const missingVars = checkVars(themeVars, cssFilesToCheck);
@@ -479,6 +480,11 @@ const placeholderChecks = [
               'view-user-modal',
               '{{office.id}}', '{{office.name}}', '{{office.description}}',
               'id="workplaceViewBody"',
+    ],
+  },
+  {
+    file: 'admin-models.html',
+    expected: [        
     ],
   },
 ];

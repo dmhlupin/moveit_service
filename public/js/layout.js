@@ -126,6 +126,7 @@ function highlightActiveSection() {
     else if (path === '/admin/warehouses' || path.startsWith('/admin/warehouses/')) activePage = 'warehouses';
     else if (path === '/admin/workplaces' || path.startsWith('/admin/workplaces/')) activePage = 'workplaces';
     else if (path === '/admin/inventory') activePage = 'inventory';
+    else if (path === '/admin/models') activePage = 'models';
     else if (path === '/admin/logs') activePage = 'logs';
     else if (path === '/admin/catalog') activePage = 'catalog';
     else if (path === '/pdf' || path.startsWith('/pdf/')) activePage = 'pdf';

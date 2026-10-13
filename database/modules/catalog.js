@@ -8,7 +8,7 @@ module.exports = ({ db, run, get, all }) => ({
   // ============================================================
   
   /**
-   * Получить все категории с количеством типов и техники
+   * Получить все категории с количеством моделей и экземпляров
    */
   getAllCategories() {
     return new Promise((resolve, reject) => {
@@ -23,7 +23,11 @@ module.exports = ({ db, run, get, all }) => ({
           c.created_at,
           c.updated_at,
           (SELECT COUNT(*) FROM equipment_types WHERE category_id = c.id AND is_active = 1) as types_count,
-          (SELECT COUNT(*) FROM equipment WHERE category_id = c.id) as equipment_count
+          (SELECT COUNT(*) FROM equipment_models WHERE category_id = c.id) as models_count,
+          (SELECT COUNT(*)
+             FROM equipment e
+             JOIN equipment_models m ON m.id = e.model_id
+            WHERE m.category_id = c.id) as equipment_count
         FROM equipment_categories c
         ORDER BY c.sort_order ASC, c.name ASC
       `, (err, rows) => {
@@ -42,7 +46,11 @@ module.exports = ({ db, run, get, all }) => ({
         SELECT 
           c.*,
           (SELECT COUNT(*) FROM equipment_types WHERE category_id = c.id) as types_count,
-          (SELECT COUNT(*) FROM equipment WHERE category_id = c.id) as equipment_count
+          (SELECT COUNT(*) FROM equipment_models WHERE category_id = c.id) as models_count,
+          (SELECT COUNT(*)
+             FROM equipment e
+             JOIN equipment_models m ON m.id = e.model_id
+            WHERE m.category_id = c.id) as equipment_count
         FROM equipment_categories c
         WHERE c.id = ?
       `, [id], (err, row) => {
@@ -107,7 +115,7 @@ module.exports = ({ db, run, get, all }) => ({
   
   /**
    * Удалить категорию
-   * Нельзя удалить, если есть типы или привязанная техника
+   * Нельзя удалить, если есть типы или модели с этой категорией
    */
   deleteCategory(id) {
     return new Promise((resolve, reject) => {
@@ -126,18 +134,18 @@ module.exports = ({ db, run, get, all }) => ({
             return;
           }
           
-          // Проверяем технику
+          // Проверяем модели
           db.get(
-            'SELECT COUNT(*) as count FROM equipment WHERE category_id = ?',
+            'SELECT COUNT(*) as count FROM equipment_models WHERE category_id = ?',
             [id],
-            (err, eqRow) => {
+            (err, modelsRow) => {
               if (err) {
                 reject(err);
                 return;
               }
               
-              if (eqRow.count > 0) {
-                reject(new Error(`Нельзя удалить категорию: к ней привязано ${eqRow.count} единиц техники.`));
+              if (modelsRow.count > 0) {
+                reject(new Error(`Нельзя удалить категорию: к ней привязано ${modelsRow.count} моделей.`));
                 return;
               }
               
@@ -157,7 +165,6 @@ module.exports = ({ db, run, get, all }) => ({
   
   /**
    * Изменить порядок категорий
-   * @param {Array} order - массив [{id, sort_order}]
    */
   reorderCategories(order) {
     return new Promise((resolve, reject) => {
@@ -223,7 +230,11 @@ module.exports = ({ db, run, get, all }) => ({
           t.updated_at,
           c.name as category_name,
           c.icon as category_icon,
-          (SELECT COUNT(*) FROM equipment WHERE type_id = t.id) as equipment_count
+          (SELECT COUNT(*) FROM equipment_models WHERE type_id = t.id) as models_count,
+          (SELECT COUNT(*)
+             FROM equipment e
+             JOIN equipment_models m ON m.id = e.model_id
+            WHERE m.type_id = t.id) as equipment_count
         FROM equipment_types t
         JOIN equipment_categories c ON t.category_id = c.id
         WHERE 1=1
@@ -253,7 +264,11 @@ module.exports = ({ db, run, get, all }) => ({
         SELECT 
           t.*,
           c.name as category_name,
-          (SELECT COUNT(*) FROM equipment WHERE type_id = t.id) as equipment_count
+          (SELECT COUNT(*) FROM equipment_models WHERE type_id = t.id) as models_count,
+          (SELECT COUNT(*)
+             FROM equipment e
+             JOIN equipment_models m ON m.id = e.model_id
+            WHERE m.type_id = t.id) as equipment_count
         FROM equipment_types t
         JOIN equipment_categories c ON t.category_id = c.id
         WHERE t.id = ?
@@ -340,12 +355,12 @@ module.exports = ({ db, run, get, all }) => ({
   
   /**
    * Удалить тип
-   * Нельзя удалить, если к нему привязана техника
+   * Нельзя удалить, если есть модели с этим типом
    */
   deleteType(id) {
     return new Promise((resolve, reject) => {
       db.get(
-        'SELECT COUNT(*) as count FROM equipment WHERE type_id = ?',
+        'SELECT COUNT(*) as count FROM equipment_models WHERE type_id = ?',
         [id],
         (err, row) => {
           if (err) {
@@ -354,7 +369,7 @@ module.exports = ({ db, run, get, all }) => ({
           }
           
           if (row.count > 0) {
-            reject(new Error(`Нельзя удалить тип: к нему привязано ${row.count} единиц техники.`));
+            reject(new Error(`Нельзя удалить тип: к нему привязано ${row.count} моделей.`));
             return;
           }
           
@@ -372,7 +387,6 @@ module.exports = ({ db, run, get, all }) => ({
   
   /**
    * Изменить порядок типов
-   * @param {Array} order - массив [{id, sort_order}]
    */
   reorderTypes(order) {
     return new Promise((resolve, reject) => {

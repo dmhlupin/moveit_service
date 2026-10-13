@@ -8,6 +8,7 @@ const {
   getAllModels,
   getModelById,
   getModelByCorporateId,
+  getModelInstances,
   createModel,
   updateModel,
   deleteModel,
@@ -124,7 +125,9 @@ async function getModelAPI(req, res) {
       return res.status(404).json({ error: 'Модель не найдена' });
     }
 
-    res.json(model);
+    const instances = await getModelInstances(id);
+
+    res.json({ ...model, instances });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

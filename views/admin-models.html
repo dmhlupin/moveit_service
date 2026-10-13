@@ -1,0 +1,187 @@
+<!-- views/admin-models.html -->
+<!-- Контент-шаблон страницы «Номенклатура» (модели ТМЦ) -->
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">🧩 Номенклатура</h1>
+    <div class="page-subtitle">Модели ТМЦ — обобщённые описания устройств</div>
+  </div>
+  <div class="page-actions">
+    <a href="/admin" class="btn btn-ghost btn-sm">← Админ-панель</a>
+  </div>
+</div>
+
+<!-- Статистика -->
+<div class="stats-grid">
+  <div class="stat-card">
+    <span class="icon">🧩</span>
+    <div class="number accent" id="statTotal">—</div>
+    <div class="label">Всего моделей</div>
+  </div>
+  <div class="stat-card">
+    <span class="icon">📁</span>
+    <div class="number success" id="statWithCategory">—</div>
+    <div class="label">С категорией и типом</div>
+  </div>
+  <div class="stat-card">
+    <span class="icon">🔧</span>
+    <div class="number warning" id="statWithEquipment">—</div>
+    <div class="label">С экземплярами</div>
+  </div>
+</div>
+
+<!-- Панель фильтров -->
+<div class="card models-toolbar-card">
+  <div class="card-body models-toolbar">
+    <div class="models-filters">
+      <div class="search-wrapper">
+        <span class="search-icon">🔍</span>
+        <input
+          type="text"
+          id="filterSearch"
+          placeholder="Поиск: Corporate ID, название, производитель..."
+          autocomplete="off"
+        >
+      </div>
+      <div class="filter-group">
+        <select id="filterCategory">
+          <option value="">Все категории</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <select id="filterType">
+          <option value="">Все типы</option>
+        </select>
+      </div>
+      <button type="button" class="btn btn-ghost btn-sm" id="btnResetFilters">
+        ✕ Сбросить
+      </button>
+    </div>
+    <div class="models-actions">
+      <button type="button" class="btn btn-success btn-sm" id="btnAddModel">
+        ➕ Добавить модель
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Таблица моделей -->
+<div class="card models-table-card">
+  <div id="modelsTableContainer">
+    <div class="loading-block">⏳ Загрузка моделей...</div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- МОДАЛЬНОЕ ОКНО: СОЗДАНИЕ / РЕДАКТИРОВАНИЕ МОДЕЛИ              -->
+<!-- ============================================================ -->
+<div class="modal-overlay" id="modelModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modelModalTitle">➕ Добавить модель</h3>
+      <button type="button" class="modal-close" id="modelModalClose">✕</button>
+    </div>
+    <form id="modelForm">
+      <input type="hidden" id="modelId">
+
+      <div class="form-group">
+        <label>Corporate ID <span class="required">*</span></label>
+        <input
+          type="text"
+          id="modelCorporateId"
+          required
+          placeholder="Например: M-00001 или *0001"
+          autocomplete="off"
+        >
+        <div class="help-text">
+          Может содержать любые символы, включая <code>*</code>. Должен быть уникальным.
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Название модели <span class="required">*</span></label>
+        <input
+          type="text"
+          id="modelName"
+          required
+          placeholder="Например: Ноутбук Dell Latitude 1440"
+          autocomplete="off"
+        >
+      </div>
+
+      <div class="form-group">
+        <label>Производитель</label>
+        <input
+          type="text"
+          id="modelManufacturer"
+          placeholder="Например: Dell"
+          autocomplete="off"
+        >
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Категория <span class="required">*</span></label>
+          <select id="modelCategory" required>
+            <option value="">— Выберите категорию —</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Тип <span class="required">*</span></label>
+          <select id="modelType" required>
+            <option value="">— Сначала выберите категорию —</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Описание модели</label>
+        <textarea
+          id="modelDescription"
+          placeholder="Краткое описание модели, особенности линейки..."
+        ></textarea>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" id="modelSaveBtn">
+          💾 Сохранить
+        </button>
+        <button type="button" class="btn btn-ghost" id="modelCancelBtn">
+          Отмена
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- МОДАЛЬНОЕ ОКНО: УДАЛЕНИЕ                                       -->
+<!-- ============================================================ -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>🗑️ Подтверждение удаления</h3>
+      <button type="button" class="modal-close" id="deleteModalClose">✕</button>
+    </div>
+    <p id="deleteMessage">Вы уверены?</p>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" id="deleteCancelBtn">Отмена</button>
+      <button type="button" class="btn btn-danger" id="deleteConfirmBtn">Удалить</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- МОДАЛЬНОЕ ОКНО: КАРТОЧКА МОДЕЛИ                               -->
+<!-- ============================================================ -->
+<div class="modal-overlay" id="viewModelModal">
+  <div class="modal view-user-modal">
+    <div class="modal-header">
+      <h3>🧩 Карточка модели</h3>
+      <button type="button" class="modal-close" id="viewModelClose">✕</button>
+    </div>
+    <div id="viewModelBody" class="modal-body">
+      <!-- Заполняется через JS -->
+    </div>
+  </div>
+</div>
