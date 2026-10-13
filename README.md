@@ -6,7 +6,7 @@
 [![Express](https://img.shields.io/badge/Express-4.18-000000?logo=express&logoColor=white)](https://expressjs.com/)
 [![SQLite](https://img.shields.io/badge/SQLite-5.1-003B57?logo=sqlite&logoColor=white)](https://www.sqlite.org/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-2.13.0-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-3.0.3-blue.svg)](CHANGELOG.md)
 
 ---
 
@@ -82,6 +82,20 @@
   - `retired` — списана
 - Карточка техники с историей использования
 - Авто-возврат при переназначении
+
+### 🧩 Номенклатура (модели ТМЦ)
+- **Разделение** «модель ТМЦ» и «экземпляр ТМЦ»:
+  - **Модель** (`equipment_models`) — обобщённое описание устройства:
+    `corporate_id`, название, производитель, категория, тип.
+  - **Экземпляр** (`equipment`) — конкретная единица: `inventory_number`
+    (может отсутствовать), `serial_number` (может отсутствовать),
+    статус, место хранения.
+- **Страница `/admin/models`** — CRUD моделей:
+  - таблица, фильтры по категории/типу, поиск по Corporate ID /
+    названию / производителю;
+  - карточка модели с экземплярами (расположение + статус);
+  - проверка дубликата по `(name, manufacturer)`;
+  - уникальность `corporate_id` вручную (может содержать `*`).
 
 ### 🔍 Страница техники `/equipment`
 - **Серверный фильтр** через URL-query:
@@ -395,6 +409,17 @@ npm run fix-assignments   # Исправить дубли назначений
 | PUT | /api/admin/equipment/:id | Обновить |
 | DELETE | /api/admin/equipment/:id | Удалить |
 
+### 🧩 Номенклатура / модели ТМЦ (только админ)
+
+| Метод | Endpoint | Описание |
+|-------|----------|----------|
+| GET | /api/admin/models | Список моделей |
+| GET | /api/admin/models/:id | Модель + экземпляры |
+| GET | /api/admin/models/check-duplicate | Проверка дубликата |
+| POST | /api/admin/models | Создать модель |
+| PUT | /api/admin/models/:id | Обновить модель |
+| DELETE | /api/admin/models/:id | Удалить модель |
+
 ### 📚 Справочник (только админ)
 
 **Категории:**
@@ -558,6 +583,7 @@ myapp1/
 │   └── modules/
 │       ├── users.js               # CRUD пользователей
 │       ├── equipment.js           # Техника + назначения + фильтры
+│       ├── equipment-models.js
 │       ├── catalog.js             # Категории и типы
 │       ├── auth.js                # Пароли, роли, сессии
 │       ├── profile.js             # Личный кабинет
@@ -583,6 +609,7 @@ myapp1/
 │   ├── catalog.js                 # Справочник
 │   ├── dashboard.js               # Дашборд
 │   ├── equipment.js               # Просмотр + фильтры (серверный)
+│   ├── equipment-models.js
 │   ├── pdf.js                     # PDF-инструкции
 │   ├── profile.js                 # Личный кабинет
 │   ├── users.js                   # Список пользователей
@@ -613,6 +640,7 @@ myapp1/
 │   │   ├── admin-edit.css         # Форма редактирования
 │   │   ├── catalog.css            # Справочник
 │   │   ├── equipment.css          # Страница /equipment
+│   │   ├── admin-models.css
 │   │   ├── logs.css               # Логи
 │   │   ├── warehouses.css         # Склады
 │   │   ├── warehouse-details.css  # Детали склада
@@ -638,6 +666,7 @@ myapp1/
 │       ├── admin-user-edit.js
 │       ├── catalog.js             # Справочник
 │       ├── equipment-filter.js    # Серверный фильтр + поиск
+│       ├── admin-models.js
 │       ├── logs.js                # Логи
 │       ├── warehouses.js          # Склады
 │       ├── warehouse-details.js   # Дерево склада
@@ -669,6 +698,7 @@ myapp1/
 │   ├── admin-workplaces.html
 │   ├── admin-workplace-details.html
 │   └── admin-inventory.html
+│   ├── admin-models.html
 │
 ├── .env
 ├── .gitignore
@@ -684,7 +714,34 @@ myapp1/
 
 ## 📝 История версий
 
-## 📝 История версий
+### [3.0.3] - 2026-10-13
+
+**🧩 Номенклатура: UI моделей ТМЦ**
+
+Страница `/admin/models` — полноценный CRUD моделей ТМЦ
+с таблицей, фильтрами, поиском, пагинацией и карточкой,
+показывающей экземпляры модели с расположением.
+
+Подшаги: 3.2.1 – 3.2.2. Подробности — в [CHANGELOG.md](CHANGELOG.md).
+
+### [3.0.2] - 2026-10-13
+
+**🔌 API номенклатуры**
+
+Бэкенд-роуты управления моделями ТМЦ. Пагинация, фильтры,
+проверка уникальности `corporate_id`, проверка дубликата.
+
+### [3.0.1] - 2026-10-13
+
+**🧩 Крупная переработка модели данных: «модель ТМЦ» / «экземпляр ТМЦ»**
+
+Введена таблица `equipment_models`. `equipment` пересоздана
+под «экземпляры» со ссылкой `model_id`. Категория и тип переехали
+на модель. `inventory_number` / `serial_number` — UNIQUE с NULL.
+
+> ⚠️ **BREAKING CHANGE:** старые данные не мигрируются.
+> Модуль `equipment.js` и роуты техники временно неработоспособны —
+> чинятся в подшагах 3.3.x.
 
 ### [2.13.0] - 2026-10-09
 
@@ -748,6 +805,7 @@ myapp1/
 
 - [ ] 🎨 **Оптимизация интерфейса** — UX-ревью, единообразие форм, доступность
 - [ ] 📥 **Импорт техники из файлов** (CSV / Excel)
+- [ ] 📥 **Импорт моделей и экземпляров из CSV / Excel** (этап 3.5)
 - [ ] 📤 **Экспорт в Excel** (xlsx) — расширение текущего CSV
 - [ ] 📧 **Email-уведомления** — о скором окончании гарантии, о новых назначениях
 - [ ] 🖨️ **Печать карточек техники** и актов приёма-передачи

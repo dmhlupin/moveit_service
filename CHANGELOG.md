@@ -1,3 +1,178 @@
+## [3.0.3] - 2026-10-13
+
+**🧩 Номенклатура: UI страницы моделей ТМЦ + карточка с экземплярами**
+
+Завершён подшаг 3.2: страница `/admin/models` — полноценный CRUD
+моделей с таблицей, фильтрами, поиском, пагинацией и карточкой,
+показывающей экземпляры модели с расположением.
+
+Подшаги 3.2.1 – 3.2.2.
+
+### Added
+
+- **`views/admin-models.html`** — страница «Номенклатура»:
+  * page-header «🧩 Номенклатура» / «Модели ТМЦ — обобщённые описания устройств»;
+  * stats-grid: «Всего моделей / С категорией и типом / С экземплярами»;
+  * тулбар: поиск (Corporate ID / название / производитель),
+    фильтр категории, фильтр типа, сброс, «➕ Добавить модель»;
+  * таблица моделей: `corporate_id | название | производитель |
+    категория | тип | экземпляров | действия`;
+  * пагинация `PAGE_SIZE = 20`;
+  * модалки: `#modelModal` (форма), `#deleteModal`, `#viewModelModal`
+    (карточка модели, `.modal-body`).
+- **`public/js/admin-models.js`** — логика страницы:
+  * загрузка categories + types один раз;
+  * каскад category → type в форме;
+  * CRUD через fetch, дебаунс поиска 300 мс, Enter / Escape;
+  * проверка дубликата по `(name, manufacturer)` (дебаунс 500 мс) —
+    не блокирующая, только предупреждение;
+  * карточка модели: поля + таблица экземпляров с адресом и статусом;
+  * формат места: `🪑 офис / кабинет / место` ИЛИ
+    `📦 склад / ячейка (code)`.
+- **`public/css/admin-models.css`** — стили страницы: тулбар,
+  таблица, пагинация, бейджи категории/типа, `.model-instances-*`,
+  `.model-header-card`, адаптивность.
+- **`routes/equipment-models.js`** (3.2.1) — рендер + 6 API:
+  `getModelsAPI`, `getModelAPI` (+ `instances`), `createModelAPI`,
+  `updateModelAPI`, `deleteModelAPI`, `checkDuplicateAPI`.
+  Логирование `model_create/update/delete` (`entityType: 'model'`).
+- **`database/modules/equipment-models.js`** — `getModelInstances(modelId)`:
+  экземпляры с JOIN на `cells/racks/zones/warehouses` и
+  `workplaces/rooms/offices`.
+- **Пункт «🧩 Номенклатура»** в sidebar (`data-page="models"`)
+  в секции «Управление» после «Классификации».
+- **Общие стили `components.css`**: `.filter-group`, `.filter-actions`,
+  `.search-wrapper` (с `.search-icon`) — вынесены из `equipment.css`,
+  используются на `/equipment` и `/admin/models`.
+
+### Changed
+
+- **`public/js/layout.js`** — подсветка активного пункта для `/admin/models`.
+- **`database/modules/catalog.js`** — счётчики `equipment_count` /
+  `models_count` считаются через `equipment_models` (JOIN на `equipment`).
+  Удаление категории/типа проверяет модели (`equipment_models`),
+  а не технику.
+- **`public/css/equipment.css`** — удалены дубли `.filter-group`,
+  `.filter-actions`, `.search-wrapper` (переехали в `components.css`).
+- **`scripts/check-css.js`** — добавлены `admin-models.html`,
+  `admin-models.css`.
+
+### Fixed
+
+- **`.search-wrapper input[type="text"]`** — стили поиска работают
+  не только с `type="search"`, но и с `type="text"` (нужно для
+  `/admin/models`, где `#filterSearch` — текстовый).
+- **Отступы в карточке модели** — `#viewModelBody` получил
+  класс `modal-body` (padding `--space-xl`).
+
+### Технический долг (передаётся в 3.3)
+
+- Модуль `equipment.js` и роуты `/admin/add`, `/admin/edit/:id`,
+  `/equipment`, `/api/admin/equipment/*`, дашборд — пока работают
+  со старыми полями и **падают** (`no such column: name`).
+  Чинятся в подшагах 3.3.1 – 3.3.5.
+
+### Теги
+
+- v3.0.1 — модель данных: `equipment_models` + пересоздание `equipment`
+- v3.0.2 — API номенклатуры (`routes/equipment-models.js`)
+- **v3.0.3 — UI «Номенклатура» + карточка модели (этот)**
+
+
+## [3.0.2] - 2026-10-13
+
+**🔌 API номенклатуры — модели ТМЦ**
+
+Подшаг 3.2.1: бэкенд-роуты для управления моделями.
+
+### Added
+
+- **`routes/equipment-models.js`** — рендер страницы `/admin/models`
+  и API:
+  * `GET /api/admin/models` — список с фильтрами (`category_id`,
+    `type_id`, `search`) и пагинацией `PAGE_SIZE = 20`;
+  * `GET /api/admin/models/:id` — модель + `instances` (экземпляры
+    с адресом);
+  * `POST /api/admin/models` — создание с проверкой уникальности
+    `corporate_id`;
+  * `PUT /api/admin/models/:id` — обновление (уникальность
+    `corporate_id` с исключением текущей);
+  * `DELETE /api/admin/models/:id` — удаление (запрет при экземплярах);
+  * `GET /api/admin/models/check-duplicate` — проверка дубликата
+    по `(name, manufacturer)`, не блокирующая.
+- **Логирование** через `logAction` с `entityType: 'model'`:
+  `model_create`, `model_update`, `model_delete`.
+
+### Changed
+
+- **`server.js`** — блок «НОМЕНКЛАТУРА — модели ТМЦ» после
+  «СПРАВОЧНИК», все роуты под `requireAdmin`. Порядок:
+  `check-duplicate` перед `/:id`.
+
+### Теги
+
+- v3.0.1 — модель данных
+- **v3.0.2 — API номенклатуры (этот)**
+- v3.0.3 — UI «Номенклатура»
+
+
+## [3.0.1] - 2026-10-13
+
+**🧩 Модель данных: разделение «модель ТМЦ» / «экземпляр ТМЦ»**
+
+Подшаг 3.1: новая таблица `equipment_models`, пересоздание `equipment`
+под экземпляры. **BREAKING CHANGE** — старые данные не мигрируются,
+`equipment` создаётся пустой.
+
+### Added
+
+- **`database/modules/equipment-models.js`** — модуль CRUD моделей:
+  * `getAllModels(opts)` — фильтры + пагинация + `include_total`;
+  * `getModelById(id)`, `getModelByCorporateId(corporate_id)`,
+    `getModelsWithCounts()`;
+  * `getModelInstances(modelId)` — экземпляры с полным адресом;
+  * `isCorporateIdFree(corporateId, excludeId)`;
+  * `findSimilarModel({ name, manufacturer, excludeId })`;
+  * `createModel`, `updateModel`, `deleteModel`.
+- **`scripts/check-models.js`** — проверка структуры БД (поля,
+  FK, индексы, UNIQUE на `corporate_id`, сводка).
+
+### Changed
+
+- **Таблица `equipment_models`** (новая): `id, corporate_id (UNIQUE),
+  name, manufacturer, category_id (FK RESTRICT), type_id (FK RESTRICT),
+  description, created_at, updated_at`.
+- **Таблица `equipment` пересоздана**:
+  * оставлены: `id, inventory_number (UNIQUE, NULL), serial_number
+    (UNIQUE, NULL), status, cell_id, workplace_id, purchase_date,
+    warranty_until, description, created_at, updated_at`;
+  * добавлено: `model_id NOT NULL` (FK → `equipment_models` RESTRICT);
+  * удалены: `name, model, manufacturer, category_id, type_id`.
+- **Таблица `user_equipment` пересоздана** с FK на новую `equipment`.
+  Данные очищены (приложение в разработке).
+- **`database/db.js`** — подключён `equipment-models`.
+- **`scripts/migrate.js`**:
+  * `createEquipmentModelsTable()`;
+  * `migrateEquipmentToInstances()` — идемпотентно (по `model_id`);
+  * `createEquipmentModelsIndexes()` — 5 индексов на моделях,
+    6 на экземплярах.
+- **`package.json`** — скрипт `check-models`.
+
+### Технический долг (на момент 3.0.1)
+
+- Модуль `equipment.js`, роуты техники, дашборд — **падают** с
+  `no such column: name/category_id`. Чинятся в 3.3.
+- `routes/catalog.js` и `public/js/catalog.js` — на момент 3.0.1
+  ещё работают со старым `equipment`; исправлено в 3.0.3
+  (`database/modules/catalog.js`).
+
+### Теги
+
+- **v3.0.1 — модель данных (этот)**
+- v3.0.2 — API номенклатуры
+- v3.0.3 — UI «Номенклатура»
+
+
 ## [2.13.0] - 2026-10-09
 
 **🧭 Переработка sidebar + роле-зависимая навигация**
