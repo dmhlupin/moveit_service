@@ -656,6 +656,16 @@ async function seedCategoriesAndTypes() {
 }
 
 async function mapExistingEquipment() {
+  // Если equipment уже пересоздана под новую схему (model_id) —
+  // старых полей name/type_id нет, миграция не нужна.
+  const hasName = await columnExists('equipment', 'name');
+  const hasTypeId = await columnExists('equipment', 'type_id');
+
+  if (!hasName || !hasTypeId) {
+    console.log('⏭️  equipment уже в новой схеме (name/type_id отсутствуют), пропуск\n');
+    return;
+  }
+
   const untyped = await all(`SELECT id, name FROM equipment WHERE type_id IS NULL`);
   
   if (untyped.length === 0) {
@@ -1063,7 +1073,7 @@ async function seedOffices() {
     await run(`
       INSERT INTO workplaces (room_id, name, code, sort_order, is_active)
       VALUES (?, ?, ?, ?, 1)
-    `, [room101.lastID, w.name, w.code, i + 1]);
+    `, [room102.lastID, w.name, w.code, i + 1]);
   }
   console.log(`      ✅ ${wp102.length} рабочих мест`);
 
@@ -1101,7 +1111,7 @@ async function seedOffices() {
     await run(`
       INSERT INTO workplaces (room_id, name, code, sort_order, is_active)
       VALUES (?, ?, ?, ?, 1)
-    `, [room101.lastID, w.name, w.code, i + 1]);
+    `, [room201.lastID, w.name, w.code, i + 1]);
   }
   console.log(`      ✅ ${wp201.length} рабочих мест`);
 
@@ -1122,7 +1132,7 @@ async function seedOffices() {
     await run(`
       INSERT INTO workplaces (room_id, name, code, sort_order, is_active)
       VALUES (?, ?, ?, ?, 1)
-    `, [room101.lastID, w.name, w.code, i + 1]);
+    `, [room202.lastID, w.name, w.code, i + 1]);
   }
   console.log(`      ✅ ${wp202.length} рабочих мест`);
 
@@ -1151,6 +1161,16 @@ async function migrateEquipmentPlacedStatus() {
 
   const hasWorkplaceId = await columnExists('equipment', 'workplace_id');
   if (!hasWorkplaceId) return;
+
+  // Если equipment уже пересоздана под новую схему — статус 'placed'
+  // всё равно актуален, но `available → placed` в новой схеме
+  // бессмысленно (новых записей с available + workplace_id быть не может).
+  // Пропуск.
+  const hasModelId = await columnExists('equipment', 'model_id');
+  if (hasModelId) {
+    console.log('⏭️  equipment уже в новой схеме (model_id есть), пропуск\n');
+    return;
+  }
 
   console.log('📋 Миграция статуса: available → placed (для техники на рабочих местах)...');
 

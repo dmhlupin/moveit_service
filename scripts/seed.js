@@ -216,6 +216,7 @@ async function checkStructure() {
   const requiredTables = [
     'users',
     'equipment',
+    'equipment_models',
     'equipment_categories',
     'equipment_types',
     'user_equipment',
@@ -327,10 +328,11 @@ async function clearDemoData() {
   
   await run('PRAGMA foreign_keys = OFF');
   
-  // Удаляем демо-данные
+  // Удаляем демо-данные (порядок важен: сначала зависимые)
   await run('DELETE FROM activity_log');
   await run('DELETE FROM user_equipment');
   await run('DELETE FROM equipment');
+  await run('DELETE FROM equipment_models');
   
   // Удаляем всех пользователей КРОМЕ админов
   const deleted = await run(`DELETE FROM users WHERE role != 'admin'`);
@@ -338,7 +340,7 @@ async function clearDemoData() {
   
   // Сбрасываем счётчики автоинкремента
   // НЕ трогаем equipment_categories и equipment_types — там свои ID
-  await run(`DELETE FROM sqlite_sequence WHERE name IN ('users', 'equipment', 'user_equipment', 'activity_log')`);
+  await run(`DELETE FROM sqlite_sequence WHERE name IN ('users', 'equipment', 'equipment_models', 'user_equipment', 'activity_log')`);
   
   await run('PRAGMA foreign_keys = ON');
   
@@ -419,94 +421,186 @@ async function createUsers() {
 }
 
 // ============================================================
-// СОЗДАНИЕ ТЕХНИКИ
+// СОЗДАНИЕ МОДЕЛЕЙ ТМЦ
 // ============================================================
 
-async function createEquipment() {
-  log('\n📦 Создание техники...', true);
-  
-  // Загружаем справочник типов
+/**
+ * Собирает уникальные модели из EQUIPMENT_DATA.
+ * Ключ — комбинация (name, model, manufacturer).
+ *
+ * @returns {Array<{corporate_id, name, manufacturer, category_id, type_id, model_key}>}
+ */
+async function buildModelsFromEquipmentData() {
+  // Справочник типов
   const types = await all(`
-    SELECT t.id, t.name, t.category_id, c.name as category_name
+    SELECT t.id, t.name, t.category_id
     FROM equipment_types t
     JOIN equipment_categories c ON t.category_id = c.id
   `);
-  
-  // Создаём карту: name → {type_id, category_id}
+
   const typeMap = {};
   for (const t of types) {
     typeMap[t.name] = { type_id: t.id, category_id: t.category_id };
   }
-  
+
+  // Уникальные модели
+  const modelMap = new Map(); // key → { name, manufacturer, category_id, type_id }
+  const notFoundTypes = new Set();
+
+  for (const eq of EQUIPMENT_DATA) {
+    const typeInfo = typeMap[eq.name];
+    if (!typeInfo) {
+      notFoundTypes.add(eq.name);
+      continue;
+    }
+
+    const key = `${eq.name}|${eq.model}|${eq.manufacturer || ''}`;
+    if (!modelMap.has(key)) {
+      modelMap.set(key, {
+        name: eq.model,                       // название модели
+        manufacturer: eq.manufacturer || null,
+        category_id: typeInfo.category_id,
+        type_id: typeInfo.type_id,
+        type_name: eq.name,                   // 'Ноутбук', 'Монитор', ... (для DESCRIPTIONS)
+      });
+    }
+  }
+
+  if (notFoundTypes.size > 0) {
+    log(`   ⚠️  Типы не найдены в справочнике: ${[...notFoundTypes].join(', ')}`, true);
+  }
+
+  // Присваиваем corporate_id
+  const models = [];
+  let counter = 1;
+  for (const [key, m] of modelMap) {
+    models.push({
+      corporate_id: `MOD-${String(counter).padStart(4, '0')}`,
+      name: m.name,
+      manufacturer: m.manufacturer,
+      category_id: m.category_id,
+      type_id: m.type_id,
+      type_name: m.type_name,
+      model_key: key,                       // служебное — для сопоставления
+    });
+    counter++;
+  }
+
+  return models;
+}
+
+/**
+ * Создать модели ТМЦ.
+ * @returns {Promise<Map<model_key, model_id>>} — соответствие «ключ → ID»
+ */
+async function createEquipmentModels() {
+  log('\n🧩 Создание моделей ТМЦ...', true);
+
+  const models = await buildModelsFromEquipmentData();
+
+  if (models.length === 0) {
+    log('   ⚠️  Не удалось собрать ни одной модели', true);
+    return new Map();
+  }
+
+  const keyToId = new Map();
+  let created = 0;
+
+  for (const m of models) {
+    const description = DESCRIPTIONS[m.type_name] || null;
+    const result = await run(`
+      INSERT INTO equipment_models
+        (corporate_id, name, manufacturer, category_id, type_id, description)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `, [
+      m.corporate_id,
+      m.name,
+      m.manufacturer,
+      m.category_id,
+      m.type_id,
+      description,
+    ]);
+
+    keyToId.set(m.model_key, result.lastID);
+    created++;
+
+    const mfr = m.manufacturer ? ` (${m.manufacturer})` : '';
+    log(`   ✅ ${m.corporate_id} — ${m.name}${mfr}`, true);
+  }
+
+  log(`   ✅ Создано моделей: ${created}`, true);
+  return keyToId;
+}
+
+// ============================================================
+// СОЗДАНИЕ ЭКЗЕМПЛЯРОВ ТЕХНИКИ
+// ============================================================
+
+async function createEquipment(modelKeyToId) {
+  log('\n📦 Создание экземпляров техники...', true);
+
   const createdEquipment = [];
   let counter = 1;
-  let notFoundTypes = 0;
-  
+  let skipped = 0;
+
   for (const eqData of EQUIPMENT_DATA) {
-    const inventoryNumber = `EQ-${String(counter).padStart(4, '0')}`;
-    
-    // Ищем тип в справочнике
-    const typeInfo = typeMap[eqData.name];
-    
-    if (!typeInfo) {
-      log(`   ⚠️  Тип не найден: "${eqData.name}" — пропускаем`, true);
-      notFoundTypes++;
+    const key = `${eqData.name}|${eqData.model}|${eqData.manufacturer || ''}`;
+    const modelId = modelKeyToId.get(key);
+
+    if (!modelId) {
+      log(`   ⚠️  Нет модели для: ${eqData.model} — пропускаем`, true);
+      skipped++;
       counter++;
       continue;
     }
-    
+
+    const inventoryNumber = `EQ-${String(counter).padStart(4, '0')}`;
+
     // Дата покупки: от 30 до 730 дней назад
     const purchaseDate = randomDate(30, 730);
-    
+
     // Гарантия: +1, +2 или +3 года
     const warrantyYears = Math.floor(Math.random() * 3) + 1;
     const purchaseDateObj = new Date(purchaseDate);
     const warrantyDate = new Date(purchaseDateObj);
     warrantyDate.setFullYear(warrantyDate.getFullYear() + warrantyYears);
     const warrantyUntil = warrantyDate.toISOString().slice(0, 10);
-    
+
     // Статус: 60% assigned, 40% available
     const status = Math.random() < 0.6 ? 'assigned' : 'available';
-    const description = DESCRIPTIONS[eqData.name] || 'Оборудование';
-    
+
     const result = await run(`
-      INSERT INTO equipment 
-      (inventory_number, name, model, serial_number, manufacturer, 
-       purchase_date, warranty_until, status, description,
-       category_id, type_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO equipment
+        (model_id, inventory_number, serial_number, status,
+         purchase_date, warranty_until, description)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `, [
+      modelId,
       inventoryNumber,
-      eqData.name,
-      eqData.model,
       eqData.serial,
-      eqData.manufacturer,
+      status,
       purchaseDate.slice(0, 10),
       warrantyUntil,
-      status,
-      description,
-      typeInfo.category_id,
-      typeInfo.type_id
+      null,                                 // описание живёт на модели
     ]);
-    
+
     createdEquipment.push({
-      ...eqData,
       id: result.lastID,
+      model_id: modelId,
       inventory_number: inventoryNumber,
+      serial_number: eqData.serial,
       status,
       purchase_date: purchaseDate.slice(0, 10),
-      category_id: typeInfo.category_id,
-      type_id: typeInfo.type_id
     });
-    
+
     counter++;
   }
-  
-  log(`   ✅ Создано ${createdEquipment.length} единиц техники`, true);
-  if (notFoundTypes > 0) {
-    log(`   ⚠️  Пропущено (тип не найден): ${notFoundTypes}`, true);
+
+  log(`   ✅ Создано экземпляров: ${createdEquipment.length}`, true);
+  if (skipped > 0) {
+    log(`   ⚠️  Пропущено: ${skipped}`, true);
   }
-  
+
   return createdEquipment;
 }
 
@@ -694,7 +788,8 @@ async function seed() {
     
     // ===== 4. Создание демо-данных =====
     const users = await createUsers();
-    const equipment = await createEquipment();
+    const modelKeyToId = await createEquipmentModels();
+    const equipment = await createEquipment(modelKeyToId);
     await createAssignments(users, equipment);
     await createActivityLog(users);
     
@@ -718,7 +813,8 @@ async function seed() {
     console.log('      • popov, lebedeva               (Маркетинг)');
     console.log('      • orlov, fedorov                (Логистика)');
     console.log('');
-    console.log('📦 Техника: 40 единиц (разные категории)');
+    console.log('🧩 Модели ТМЦ:  ~20 моделей (ноутбуки, мониторы, периферия...)');
+    console.log('📦 Экземпляры:  40 единиц техники');
     console.log('');
     console.log('⚠️  ВСЕМ пользователям при первом входе');
     console.log('    будет предложено сменить пароль.');

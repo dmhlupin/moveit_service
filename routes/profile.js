@@ -56,10 +56,10 @@ async function renderProfile(req, res) {
       activeEquipment.forEach(item => {
         activeRows += `
           <tr>
-            <td><strong class="font-mono">${escapeHtml(item.inventory_number)}</strong></td>
-            <td>${escapeHtml(item.name)}</td>
-            <td>${escapeHtml(item.model) || '—'}</td>
-            <td>${escapeHtml(item.manufacturer) || '—'}</td>
+            <td><strong class="font-mono">${escapeHtml(item.inventory_number) || '—'}</strong></td>
+            <td>${escapeHtml(item.model_name) || '—'}</td>
+            <td>${escapeHtml(item.model_corporate_id) || '—'}</td>
+            <td>${escapeHtml(item.model_manufacturer) || '—'}</td>
             <td>${formatDate(item.assigned_date)}</td>
             <td>${escapeHtml(item.condition_on_assign) || '—'}</td>
           </tr>
@@ -80,9 +80,9 @@ async function renderProfile(req, res) {
 
         historyRows += `
           <tr>
-            <td><strong class="font-mono">${escapeHtml(item.inventory_number)}</strong></td>
-            <td>${escapeHtml(item.name)}</td>
-            <td>${escapeHtml(item.model) || '—'}</td>
+            <td><strong class="font-mono">${escapeHtml(item.inventory_number) || '—'}</strong></td>
+            <td>${escapeHtml(item.model_name) || '—'}</td>
+            <td>${escapeHtml(item.model_corporate_id) || '—'}</td>
             <td>${formatDate(item.assigned_date)}</td>
             <td>${item.returned_date ? formatDate(item.returned_date) : '—'}</td>
             <td>${statusBadge}</td>
