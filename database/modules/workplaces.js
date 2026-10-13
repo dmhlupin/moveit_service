@@ -729,20 +729,23 @@ module.exports = ({ db, run, get, all }) => ({
         SELECT
           e.id,
           e.inventory_number,
-          e.name,
-          e.model,
+          m.name         AS model_name,
+          m.corporate_id AS model_corporate_id,
+          m.manufacturer AS model_manufacturer,
           e.serial_number,
-          e.manufacturer,
           e.status,
           e.purchase_date,
           e.warranty_until,
+          m.category_id  AS category_id,
+          m.type_id      AS type_id,
           c.name as category_name,
           c.icon as category_icon,
           t.name as type_name,
           t.icon as type_icon
         FROM equipment e
-        LEFT JOIN equipment_categories c ON e.category_id = c.id
-        LEFT JOIN equipment_types t ON e.type_id = t.id
+        JOIN equipment_models m ON m.id = e.model_id
+        LEFT JOIN equipment_categories c ON c.id = m.category_id
+        LEFT JOIN equipment_types      t ON t.id = m.type_id
         WHERE e.workplace_id = ?
         ORDER BY c.sort_order, t.sort_order, e.inventory_number
       `, [workplaceId], (err, rows) => {
@@ -759,7 +762,16 @@ module.exports = ({ db, run, get, all }) => ({
   moveEquipmentToWorkplace(equipmentId, workplaceId) {
     return new Promise((resolve, reject) => {
       // Проверяем технику
-      db.get('SELECT id, name, cell_id, workplace_id FROM equipment WHERE id = ?', [equipmentId], (err, eq) => {
+      db.get(`
+        SELECT
+          e.id,
+          m.name AS model_name,
+          e.cell_id,
+          e.workplace_id
+        FROM equipment e
+        JOIN equipment_models m ON m.id = e.model_id
+        WHERE e.id = ?
+      `, [equipmentId], (err, eq) => {
         if (err) {
           reject(err);
           return;
@@ -806,7 +818,7 @@ module.exports = ({ db, run, get, all }) => ({
               old_workplace_id: eq.workplace_id,
               new_workplace_id: workplaceId,
               old_cell_id: eq.cell_id,
-              equipment_name: eq.name
+              model_name: eq.model_name,
             });
           });
         });
@@ -892,13 +904,15 @@ module.exports = ({ db, run, get, all }) => ({
         SELECT
           e.id,
           e.inventory_number,
-          e.name,
-          e.model,
+          m.name         AS model_name,
+          m.corporate_id AS model_corporate_id,
+          m.manufacturer AS model_manufacturer,
           e.serial_number,
-          e.manufacturer,
           e.status,
           e.purchase_date,
           e.warranty_until,
+          m.category_id  AS category_id,
+          m.type_id      AS type_id,
           c.name as category_name,
           c.icon as category_icon,
           t.name as type_name,
@@ -909,8 +923,9 @@ module.exports = ({ db, run, get, all }) => ({
           r.name as room_name,
           o.name as office_name
         FROM equipment e
-        LEFT JOIN equipment_categories c ON e.category_id = c.id
-        LEFT JOIN equipment_types t ON e.type_id = t.id
+        JOIN equipment_models m ON m.id = e.model_id
+        LEFT JOIN equipment_categories c ON c.id = m.category_id
+        LEFT JOIN equipment_types      t ON t.id = m.type_id
         JOIN workplaces w ON e.workplace_id = w.id
         JOIN rooms r ON w.room_id = r.id
         JOIN offices o ON r.office_id = o.id

@@ -288,8 +288,10 @@ async function viewEquipment(id) {
             <div class="equipment-header-card">
                 <div class="equipment-header-icon">🔧</div>
                 <div class="equipment-header-info">
-                    <h2>${escapeHtml(equipment.name)}</h2>
-                    <div class="equipment-header-inv">${escapeHtml(equipment.inventory_number)}</div>
+                    <h2>${escapeHtml(equipment.model_name || '—')}</h2>
+                    <div class="equipment-header-inv">
+                        ${equipment.model_corporate_id ? escapeHtml(equipment.model_corporate_id) + ' · ' : ''}${escapeHtml(equipment.inventory_number || '—')}
+                    </div>
                     <div class="equipment-header-badges">
                         ${statusBadge}
                         ${categoryHtml}
@@ -317,16 +319,16 @@ async function viewEquipment(id) {
                 <h4>📋 Информация о технике</h4>
                 <div class="detail-grid">
                     <div class="detail-item">
-                        <label>Название</label>
-                        <div class="value">${escapeHtml(equipment.name)}</div>
+                        <label>Модель</label>
+                        <div class="value">${escapeHtml(equipment.model_name || '—')}</div>
                     </div>
                     <div class="detail-item">
-                        <label>Модель</label>
-                        <div class="value">${escapeHtml(equipment.model || '—')}</div>
+                        <label>Корпоративный ИД</label>
+                        <div class="value">${escapeHtml(equipment.model_corporate_id || '—')}</div>
                     </div>
                     <div class="detail-item">
                         <label>Производитель</label>
-                        <div class="value">${escapeHtml(equipment.manufacturer || '—')}</div>
+                        <div class="value">${escapeHtml(equipment.model_manufacturer || '—')}</div>
                     </div>
                     <div class="detail-item">
                         <label>Серийный номер</label>
@@ -590,9 +592,9 @@ async function viewUser(id) {
                             <span class="equipment-card-date">${assignedDate}</span>
                         </div>
                         <div class="equipment-card-body">
-                            <div class="equipment-card-name">${eq.name}</div>
-                            ${eq.model ? `<div class="equipment-card-model">${eq.model}</div>` : ''}
-                            ${eq.manufacturer ? `<div class="equipment-card-manufacturer">${eq.manufacturer}</div>` : ''}
+                            <div class="equipment-card-name">${escapeHtml(eq.model_name || '—')}</div>
+                            ${eq.model_corporate_id ? `<div class="equipment-card-model">${escapeHtml(eq.model_corporate_id)}</div>` : ''}
+                            ${eq.model_manufacturer ? `<div class="equipment-card-manufacturer">${escapeHtml(eq.model_manufacturer)}</div>` : ''}
                         </div>
                         ${eq.condition_on_assign ? `
                             <div class="equipment-card-footer">
@@ -636,8 +638,8 @@ async function viewUser(id) {
 
                 historyHtml += `
                     <tr>
-                        <td><strong>${h.inventory_number}</strong></td>
-                        <td>${h.name}</td>
+                        <td><strong>${escapeHtml(h.inventory_number || '—')}</strong></td>
+                        <td>${escapeHtml(h.model_name || '—')}</td>
                         <td>${assignedDate}</td>
                         <td>${returnedDate}</td>
                         <td>${statusBadge}</td>
@@ -783,8 +785,8 @@ async function openMoveEquipmentModal(equipmentId) {
         
         // Заголовок с информацией о технике
         info.innerHTML = `
-            <div class="move-equipment-name">${escapeHtml(data.equipment.name)}</div>
-            <span class="move-equipment-inv">${escapeHtml(data.equipment.inventory_number)}</span>
+            <div class="move-equipment-name">${escapeHtml(data.equipment.model_name || '—')}</div>
+            <span class="move-equipment-inv">${escapeHtml(data.equipment.inventory_number || '—')}</span>
         `;
         
         // Текущее место хранения

@@ -67,10 +67,16 @@ module.exports = ({ db, run, get, all }) => ({
       // Техника в ремонте
       const maintenancePromise = new Promise((res, rej) => {
         db.all(`
-          SELECT id, inventory_number, name, model, status
-          FROM equipment
-          WHERE status = 'maintenance'
-          ORDER BY updated_at DESC
+          SELECT
+            e.id,
+            e.inventory_number,
+            m.name         AS model_name,
+            m.corporate_id AS model_corporate_id,
+            e.status
+          FROM equipment e
+          JOIN equipment_models m ON m.id = e.model_id
+          WHERE e.status = 'maintenance'
+          ORDER BY e.updated_at DESC
           LIMIT 5
         `, (err, rows) => {
           if (err) rej(err);
@@ -81,14 +87,19 @@ module.exports = ({ db, run, get, all }) => ({
       // Гарантия истекает в ближайшие 30 дней
       const warrantySoonPromise = new Promise((res, rej) => {
         db.all(`
-          SELECT 
-            id, inventory_number, name, model, warranty_until,
-            CAST(julianday(warranty_until) - julianday('now') AS INTEGER) as days_left
-          FROM equipment
-          WHERE warranty_until IS NOT NULL
-            AND warranty_until >= date('now')
-            AND warranty_until <= date('now', '+30 days')
-          ORDER BY warranty_until ASC
+          SELECT
+            e.id,
+            e.inventory_number,
+            m.name         AS model_name,
+            m.corporate_id AS model_corporate_id,
+            e.warranty_until,
+            CAST(julianday(e.warranty_until) - julianday('now') AS INTEGER) as days_left
+          FROM equipment e
+          JOIN equipment_models m ON m.id = e.model_id
+          WHERE e.warranty_until IS NOT NULL
+            AND e.warranty_until >= date('now')
+            AND e.warranty_until <= date('now', '+30 days')
+          ORDER BY e.warranty_until ASC
           LIMIT 10
         `, (err, rows) => {
           if (err) rej(err);
@@ -99,13 +110,18 @@ module.exports = ({ db, run, get, all }) => ({
       // Просроченная гарантия
       const warrantyExpiredPromise = new Promise((res, rej) => {
         db.all(`
-          SELECT 
-            id, inventory_number, name, model, warranty_until,
-            CAST(julianday('now') - julianday(warranty_until) AS INTEGER) as days_expired
-          FROM equipment
-          WHERE warranty_until IS NOT NULL
-            AND warranty_until < date('now')
-          ORDER BY warranty_until ASC
+          SELECT
+            e.id,
+            e.inventory_number,
+            m.name         AS model_name,
+            m.corporate_id AS model_corporate_id,
+            e.warranty_until,
+            CAST(julianday('now') - julianday(e.warranty_until) AS INTEGER) as days_expired
+          FROM equipment e
+          JOIN equipment_models m ON m.id = e.model_id
+          WHERE e.warranty_until IS NOT NULL
+            AND e.warranty_until < date('now')
+          ORDER BY e.warranty_until ASC
           LIMIT 10
         `, (err, rows) => {
           if (err) rej(err);
@@ -116,12 +132,18 @@ module.exports = ({ db, run, get, all }) => ({
       // Техника долго без владельца (available > 180 дней от покупки)
       const longAvailablePromise = new Promise((res, rej) => {
         db.all(`
-          SELECT id, inventory_number, name, model, purchase_date
-          FROM equipment
-          WHERE status = 'available'
-            AND purchase_date IS NOT NULL
-            AND purchase_date <= date('now', '-180 days')
-          ORDER BY purchase_date ASC
+          SELECT
+            e.id,
+            e.inventory_number,
+            m.name         AS model_name,
+            m.corporate_id AS model_corporate_id,
+            e.purchase_date
+          FROM equipment e
+          JOIN equipment_models m ON m.id = e.model_id
+          WHERE e.status = 'available'
+            AND e.purchase_date IS NOT NULL
+            AND e.purchase_date <= date('now', '-180 days')
+          ORDER BY e.purchase_date ASC
           LIMIT 5
         `, (err, rows) => {
           if (err) rej(err);
@@ -210,7 +232,10 @@ module.exports = ({ db, run, get, all }) => ({
           c.name,
           c.icon,
           c.sort_order,
-          (SELECT COUNT(*) FROM equipment WHERE category_id = c.id) as equipment_count,
+          (SELECT COUNT(*) FROM equipment e
+            JOIN equipment_models m ON m.id = e.model_id
+            WHERE m.category_id = c.id
+          ) as equipment_count,
           (SELECT COUNT(*) FROM equipment_types WHERE category_id = c.id AND is_active = 1) as types_count
         FROM equipment_categories c
         WHERE c.is_active = 1
@@ -221,10 +246,8 @@ module.exports = ({ db, run, get, all }) => ({
           return;
         }
         
-        // Общее количество техники в категориях
         const total = (rows || []).reduce((sum, r) => sum + (r.equipment_count || 0), 0);
         
-        // Добавляем процент
         const result = (rows || []).map(r => ({
           ...r,
           percent: total > 0 ? Math.round((r.equipment_count / total) * 100) : 0
@@ -233,24 +256,5 @@ module.exports = ({ db, run, get, all }) => ({
         resolve({ categories: result, total });
       });
     });
-  },
-  
-  /**
-   * Получить технику без категории
-   */
-  getEquipmentWithoutCategory() {
-    return new Promise((resolve, reject) => {
-      db.all(`
-        SELECT id, inventory_number, name, model
-        FROM equipment
-        WHERE category_id IS NULL
-        ORDER BY inventory_number
-        LIMIT 20
-      `, (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows || []);
-      });
-    });
-  }
-  
+  },  
 });

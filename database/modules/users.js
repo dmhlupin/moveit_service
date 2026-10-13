@@ -94,13 +94,14 @@ module.exports = ({ db, run, get, all }) => ({
         SELECT 
           u.*,
           GROUP_CONCAT(
-            e.name || ' (' || e.inventory_number || ')', 
+            m.name || ' (' || e.inventory_number || ')', 
             ', '
           ) as equipment_list,
           COUNT(ue.id) as equipment_count
         FROM users u
         LEFT JOIN user_equipment ue ON u.id = ue.user_id AND ue.returned_date IS NULL
         LEFT JOIN equipment e ON ue.equipment_id = e.id
+        LEFT JOIN equipment_models m ON m.id = e.model_id
         GROUP BY u.id
         ORDER BY u.full_name
       `, (err, rows) => {

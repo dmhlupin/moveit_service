@@ -49,27 +49,18 @@
 
 const { checkCellAvailability } = require('./cells');
 
-module.exports = ({ db, run, get, all }) => ({
-
-  // 🆕 Общий хелпер — экспортируем для роутов (admin.js)
-  checkCellAvailability(cellId, excludeEquipmentId = null) {
-    return checkCellAvailability(db, cellId, excludeEquipmentId);
-  },
+module.exports = ({ db, run, get, all }) => {
 
   // ============================================================
-  // 🆕 ПРОВЕРКА УНИКАЛЬНОСТИ inventory_number / serial_number
+  // 🆕 ЛОКАЛЬНЫЙ ХЕЛПЕР — не на объекте, а в замыкании,
+  //     чтобы не зависеть от `this` при деструктуризации в db.js
   // ============================================================
 
   /**
    * Проверяет уникальность inventory_number и serial_number.
    * NULL разрешён и не считается коллизией.
-   *
-   * @param {string|null} inventoryNumber
-   * @param {string|null} serialNumber
-   * @param {number|null} excludeId — id экземпляра, который исключаем (для update)
-   * @returns {Promise<{ok: boolean, reason?: string, field?: string, conflict_id?: number}>}
    */
-  async checkUniqueSerialAndInventory(inventoryNumber, serialNumber, excludeId = null) {
+  async function checkUniqueSerialAndInventory(inventoryNumber, serialNumber, excludeId = null) {
     const inv = inventoryNumber ? String(inventoryNumber).trim() : null;
     const sn  = serialNumber    ? String(serialNumber).trim()    : null;
 
@@ -94,7 +85,17 @@ module.exports = ({ db, run, get, all }) => ({
     }
 
     return { ok: true };
-  },
+  }
+
+  return {
+
+    // 🆕 Общий хелпер — экспортируем для роутов (admin.js)
+    checkCellAvailability(cellId, excludeEquipmentId = null) {
+      return checkCellAvailability(db, cellId, excludeEquipmentId);
+    },
+
+    // 🆕 Обёртка наружу — для роутов, если понадобится
+    checkUniqueSerialAndInventory,
 
   // ============================================================
   // ЧТЕНИЕ
@@ -632,7 +633,7 @@ module.exports = ({ db, run, get, all }) => ({
     }
 
     // Программная проверка уникальности
-    const uniq = await this.checkUniqueSerialAndInventory(
+    const uniq = await checkUniqueSerialAndInventory(
       inventory_number, serial_number, null
     );
     if (!uniq.ok) {
@@ -712,7 +713,7 @@ module.exports = ({ db, run, get, all }) => ({
     }
 
     // Программная проверка уникальности (с исключением текущего id)
-    const uniq = await this.checkUniqueSerialAndInventory(
+    const uniq = await checkUniqueSerialAndInventory(
       inventory_number, serial_number, idNum
     );
     if (!uniq.ok) {
@@ -1077,4 +1078,5 @@ module.exports = ({ db, run, get, all }) => ({
     });
   },
 
-});
+  };
+};

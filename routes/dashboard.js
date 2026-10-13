@@ -122,7 +122,7 @@ async function renderDashboard(req, res) {
             ${attention.maintenance.map(eq => `
               <li>
                 <span class="inv-num">${eq.inventory_number}</span>
-                <span class="inv-name">${eq.name}</span>
+                <span class="inv-name">${escapeHtml(eq.model_name || '—')}</span>
               </li>
             `).join('')}
           </ul>
@@ -141,7 +141,7 @@ async function renderDashboard(req, res) {
             ${attention.warrantySoon.map(eq => `
               <li>
                 <span class="inv-num">${eq.inventory_number}</span>
-                <span class="inv-name">${eq.name}</span>
+                <span class="inv-name">${escapeHtml(eq.model_name || '—')}</span>
                 <span class="inv-extra">${eq.days_left} дн.</span>
               </li>
             `).join('')}
@@ -161,7 +161,7 @@ async function renderDashboard(req, res) {
             ${attention.warrantyExpired.map(eq => `
               <li>
                 <span class="inv-num">${eq.inventory_number}</span>
-                <span class="inv-name">${eq.name}</span>
+                <span class="inv-name">${escapeHtml(eq.model_name || '—')}</span>
                 <span class="inv-extra">${eq.days_expired} дн. назад</span>
               </li>
             `).join('')}
@@ -181,7 +181,7 @@ async function renderDashboard(req, res) {
             ${attention.longAvailable.map(eq => `
               <li>
                 <span class="inv-num">${eq.inventory_number}</span>
-                <span class="inv-name">${eq.name}</span>
+                <span class="inv-name">${escapeHtml(eq.model_name || '—')}</span>
               </li>
             `).join('')}
           </ul>
@@ -424,6 +424,16 @@ function timeAgoRu(dateString) {
   } catch {
     return dateString;
   }
+}
+
+function escapeHtml(text) {
+  if (!text) return '';
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
 module.exports = renderDashboard;

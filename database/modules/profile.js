@@ -13,10 +13,10 @@ module.exports = ({ db, run, get, all }) => ({
         SELECT 
           e.id,
           e.inventory_number,
-          e.name,
-          e.model,
+          m.name         AS model_name,
+          m.corporate_id AS model_corporate_id,
+          m.manufacturer AS model_manufacturer,
           e.serial_number,
-          e.manufacturer,
           e.description,
           ue.assigned_date,
           ue.condition_on_assign,
@@ -24,6 +24,7 @@ module.exports = ({ db, run, get, all }) => ({
           ue.id as assignment_id
         FROM user_equipment ue
         JOIN equipment e ON ue.equipment_id = e.id
+        JOIN equipment_models m ON m.id = e.model_id
         WHERE ue.user_id = ? AND ue.returned_date IS NULL
         ORDER BY ue.assigned_date DESC
       `, [userId], (err, rows) => {
@@ -43,9 +44,9 @@ module.exports = ({ db, run, get, all }) => ({
         SELECT 
           e.id,
           e.inventory_number,
-          e.name,
-          e.model,
-          e.manufacturer,
+          m.name         AS model_name,
+          m.corporate_id AS model_corporate_id,
+          m.manufacturer AS model_manufacturer,
           ue.assigned_date,
           ue.returned_date,
           ue.condition_on_assign,
@@ -57,6 +58,7 @@ module.exports = ({ db, run, get, all }) => ({
           END as status
         FROM user_equipment ue
         JOIN equipment e ON ue.equipment_id = e.id
+        JOIN equipment_models m ON m.id = e.model_id
         WHERE ue.user_id = ?
         ORDER BY ue.assigned_date DESC
       `, [userId], (err, rows) => {

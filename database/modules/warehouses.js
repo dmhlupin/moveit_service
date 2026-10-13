@@ -868,18 +868,20 @@ module.exports = ({ db, run, get, all }) => ({
         SELECT 
           e.id,
           e.inventory_number,
-          e.name,
-          e.model,
+          m.name         AS model_name,
+          m.corporate_id AS model_corporate_id,
+          m.manufacturer AS model_manufacturer,
           e.status,
-          e.category_id,
-          e.type_id,
+          m.category_id  AS category_id,
+          m.type_id      AS type_id,
           c.name as category_name,
           c.icon as category_icon,
           t.name as type_name,
           t.icon as type_icon
         FROM equipment e
-        LEFT JOIN equipment_categories c ON e.category_id = c.id
-        LEFT JOIN equipment_types t ON e.type_id = t.id
+        JOIN equipment_models m ON m.id = e.model_id
+        LEFT JOIN equipment_categories c ON c.id = m.category_id
+        LEFT JOIN equipment_types      t ON t.id = m.type_id
         WHERE e.cell_id = ?
         ORDER BY e.inventory_number
       `, [cellId], (err, rows) => {
@@ -980,7 +982,6 @@ module.exports = ({ db, run, get, all }) => ({
   
   /**
    * Полный список техники на складе (для инвентаризации)
-   * Возвращает: технику с адресом + статус
    */
   getWarehouseInventory(warehouseId) {
     return new Promise((resolve, reject) => {
@@ -988,13 +989,15 @@ module.exports = ({ db, run, get, all }) => ({
         SELECT 
           e.id,
           e.inventory_number,
-          e.name,
-          e.model,
+          m.name         AS model_name,
+          m.corporate_id AS model_corporate_id,
+          m.manufacturer AS model_manufacturer,
           e.serial_number,
-          e.manufacturer,
           e.status,
           e.purchase_date,
           e.warranty_until,
+          m.category_id  AS category_id,
+          m.type_id      AS type_id,
           c.name as category_name,
           c.icon as category_icon,
           t.name as type_name,
@@ -1005,8 +1008,9 @@ module.exports = ({ db, run, get, all }) => ({
           rack.name as rack_name,
           zone.name as zone_name
         FROM equipment e
-        LEFT JOIN equipment_categories c ON e.category_id = c.id
-        LEFT JOIN equipment_types t ON e.type_id = t.id
+        JOIN equipment_models m ON m.id = e.model_id
+        LEFT JOIN equipment_categories c ON c.id = m.category_id
+        LEFT JOIN equipment_types      t ON t.id = m.type_id
         JOIN cells cell ON e.cell_id = cell.id
         JOIN racks rack ON cell.rack_id = rack.id
         JOIN zones zone ON rack.zone_id = zone.id
