@@ -144,6 +144,17 @@ const {
   exportOfficeInventoryCSV,
 } = require('./routes/workplaces');
 
+// 🆕 Роуты номенклатуры (модели ТМЦ)  ← ВСТАВИТЬ СЮДА
+const {
+  renderModels,
+  getModelsAPI,
+  getModelAPI,
+  createModelAPI,
+  updateModelAPI,
+  deleteModelAPI,
+  checkDuplicateAPI,
+} = require('./routes/equipment-models');
+
 // Роуты авторизации
 const {
   renderLogin,
@@ -322,6 +333,21 @@ app.put('/api/admin/types/:id', requireAdmin, updateTypeAPI);
 app.delete('/api/admin/types/:id', requireAdmin, deleteTypeAPI);
 
 // ============================================
+// НОМЕНКЛАТУРА — модели ТМЦ (только администраторы!)
+// ============================================
+
+// Страница
+app.get('/admin/models', requireAdmin, renderModels);
+
+// API моделей
+app.get('/api/admin/models', requireAdmin, getModelsAPI);
+app.get('/api/admin/models/check-duplicate', requireAdmin, checkDuplicateAPI); // ← ПЕРЕД :id
+app.get('/api/admin/models/:id', requireAdmin, getModelAPI);
+app.post('/api/admin/models', requireAdmin, createModelAPI);
+app.put('/api/admin/models/:id', requireAdmin, updateModelAPI);
+app.delete('/api/admin/models/:id', requireAdmin, deleteModelAPI);
+
+// ============================================
 // СКЛАДЫ (только администраторы!)
 // ============================================
 
@@ -442,8 +468,9 @@ const server = app.listen(PORT, () => {
   console.log(`🔐  Вход:               http://localhost:${PORT}/login`);
   console.log(`👤  Профиль:            http://localhost:${PORT}/profile`);
   console.log(`📖  Главная:            http://localhost:${PORT}/`);
-  console.log(`⚙️   Админ-панель:       http://localhost:${PORT}/admin`);
-  console.log(`🏛️   Рабочие места:      http://localhost:${PORT}/admin/workplaces`);
+  console.log(`⚙️  Админ-панель:       http://localhost:${PORT}/admin`);
+  console.log(`🏛️  Рабочие места:      http://localhost:${PORT}/admin/workplaces`);
+  console.log(`🧩  Номенклатура:        http://localhost:${PORT}/admin/models`);
   console.log('🚀 ============================================');
   console.log('');
 });
