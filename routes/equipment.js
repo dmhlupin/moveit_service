@@ -1,5 +1,5 @@
 // routes/equipment.js
-// Страница просмотра техники (для всех авторизованных)
+// Страница просмотра техники (только для админов)
 
 const fs = require('fs');
 const path = require('path');
@@ -205,8 +205,8 @@ async function renderEquipmentDashboard(req, res) {
         tableRows += `
           <tr onclick="viewEquipmentFromList(${item.id})" style="cursor: pointer;" title="Нажмите для просмотра">
             <td><strong>${item.inventory_number}</strong></td>
-            <td>${item.name}</td>
-            <td>${item.model || '—'}</td>
+            <td>${item.model_name || '—'}</td>
+            <td>${item.model_corporate_id || '—'}</td>
             <td>${categoryCell}</td>
             <td>${typeCell}</td>
             <td>${locationCell}</td>

@@ -270,8 +270,10 @@ function renderEquipmentCard(data) {
         <div class="equipment-header-card">
             <div class="equipment-header-icon">🔧</div>
             <div class="equipment-header-info">
-                <h2>${escapeHtml(equipment.name)}</h2>
-                <div class="equipment-header-inv">${escapeHtml(equipment.inventory_number)}</div>
+                <h2>${escapeHtml(equipment.model_name || '—')}</h2>
+                <div class="equipment-header-inv">
+                    ${equipment.model_corporate_id ? escapeHtml(equipment.model_corporate_id) + ' · ' : ''}${escapeHtml(equipment.inventory_number || '—')}
+                </div>
                 <div class="equipment-header-badges">
                     ${statusBadge}
                     ${categoryHtml}
@@ -299,16 +301,16 @@ function renderEquipmentCard(data) {
             <h4>📋 Информация о технике</h4>
             <div class="detail-grid">
                 <div class="detail-item">
-                    <label>Название</label>
-                    <div class="value">${escapeHtml(equipment.name)}</div>
+                    <label>Модель</label>
+                    <div class="value">${escapeHtml(equipment.model_name || '—')}</div>
                 </div>
                 <div class="detail-item">
-                    <label>Модель</label>
-                    <div class="value">${escapeHtml(equipment.model || '—')}</div>
+                    <label>Corporate ID</label>
+                    <div class="value">${escapeHtml(equipment.model_corporate_id || '—')}</div>
                 </div>
                 <div class="detail-item">
                     <label>Производитель</label>
-                    <div class="value">${escapeHtml(equipment.manufacturer || '—')}</div>
+                    <div class="value">${escapeHtml(equipment.model_manufacturer || '—')}</div>
                 </div>
                 <div class="detail-item">
                     <label>Серийный номер</label>
