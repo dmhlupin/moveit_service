@@ -1247,6 +1247,128 @@ async function migrateWorkplacesDropCapacity() {
   console.log('');
 }
 
+
+// ============================================================
+// ЭТАП 4.9: МОДЕЛИ ТМЦ (equipment_models)
+// ============================================================
+//
+// Крупная переработка модели данных (v3.x):
+//   - Вводится таблица equipment_models — обобщённое описание
+//     устройства (corporate_id, name, manufacturer, category, type).
+//   - equipment становится «экземпляром»: ссылается на модель
+//     через model_id, теряет name/model/manufacturer/category_id/type_id.
+//   - inventory_number и serial_number могут быть NULL,
+//     но если заполнены — обязаны быть уникальными.
+//
+// Старые данные не мигрируем — таблица equipment пересоздаётся
+// пустой. user_equipment тоже пересоздаётся (FK на equipment).
+// ============================================================
+
+async function createEquipmentModelsTable() {
+  const exists = await tableExists('equipment_models');
+  if (exists) {
+    console.log('⏭️  Таблица equipment_models уже существует\n');
+    return;
+  }
+
+  console.log('📋 Создание таблицы equipment_models (модели ТМЦ)...');
+  await run(`
+    CREATE TABLE equipment_models (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      corporate_id TEXT NOT NULL UNIQUE,
+      name         TEXT NOT NULL,
+      manufacturer TEXT,
+      category_id  INTEGER NOT NULL,
+      type_id      INTEGER NOT NULL,
+      description  TEXT,
+      created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (category_id) REFERENCES equipment_categories(id) ON DELETE RESTRICT,
+      FOREIGN KEY (type_id)     REFERENCES equipment_types(id)      ON DELETE RESTRICT
+    )
+  `);
+  console.log('✅ Таблица equipment_models создана\n');
+}
+
+async function migrateEquipmentToInstances() {
+  const exists = await tableExists('equipment');
+  if (!exists) return;
+
+  const hasModelId = await columnExists('equipment', 'model_id');
+  if (hasModelId) {
+    console.log('⏭️  Таблица equipment уже в новой схеме (model_id есть)\n');
+    return;
+  }
+
+  console.log('📋 Пересоздание таблицы equipment (плоская → экземпляры)...');
+  console.log('   ⚠️  Старые данные equipment будут удалены');
+  console.log('   ⚠️  Таблица user_equipment также будет пересоздана\n');
+
+  // Убираем FK-зависимую user_equipment (пересоздадим ниже)
+  await run('DROP TABLE IF EXISTS user_equipment');
+
+  // Пересоздаём equipment в новой схеме
+  await run('DROP TABLE IF EXISTS equipment');
+  await run(`
+    CREATE TABLE equipment (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      model_id         INTEGER NOT NULL,
+      inventory_number TEXT UNIQUE,
+      serial_number    TEXT UNIQUE,
+      status           TEXT DEFAULT 'available',
+      cell_id          INTEGER REFERENCES cells(id)        ON DELETE SET NULL,
+      workplace_id     INTEGER REFERENCES workplaces(id)   ON DELETE SET NULL,
+      purchase_date    DATE,
+      warranty_until   DATE,
+      description      TEXT,
+      created_at       DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at       DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (model_id) REFERENCES equipment_models(id) ON DELETE RESTRICT
+    )
+  `);
+
+  // Возвращаем user_equipment — теперь с FK на новую equipment
+  await run(`
+    CREATE TABLE user_equipment (
+      id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id              INTEGER NOT NULL,
+      equipment_id         INTEGER NOT NULL,
+      assigned_date        DATETIME DEFAULT CURRENT_TIMESTAMP,
+      returned_date        DATETIME,
+      condition_on_assign  TEXT,
+      condition_on_return  TEXT,
+      notes                TEXT,
+      FOREIGN KEY (user_id)      REFERENCES users(id)     ON DELETE CASCADE,
+      FOREIGN KEY (equipment_id) REFERENCES equipment(id) ON DELETE CASCADE,
+      UNIQUE(user_id, equipment_id, returned_date)
+    )
+  `);
+
+  console.log('✅ Таблица equipment пересоздана в новой схеме');
+  console.log('✅ Таблица user_equipment пересоздана\n');
+}
+
+async function createEquipmentModelsIndexes() {
+  console.log('📋 Создание индексов для моделей и экземпляров...');
+
+  // Модели
+  await createIndexIfMissing('idx_models_corporate', 'equipment_models', 'corporate_id');
+  await createIndexIfMissing('idx_models_name',      'equipment_models', 'name');
+  await createIndexIfMissing('idx_models_category',  'equipment_models', 'category_id');
+  await createIndexIfMissing('idx_models_type',      'equipment_models', 'type_id');
+  await createIndexIfMissing('idx_models_manufacturer', 'equipment_models', 'manufacturer');
+
+  // Экземпляры
+  await createIndexIfMissing('idx_equipment_model',        'equipment', 'model_id');
+  await createIndexIfMissing('idx_equipment_status',       'equipment', 'status');
+  await createIndexIfMissing('idx_equipment_cell',         'equipment', 'cell_id');
+  await createIndexIfMissing('idx_equipment_workplace',    'equipment', 'workplace_id');
+  await createIndexIfMissing('idx_equipment_inventory',    'equipment', 'inventory_number');
+  await createIndexIfMissing('idx_equipment_serial',       'equipment', 'serial_number');
+
+  console.log('✅ Индексы созданы\n');
+}
+
 // ============================================================
 // ГЛАВНАЯ ФУНКЦИЯ МИГРАЦИИ
 // ============================================================
@@ -1308,6 +1430,13 @@ async function migrate() {
     await migrateCellsIsFull();
     await migrateWorkplacesDropCapacity(); 
 
+        // ===== ЭТАП 4.9: Модели ТМЦ (equipment_models) =====
+    console.log('🧩 ЭТАП 4.9: Модели ТМЦ (equipment_models)\n');
+
+    await createEquipmentModelsTable();
+    await migrateEquipmentToInstances();
+    await createEquipmentModelsIndexes();
+
     // ===== ИТОГИ =====
     console.log('═══════════════════════════════════════════════');
     console.log('✅ МИГРАЦИЯ ЗАВЕРШЕНА УСПЕШНО');
@@ -1319,6 +1448,7 @@ async function migrate() {
         (SELECT COUNT(*) FROM users) as users,
         (SELECT COUNT(*) FROM equipment_categories) as categories,
         (SELECT COUNT(*) FROM equipment_types) as types,
+        (SELECT COUNT(*) FROM equipment_models) as models,
         (SELECT COUNT(*) FROM equipment) as equipment,
         (SELECT COUNT(*) FROM warehouses) as warehouses,
         (SELECT COUNT(*) FROM zones) as zones,
@@ -1343,6 +1473,7 @@ async function migrate() {
     console.log(`   🏢 Офисов:         ${stats.offices}`);
     console.log(`   🚪 Кабинетов:      ${stats.rooms}`);
     console.log(`   💺 Рабочих мест:   ${stats.workplaces}`);
+    console.log(`   🧩 Моделей ТМЦ:    ${stats.models}`);
     console.log('');
     
   } catch (error) {
@@ -1353,6 +1484,7 @@ async function migrate() {
     db.close();
   }
 }
+
 
 // ============================================================
 // ЗАПУСК

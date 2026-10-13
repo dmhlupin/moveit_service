@@ -93,6 +93,7 @@ const stats = require('./modules/stats')(ctx);
 const meta = require('./modules/meta')(ctx);
 const warehouses = require('./modules/warehouses')(ctx);
 const workplaces = require('./modules/workplaces')(ctx);
+const equipmentModels = require('./modules/equipment-models')(ctx);
 
 
 // ============================================================
@@ -127,7 +128,8 @@ module.exports = {
   ...stats,
   ...meta,
   ...warehouses, 
-  ...workplaces, 
+  ...workplaces,
+  ...equipmentModels, 
                             
 
   // Управление БД
