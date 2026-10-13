@@ -1,3 +1,108 @@
+## [3.0.4] - 2026-10-13
+
+**🧩 Переход техники на `model_id` — модуль БД, роуты, формы**
+
+Подшаги 3.3.1 – 3.3.2. Единый переход экземпляров ТМЦ на новую модель
+данных «модель ТМЦ / экземпляр ТМЦ». Роуты и формы больше не работают
+со старыми полями `equipment` (`name`, `model`, `manufacturer`,
+`category_id`, `type_id`) — эти данные живут в `equipment_models`
+и читаются через JOIN.
+
+### Изменено (модуль БД, 3.3.1)
+
+- **`database/modules/equipment.js`** — полностью переписан:
+  * все `SELECT` — `JOIN equipment_models m ON m.id = e.model_id`
+    (INNER, так как `model_id NOT NULL`);
+  * честные имена полей: `model_name`, `model_corporate_id`,
+    `model_manufacturer`, `category_id` / `type_id` (из модели);
+  * `addEquipment` / `updateEquipment` — принимают `model_id`,
+    без `name` / `model` / `manufacturer` / `category_id` / `type_id`;
+  * `updateEquipment` — при `assigned → available` закрывает активное
+    назначение и обнуляет `cell_id` и `workplace_id`;
+  * `assignEquipment` / `returnEquipmentByEquipmentId` — обнуляют
+    оба поля места (`cell_id` и `workplace_id`);
+  * `getEquipmentCountsByCategory` / `getEquipmentCountsByType` —
+    считают через JOIN с моделью;
+  * `moveEquipmentToCellDetailed` — отдаёт `model_name`
+    (было `eq.name` из `equipment`);
+  * `getEquipmentWithLocation` — фильтр `search` ищет по `m.name`,
+    `m.corporate_id`, `m.manufacturer`, `u.full_name`, `cell.code`,
+    `wp.name`, `wp.code`;
+  * `getAvailableEquipment` — с данными модели;
+  * `getEquipmentWithUsers` — по-прежнему возвращает массив
+    (совместимо с `routes/catalog.js`).
+
+### Добавлено (модуль БД, 3.3.1)
+
+- **`checkUniqueSerialAndInventory(inventoryNumber, serialNumber, excludeId)`** —
+  программная проверка уникальности `inventory_number` / `serial_number`
+  с понятными ошибками. `NULL` разрешён и не считается коллизией.
+  Экспортируется наружу для предвалидации в роутах.
+
+### Изменено (роуты, 3.3.2)
+
+- **`routes/admin.js`**:
+  * `renderAdmin` — таблица техники: колонки «Модель» (`model_name`)
+    и «Corporate ID» (`model_corporate_id`) вместо старых
+    `name` / `model`;
+  * `addEquipmentAPI` / `updateEquipmentAPI` — принимают `model_id`,
+    без `name` / `model` / `manufacturer` / `category_id` / `type_id`;
+    ловят ошибки уникальности и «Модель не найдена» отдельно;
+  * `renderAddEquipment` / `renderEditEquipment` — стали `async`,
+    подгружают `{{model_options}}`, `{{selected_model_id}}`,
+    `info_*` из модели;
+  * `moveEquipmentAPI` — логирует `model_name` вместо `equipment_name`;
+  * `actionNames` — добавлены `model_create` / `model_update` /
+    `model_delete` (для страницы логов).
+
+### Изменено (формы, 3.3.2)
+
+- **`views/admin-add.html`**, **`views/admin-edit.html`**:
+  * вместо полей `name` / `model` / `manufacturer` / `category_id` /
+    `type_id` — один селект «Модель ТМЦ» (`#model_id`) + кнопка
+    «➕ Создать модель» (открывает `/admin/models` в новой вкладке);
+  * правая колонка (edit): инфо о выбранной модели — название,
+    `corporate_id`, производитель, категория, тип — обновляется
+    на лету при смене селекта.
+- **`public/js/admin-add.js`**, **`public/js/admin-edit.js`**:
+  * убраны `loadCategories` / `loadTypesForCategory` /
+    `onCategoryChange`;
+  * добавлен `bindModelPreview()` — живой предпросмотр модели
+    в правой колонке (`info_model_name`, `info_corporate_id`,
+    `info_manufacturer`, `info_category`, `info_type`);
+  * в `submitForm` отправляется `model_id` вместо старых полей.
+
+### Добавлено (стили)
+
+- **`public/css/components.css`** — `.model-select-row` (flex-контейнер
+  для селекта модели и кнопки «Создать модель»).
+
+### Изменено (инфраструктура)
+
+- **`scripts/check-css.js`** — обновлены ожидаемые плейсхолдеры для
+  `admin-add.html` и `admin-edit.html`:
+  * добавлены `id="model_id"`, `{{model_options}}`,
+    `{{selected_model_id}}`, `{{info_model_name}}`,
+    `{{info_corporate_id}}`, `{{info_manufacturer}}`,
+    `id="currentModelId"`;
+  * убраны `id="category_id"`, `id="type_id"`, `id="name"`,
+    `id="currentCategoryId"`, `id="currentTypeId"`.
+
+### Технический долг (передаётся в 3.3.3)
+
+- `/admin` (таблица) и `/equipment` (таблица + фильтры) — заголовки
+  колонок и рендер строк ещё не подкручены под `model_name` /
+  `model_corporate_id`. Чинятся в 3.3.3.
+- Дашборд (`/`), `stats.js`, `warehouses.js`, `workplaces.js` —
+  всё ещё используют старые поля в SQL. Чинятся в 3.3.4.
+
+### Теги
+
+- v3.0.1 — модель данных: `equipment_models` + пересоздание `equipment`
+- v3.0.2 — API номенклатуры
+- v3.0.3 — UI «Номенклатура» + карточка модели
+- **v3.0.4 — переход техники на `model_id` (этот)**
+
 ## [3.0.3] - 2026-10-13
 
 **🧩 Номенклатура: UI страницы моделей ТМЦ + карточка с экземплярами**
