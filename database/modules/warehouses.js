@@ -1,6 +1,29 @@
 // database/modules/warehouses.js
 // Работа со складами: иерархия Склад → Зона → Стеллаж → Ячейка
 
+// ============================================================
+// ХЕЛПЕР: SQL-фрагмент scope для роли mol (Этап 4)
+// ============================================================
+// Возвращает { clause: string, params: any[] }.
+// Для admin/supervisor/undefined — clause пустой, params пустой.
+// Для mol — фильтр «склады, за которые он ответственный»:
+//   w.id IN (SELECT warehouse_id FROM warehouse_responsibles
+//            WHERE user_id = ?)
+// Для user — заведомо ложное условие (списки для роли user закрыты).
+function buildWarehouseScope(scope = {}) {
+  const { userId, role } = scope;
+  if (!userId || !role) return { clause: '', params: [] };
+  if (role === 'admin' || role === 'supervisor') return { clause: '', params: [] };
+  if (role === 'mol') {
+    return {
+      clause: `w.id IN (SELECT warehouse_id FROM warehouse_responsibles WHERE user_id = ?)`,
+      params: [userId]
+    };
+  }
+  // user и любые другие — пусто
+  return { clause: '1=0', params: [] };
+}
+
 module.exports = ({ db, run, get, all }) => ({
 
   // ============================================================
@@ -10,7 +33,9 @@ module.exports = ({ db, run, get, all }) => ({
   /**
    * Получить все склады с количеством зон, стеллажей, ячеек и техники
    */
-  getAllWarehouses() {
+  getAllWarehouses(scope = {}) {
+    const s = buildWarehouseScope(scope);
+    const where = s.clause ? `WHERE ${s.clause}` : '';
     return new Promise((resolve, reject) => {
       db.all(`
         SELECT 
@@ -39,8 +64,9 @@ module.exports = ({ db, run, get, all }) => ({
             WHERE z.warehouse_id = w.id
           ) as equipment_count
         FROM warehouses w
+        ${where}
         ORDER BY w.is_default DESC, w.name ASC
-      `, (err, rows) => {
+      `, s.params, (err, rows) => {
         if (err) reject(err);
         else resolve(rows || []);
       });
@@ -50,7 +76,9 @@ module.exports = ({ db, run, get, all }) => ({
   /**
    * Получить склад по ID
    */
-  getWarehouseById(id) {
+  getWarehouseById(id, scope = {}) {
+    const s = buildWarehouseScope(scope);
+    const extraWhere = s.clause ? `AND ${s.clause}` : '';
     return new Promise((resolve, reject) => {
       db.get(`
         SELECT 
@@ -63,8 +91,8 @@ module.exports = ({ db, run, get, all }) => ({
             WHERE z.warehouse_id = w.id
           ) as equipment_count
         FROM warehouses w
-        WHERE w.id = ?
-      `, [id], (err, row) => {
+        WHERE w.id = ? ${extraWhere}
+      `, [id, ...s.params], (err, row) => {
         if (err) reject(err);
         else resolve(row);
       });
@@ -766,10 +794,20 @@ module.exports = ({ db, run, get, all }) => ({
   /**
    * Получить дерево складов (склады → зоны → стеллажи → ячейки)
    */
-  getWarehouseTree(warehouseId = null) {
+  getWarehouseTree(warehouseId = null, scope = {}) {
+    const s = buildWarehouseScope(scope);
     return new Promise((resolve, reject) => {
-      const warehouseFilter = warehouseId ? 'WHERE w.id = ?' : '';
-      const params = warehouseId ? [warehouseId] : [];
+      const conditions = [];
+      const params = [];
+      if (warehouseId) {
+        conditions.push('w.id = ?');
+        params.push(warehouseId);
+      }
+      if (s.clause) {
+        conditions.push(s.clause);
+        params.push(...s.params);
+      }
+      const warehouseFilter = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
       db.all(`
         SELECT 
@@ -796,10 +834,8 @@ module.exports = ({ db, run, get, all }) => ({
         ${warehouseFilter}
         ORDER BY w.name, z.sort_order, z.name, r.sort_order, r.name, c.sort_order, c.name
       `, params, (err, rows) => {
-        if (err) {
-          reject(err);
-          return;
-        }
+        if (err) { reject(err); return; }
+        // ... группировка без изменений ...
         
         // Группируем в дерево
         const tree = {};
@@ -923,7 +959,9 @@ module.exports = ({ db, run, get, all }) => ({
    * Сводка по всем складам для страницы инвентаризации
    * Возвращает: список складов с полной статистикой
    */
-  getInventorySummary() {
+  getInventorySummary(scope = {}) {
+    const s = buildWarehouseScope(scope);
+    const extraWhere = s.clause ? `AND ${s.clause}` : '';
     return new Promise((resolve, reject) => {
       db.all(`
         SELECT 
@@ -959,9 +997,9 @@ module.exports = ({ db, run, get, all }) => ({
             WHERE z.warehouse_id = w.id AND c.is_active = 1 AND c.is_full = 1
           ) as cells_full
         FROM warehouses w
-        WHERE w.is_active = 1
+        WHERE w.is_active = 1 ${extraWhere}
         ORDER BY w.is_default DESC, w.name ASC
-      `, (err, rows) => {
+      `, s.params, (err, rows) => {
         if (err) {
           reject(err);
           return;
@@ -983,7 +1021,9 @@ module.exports = ({ db, run, get, all }) => ({
   /**
    * Полный список техники на складе (для инвентаризации)
    */
-  getWarehouseInventory(warehouseId) {
+  getWarehouseInventory(warehouseId, scope = {}) {
+    const s = buildWarehouseScope(scope);
+    const extraWhere = s.clause ? `AND ${s.clause}` : '';
     return new Promise((resolve, reject) => {
       db.all(`
         SELECT 
@@ -1014,9 +1054,10 @@ module.exports = ({ db, run, get, all }) => ({
         JOIN cells cell ON e.cell_id = cell.id
         JOIN racks rack ON cell.rack_id = rack.id
         JOIN zones zone ON rack.zone_id = zone.id
-        WHERE zone.warehouse_id = ?
+        JOIN warehouses w ON zone.warehouse_id = w.id
+        WHERE zone.warehouse_id = ? ${extraWhere}
         ORDER BY zone.sort_order, zone.name, rack.sort_order, rack.name, cell.sort_order, cell.name
-      `, [warehouseId], (err, rows) => {
+      `, [warehouseId, ...s.params], (err, rows) => {
         if (err) {
           reject(err);
           return;
@@ -1030,7 +1071,9 @@ module.exports = ({ db, run, get, all }) => ({
    * Заполненность ячеек склада
    * Возвращает: список ячеек с процентом заполнения
    */
-  getCellOccupancy(warehouseId) {
+  getCellOccupancy(warehouseId, scope = {}) {
+    const s = buildWarehouseScope(scope);
+    const extraWhere = s.clause ? `AND ${s.clause}` : '';
     return new Promise((resolve, reject) => {
       db.all(`
         SELECT 
@@ -1045,9 +1088,10 @@ module.exports = ({ db, run, get, all }) => ({
         FROM cells c
         JOIN racks rack ON c.rack_id = rack.id
         JOIN zones zone ON rack.zone_id = zone.id
-        WHERE zone.warehouse_id = ? AND c.is_active = 1
+        JOIN warehouses w ON zone.warehouse_id = w.id
+        WHERE zone.warehouse_id = ? AND c.is_active = 1 ${extraWhere}
         ORDER BY zone.sort_order, zone.name, rack.sort_order, rack.name, c.sort_order, c.name
-      `, [warehouseId], (err, rows) => {
+      `, [warehouseId, ...s.params], (err, rows) => {
         if (err) {
           reject(err);
           return;

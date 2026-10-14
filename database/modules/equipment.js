@@ -49,6 +49,43 @@
 
 const { checkCellAvailability } = require('./cells');
 
+// ============================================================
+// ХЕЛПЕР: SQL-фрагмент scope для роли mol
+// ============================================================
+// Возвращает { clause: string, params: any[] }.
+// Для admin/supervisor/user/undefined — clause пустой, params пустой.
+// Для mol — фильтр «свои экземпляры»:
+//   responsible_user_id = userId
+//   OR техника в ячейке одного из своих складов
+//   OR техника на рабочем месте одного из своих офисов
+//
+// Реализуем подзапросами, чтобы не тащить JOIN-ы в COUNT.
+function buildEquipmentScope(scope = {}) {
+  const { userId, role } = scope;
+  if (!userId || !role) return { clause: '', params: [] };
+  if (role !== 'mol') return { clause: '', params: [] };
+
+  const clause = `(
+    e.responsible_user_id = ?
+    OR e.cell_id IN (
+      SELECT c.id FROM cells c
+      JOIN racks r ON r.id = c.rack_id
+      JOIN zones z ON z.id = r.zone_id
+      WHERE z.warehouse_id IN (
+        SELECT warehouse_id FROM warehouse_responsibles WHERE user_id = ?
+      )
+    )
+    OR e.workplace_id IN (
+      SELECT wp.id FROM workplaces wp
+      JOIN rooms r ON r.id = wp.room_id
+      WHERE r.office_id IN (
+        SELECT office_id FROM office_responsibles WHERE user_id = ?
+      )
+    )
+  )`;
+  return { clause, params: [userId, userId, userId] };
+}
+
 module.exports = ({ db, run, get, all }) => {
 
   // ============================================================
@@ -105,8 +142,10 @@ module.exports = ({ db, run, get, all }) => {
    * Получить всю технику с данными модели (name, manufacturer,
    * категория, тип) и текущим владельцем.
    */
-  getAllEquipment() {
+  getAllEquipment(scope = {}) {
+    const s = buildEquipmentScope(scope);
     return new Promise((resolve, reject) => {
+      const where = s.clause ? `WHERE ${s.clause}` : '';
       db.all(`
         SELECT
           e.id,
@@ -116,6 +155,7 @@ module.exports = ({ db, run, get, all }) => {
           e.status,
           e.cell_id,
           e.workplace_id,
+          e.responsible_user_id,
           e.purchase_date,
           e.warranty_until,
           e.description,
@@ -152,8 +192,9 @@ module.exports = ({ db, run, get, all }) => {
         LEFT JOIN equipment_types      t ON t.id = m.type_id
         LEFT JOIN user_equipment ue ON e.id = ue.equipment_id AND ue.returned_date IS NULL
         LEFT JOIN users u ON ue.user_id = u.id
+        ${where}
         ORDER BY m.name, e.inventory_number
-      `, (err, rows) => {
+      `, s.params, (err, rows) => {
         if (err) reject(err);
         else resolve(rows || []);
       });
@@ -163,8 +204,10 @@ module.exports = ({ db, run, get, all }) => {
   /**
    * Техника по ID — с моделью, категорией, типом, адресом и владельцем.
    */
-  getEquipmentById(id) {
+  getEquipmentById(id, scope = {}) {
+    const s = buildEquipmentScope(scope);
     return new Promise((resolve, reject) => {
+      const extraWhere = s.clause ? `AND ${s.clause}` : '';
       db.get(`
         SELECT
           e.id,
@@ -174,6 +217,7 @@ module.exports = ({ db, run, get, all }) => {
           e.status,
           e.cell_id,
           e.workplace_id,
+          e.responsible_user_id,
           e.purchase_date,
           e.warranty_until,
           e.description,
@@ -226,8 +270,8 @@ module.exports = ({ db, run, get, all }) => {
         LEFT JOIN offices    o    ON r.office_id = o.id
         LEFT JOIN user_equipment ue ON e.id = ue.equipment_id AND ue.returned_date IS NULL
         LEFT JOIN users u ON ue.user_id = u.id
-        WHERE e.id = ?
-      `, [id], (err, row) => {
+        WHERE e.id = ? ${extraWhere}
+      `, [id, ...s.params], (err, row) => {
         if (err) reject(err);
         else resolve(row);
       });
@@ -239,7 +283,8 @@ module.exports = ({ db, run, get, all }) => {
    * Фильтры: category_id, type_id, status, search, warehouse_id,
    *          workplace_id, unplaced; limit / offset / include_total.
    */
-  getEquipmentWithLocation(filters = {}) {
+  getEquipmentWithLocation(filters = {}, scope = {}) {
+    const s = buildEquipmentScope(scope);
     return new Promise((resolve, reject) => {
       const {
         category_id  = null,
@@ -257,6 +302,10 @@ module.exports = ({ db, run, get, all }) => {
       // Общие условия WHERE
       const where = ['1=1'];
       const whereParams = [];
+      if (s.clause) {
+        where.push(s.clause);
+        whereParams.push(...s.params);
+      }
 
       if (category_id) {
         where.push('m.category_id = ?');
@@ -309,6 +358,7 @@ module.exports = ({ db, run, get, all }) => {
           e.status,
           e.cell_id,
           e.workplace_id,
+          e.responsible_user_id,
           e.purchase_date,
           e.warranty_until,
           e.description,
@@ -426,6 +476,7 @@ module.exports = ({ db, run, get, all }) => {
           e.status,
           e.cell_id,
           e.workplace_id,
+          e.responsible_user_id,
           e.purchase_date,
           e.warranty_until,
           e.description,
@@ -617,6 +668,7 @@ module.exports = ({ db, run, get, all }) => {
       purchase_date    = null,
       warranty_until   = null,
       description      = null,
+      responsible_user_id = null,   // 🆕 Этап 4
     } = eqData;
 
     if (!model_id) {
@@ -653,12 +705,14 @@ module.exports = ({ db, run, get, all }) => {
       INSERT INTO equipment
         (model_id, inventory_number, serial_number, status,
          cell_id, workplace_id,
-         purchase_date, warranty_until, description)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+         purchase_date, warranty_until, description,
+         responsible_user_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       model_id, inv, sn, status || 'available',
       cell_id || null, workplace_id || null,
-      purchase_date || null, warranty_until || null, description || null
+      purchase_date || null, warranty_until || null, description || null,
+      responsible_user_id || null,
     ]);
 
     return { id: result.lastID, ...eqData };
@@ -688,6 +742,7 @@ module.exports = ({ db, run, get, all }) => {
       purchase_date    = null,
       warranty_until   = null,
       description      = null,
+      responsible_user_id = undefined,   // 🆕 Этап 4: undefined = не трогать
     } = eqData;
 
     if (!model_id) {
@@ -739,6 +794,13 @@ module.exports = ({ db, run, get, all }) => {
         [idNum]
       );
 
+      const setRespSql = (responsible_user_id !== undefined)
+        ? ', responsible_user_id = ?'
+        : '';
+      const paramsResp = (responsible_user_id !== undefined)
+        ? [responsible_user_id]
+        : [];
+
       const upd = await run(`
         UPDATE equipment
         SET model_id = ?,
@@ -749,12 +811,14 @@ module.exports = ({ db, run, get, all }) => {
             purchase_date = ?,
             warranty_until = ?,
             cell_id = NULL,
-            workplace_id = NULL,
+            workplace_id = NULL
+            ${setRespSql},
             updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
       `, [
         model_id, inv, sn, status, description,
         purchase_date || null, warranty_until || null,
+        ...paramsResp,
         idNum
       ]);
 
@@ -774,7 +838,15 @@ module.exports = ({ db, run, get, all }) => {
       return { id: idNum, ...eqData, returned: !!assignment };
     }
 
-    // Обычное обновление
+    // Обычное обновление. responsible_user_id меняем только если он
+    // передан явно (undefined = не трогать).
+    const setRespSql = (responsible_user_id !== undefined)
+      ? ', responsible_user_id = ?'
+      : '';
+    const paramsResp = (responsible_user_id !== undefined)
+      ? [responsible_user_id]
+      : [];
+
     const upd = await run(`
       UPDATE equipment
       SET model_id = ?,
@@ -785,13 +857,15 @@ module.exports = ({ db, run, get, all }) => {
           purchase_date = ?,
           warranty_until = ?,
           cell_id = ?,
-          workplace_id = ?,
+          workplace_id = ?
+          ${setRespSql},
           updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `, [
       model_id, inv, sn, status, description,
       purchase_date || null, warranty_until || null,
       cell_id || null, workplace_id || null,
+      ...paramsResp,
       idNum
     ]);
 

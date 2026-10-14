@@ -54,6 +54,12 @@ const { logAction } = require('../utils/logger');
 // Layout
 const { renderPage } = require('../utils/layout');
 
+const {
+  canEditEquipment,
+  canEditWarehouse,
+  canEditOffice,
+} = require('../utils/permissions');
+
 // ============================================================
 // СТРАНИЦЫ
 // ============================================================
@@ -63,9 +69,14 @@ const { renderPage } = require('../utils/layout');
  */
 async function renderAdmin(req, res) {
   try {
+    const scope = { userId: req.session.userId, role: req.session.role };
     const stats = await getStats();
-    const equipment = await getEquipmentWithLocation();
-    const users = await getAllUsersWithDetails();
+    const equipment = await getEquipmentWithLocation({}, scope);
+    // Список пользователей нужен только админу. Для МОЛ/супервизора
+    // он не рендерится в таблицу (см. ниже: userRows пустые).
+    const users = (req.session.role === 'admin')
+      ? await getAllUsersWithDetails()
+      : [];
     
     const htmlPath = path.join(__dirname, '..', 'views', 'admin.html');
     let html = fs.readFileSync(htmlPath, 'utf8');
@@ -284,6 +295,17 @@ async function addEquipmentAPI(req, res) {
       return res.status(400).json({ error: 'Модель ТМЦ обязательна' });
     }
 
+    // 🆕 Этап 4: определяем ответственного МОЛ.
+    //   admin — из формы (responsible_user_id);
+    //   mol   — всегда он сам;
+    //   иначе — null (не должно случаться на этом роуте).
+    let responsibleUserId = null;
+    if (req.session.role === 'mol') {
+      responsibleUserId = req.session.userId;
+    } else if (req.body.responsible_user_id) {
+      responsibleUserId = parseInt(req.body.responsible_user_id, 10);
+    }
+
     const result = await addEquipment({
       model_id: parseInt(model_id, 10),
       inventory_number: inventory_number || null,
@@ -294,6 +316,7 @@ async function addEquipmentAPI(req, res) {
       warranty_until: warranty_until || null,
       cell_id: cell_id ? parseInt(cell_id, 10) : null,
       workplace_id: workplace_id ? parseInt(workplace_id, 10) : null,
+      responsible_user_id: responsibleUserId,   // 🆕
     });
 
     await logAction({
@@ -357,6 +380,12 @@ async function updateEquipmentAPI(req, res) {
     // Получаем текущую технику
     const existing = await getEquipmentById(id);
     if (!existing) {
+      return res.status(404).json({ error: 'Техника не найдена' });
+    }
+
+    // 🆕 Этап 4: МОЛ может редактировать только свои экземпляры.
+    const userForPerm = { id: req.session.userId, role: req.session.role };
+    if (!(await canEditEquipment(userForPerm, id))) {
       return res.status(404).json({ error: 'Техника не найдена' });
     }
 
@@ -518,6 +547,13 @@ async function updateEquipmentAPI(req, res) {
 async function deleteEquipmentAPI(req, res) {
   try {
     const id = parseInt(req.params.id);
+    const userForPerm = { id: req.session.userId, role: req.session.role };
+
+    // 🆕 Этап 4: МОЛ может удалять только свои экземпляры.
+    if (!(await canEditEquipment(userForPerm, id))) {
+      return res.status(404).json({ error: 'Техника не найдена' });
+    }
+
     const result = await deleteEquipment(id);
     
     if (result.deleted === 0) {
@@ -567,6 +603,21 @@ async function renderAddEquipment(req, res) {
       modelOptions += `<option value="${m.id}">${escapeHtml(m.corporate_id)} · ${escapeHtml(m.name)}${manufacturer}${category}${type}</option>`;
     });
     content = content.replace('{{model_options}}', modelOptions);
+
+    // 🆕 Этап 4: селект «Ответственный МОЛ» — только для админа.
+    // Для МОЛ поле скрыто (он сам ответственный).
+    if (req.session.role === 'admin') {
+      const { getAllUsers } = require('../database/db');
+      const allUsers = await getAllUsers();
+      const mols = allUsers.filter(u => u.role === 'mol' && u.is_active === 1);
+      let molOptions = '<option value="">— Выберите МОЛ —</option>';
+      mols.forEach(m => {
+        molOptions += `<option value="${m.id}">${escapeHtml(m.full_name || m.username)}</option>`;
+      });
+      content = content.replace('{{mol_options}}', molOptions);
+    } else {
+      content = content.replace('{{mol_options}}', '');
+    }
 
     const fullHtml = renderPage({
       title: 'Добавить технику – MoveIT service',
@@ -647,6 +698,21 @@ async function renderEditEquipment(req, res) {
       modelOptions += `<option value="${m.id}" ${selected}>${escapeHtml(m.corporate_id)} · ${escapeHtml(m.name)}${manufacturer}${category}${type}</option>`;
     });
     content = content.replace('{{model_options}}', modelOptions);
+
+    // 🆕 Этап 4: селект «Ответственный МОЛ» — только для админа.
+    if (req.session.role === 'admin') {
+      const { getAllUsers } = require('../database/db');
+      const allUsers = await getAllUsers();
+      const mols = allUsers.filter(u => u.role === 'mol' && u.is_active === 1);
+      let molOptions = '<option value="">— Выберите МОЛ —</option>';
+      mols.forEach(m => {
+        const selected = String(m.id) === String(equipment.responsible_user_id) ? 'selected' : '';
+        molOptions += `<option value="${m.id}" ${selected}>${escapeHtml(m.full_name || m.username)}</option>`;
+      });
+      content = content.replace('{{mol_options}}', molOptions);
+    } else {
+      content = content.replace('{{mol_options}}', '');
+    }
 
     // Правая колонка — инфо о текущем экземпляре
     const infoStatus = statusLabels[equipment.status] || equipment.status || '—';
@@ -1429,6 +1495,11 @@ async function getEquipmentDetailsAPI(req, res) {
     
     const equipment = await getEquipmentById(id);
     if (!equipment) {
+      return res.status(404).json({ error: 'Техника не найдена' });
+    }
+
+    const userForPerm = { id: req.session.userId, role: req.session.role };
+    if (!(await canEditEquipment(userForPerm, id))) {
       return res.status(404).json({ error: 'Техника не найдена' });
     }
     

@@ -1,6 +1,25 @@
 // database/modules/workplaces.js
 // Работа с рабочими местами: иерархия Офис → Кабинет → Рабочее место
 
+// ============================================================
+// ХЕЛПЕР: SQL-фрагмент scope для роли mol (Этап 4)
+// ============================================================
+// Аналог buildWarehouseScope, но для офисов:
+//   o.id IN (SELECT office_id FROM office_responsibles
+//            WHERE user_id = ?)
+function buildOfficeScope(scope = {}) {
+  const { userId, role } = scope;
+  if (!userId || !role) return { clause: '', params: [] };
+  if (role === 'admin' || role === 'supervisor') return { clause: '', params: [] };
+  if (role === 'mol') {
+    return {
+      clause: `o.id IN (SELECT office_id FROM office_responsibles WHERE user_id = ?)`,
+      params: [userId]
+    };
+  }
+  return { clause: '1=0', params: [] };
+}
+
 module.exports = ({ db, run, get, all }) => ({
 
   // ============================================================
@@ -10,7 +29,9 @@ module.exports = ({ db, run, get, all }) => ({
   /**
    * Получить все офисы с количеством кабинетов, рабочих мест и техники
    */
-  getAllOffices() {
+  getAllOffices(scope = {}) {
+    const s = buildOfficeScope(scope);
+    const where = s.clause ? `WHERE ${s.clause}` : '';
     return new Promise((resolve, reject) => {
       db.all(`
         SELECT
@@ -33,8 +54,9 @@ module.exports = ({ db, run, get, all }) => ({
             WHERE r.office_id = o.id
           ) as equipment_count
         FROM offices o
+        ${where}
         ORDER BY o.is_default DESC, o.name ASC
-      `, (err, rows) => {
+      `, s.params, (err, rows) => {
         if (err) reject(err);
         else resolve(rows || []);
       });
@@ -44,7 +66,9 @@ module.exports = ({ db, run, get, all }) => ({
   /**
    * Получить офис по ID
    */
-  getOfficeById(id) {
+  getOfficeById(id, scope = {}) {
+    const s = buildOfficeScope(scope);
+    const extraWhere = s.clause ? `AND ${s.clause}` : '';
     return new Promise((resolve, reject) => {
       db.get(`
         SELECT
@@ -56,8 +80,8 @@ module.exports = ({ db, run, get, all }) => ({
             WHERE r.office_id = o.id
           ) as equipment_count
         FROM offices o
-        WHERE o.id = ?
-      `, [id], (err, row) => {
+        WHERE o.id = ? ${extraWhere}
+      `, [id, ...s.params], (err, row) => {
         if (err) reject(err);
         else resolve(row);
       });
@@ -568,7 +592,9 @@ module.exports = ({ db, run, get, all }) => ({
    * Получить дерево одного офиса: офис → кабинеты → рабочие места
    * Техника НЕ включается (только счётчики equipment_count)
    */
-  getOfficeTree(officeId) {
+    getOfficeTree(officeId, scope = {}) {
+    const s = buildOfficeScope(scope);
+    const extraWhere = s.clause ? `AND ${s.clause}` : '';
     return new Promise((resolve, reject) => {
       db.all(`
         SELECT
@@ -588,9 +614,9 @@ module.exports = ({ db, run, get, all }) => ({
         FROM offices o
         LEFT JOIN rooms r ON r.office_id = o.id AND r.is_active = 1
         LEFT JOIN workplaces w ON w.room_id = r.id AND w.is_active = 1
-        WHERE o.id = ?
+        WHERE o.id = ? ${extraWhere}
         ORDER BY r.sort_order, r.name, w.sort_order, w.name
-      `, [officeId], (err, rows) => {
+      `, [officeId, ...s.params], (err, rows) => {
         if (err) {
           reject(err);
           return;
@@ -854,7 +880,9 @@ module.exports = ({ db, run, get, all }) => ({
    * Сводка по всем офисам (для страницы /admin/workplaces)
    * Возвращает: список офисов со статистикой
    */
-  getWorkplaceSummary() {
+  getWorkplaceSummary(scope = {}) {
+    const s = buildOfficeScope(scope);
+    const extraWhere = s.clause ? `AND ${s.clause}` : '';
     return new Promise((resolve, reject) => {
       db.all(`
         SELECT
@@ -874,9 +902,9 @@ module.exports = ({ db, run, get, all }) => ({
             WHERE r.office_id = o.id
           ) as equipment_count
         FROM offices o
-        WHERE o.is_active = 1
+        WHERE o.is_active = 1 ${extraWhere}
         ORDER BY o.is_default DESC, o.name ASC
-      `, (err, rows) => {
+      `, s.params, (err, rows) => {
         if (err) {
           reject(err);
           return;
@@ -898,7 +926,9 @@ module.exports = ({ db, run, get, all }) => ({
   /**
    * Техника в офисе (для инвентаризации рабочих мест)
    */
-  getOfficeEquipment(officeId) {
+  getOfficeEquipment(officeId, scope = {}) {
+    const s = buildOfficeScope(scope);
+    const extraWhere = s.clause ? `AND ${s.clause}` : '';
     return new Promise((resolve, reject) => {
       db.all(`
         SELECT
@@ -929,9 +959,9 @@ module.exports = ({ db, run, get, all }) => ({
         JOIN workplaces w ON e.workplace_id = w.id
         JOIN rooms r ON w.room_id = r.id
         JOIN offices o ON r.office_id = o.id
-        WHERE r.office_id = ?
+        WHERE r.office_id = ? ${extraWhere}
         ORDER BY r.sort_order, r.name, w.sort_order, w.name, c.sort_order, t.sort_order
-      `, [officeId], (err, rows) => {
+      `, [officeId, ...s.params], (err, rows) => {
         if (err) {
           reject(err);
           return;
@@ -945,7 +975,9 @@ module.exports = ({ db, run, get, all }) => ({
    * Заполненность рабочих мест офиса
    * Возвращает: список мест с процентом заполнения
    */
-  getWorkplaceOccupancy(officeId) {
+  getWorkplaceOccupancy(officeId, scope = {}) {
+    const s = buildOfficeScope(scope);
+    const extraWhere = s.clause ? `AND ${s.clause}` : '';
     return new Promise((resolve, reject) => {
       db.all(`
         SELECT
@@ -958,9 +990,9 @@ module.exports = ({ db, run, get, all }) => ({
         FROM workplaces w
         JOIN rooms r ON w.room_id = r.id
         JOIN offices o ON r.office_id = o.id
-        WHERE r.office_id = ? AND w.is_active = 1
+        WHERE r.office_id = ? AND w.is_active = 1 ${extraWhere}
         ORDER BY r.sort_order, r.name, w.sort_order, w.name
-      `, [officeId], (err, rows) => {
+      `, [officeId, ...s.params], (err, rows) => {
         if (err) {
           reject(err);
           return;

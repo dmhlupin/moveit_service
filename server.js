@@ -176,10 +176,13 @@ const {
 const {
   requireAuth,
   requireAdmin,
+  requireSupervisor,   // 🆕 admin | supervisor
+  requireMol,          // 🆕 admin | mol
+  requireRole,         // 🆕 гибкий
   requireGuest,
   loadUser,
   checkPasswordChange,
-  syncSession  // ← НОВОЕ
+  syncSession
 } = require('./middleware/auth');
 
 const app = express();
@@ -268,36 +271,47 @@ app.post('/api/profile/update', requireAuth, updateProfileAPI);
 // ============================================
 // ОСНОВНЫЕ РОУТЫ (только авторизованные)
 // ============================================
-app.get('/', requireAdmin, renderDashboard);  // ← вместо requireAuth
-app.get('/users', requireAdmin, renderUsers);
-app.get('/pdf', requireAuth, renderPdfList);
-app.get('/pdf/:filename', requireAuth, renderPdfFile);
-app.get('/equipment', requireAdmin, renderEquipmentDashboard);
+// Дашборд, ТМЦ, пользователи — read-only, доступны
+// admin + supervisor. Редактирование — только admin/mol (см. ниже).
+app.get('/',           requireSupervisor, renderDashboard);
+app.get('/users',      requireSupervisor, renderUsers);
+app.get('/equipment',  requireSupervisor, renderEquipmentDashboard);
+app.get('/pdf',        requireAuth,       renderPdfList);
+app.get('/pdf/:filename', requireAuth,    renderPdfFile);
 
 // ============================================
-// АДМИН-ПАНЕЛЬ (только администраторы!)
+// УЧЁТ ТМЦ (/admin)
 // ============================================
-app.get('/admin', requireAdmin, renderAdmin);
-app.get('/admin/add', requireAdmin, renderAddEquipment);
-app.get('/admin/edit/:id', requireAdmin, renderEditEquipment);
-app.get('/admin/user/add', requireAdmin, renderAddUser);
-app.get('/admin/user/edit/:id', requireAdmin, renderEditUser);
+// Просмотр — admin + supervisor.
+// Формы add/edit — admin + mol (МОЛ редактирует свои экземпляры;
+// конкретные ограничения проверяет updateEquipmentAPI).
+app.get('/admin',          requireSupervisor, renderAdmin);
+app.get('/admin/add',      requireMol,        renderAddEquipment);
+app.get('/admin/edit/:id', requireMol,        renderEditEquipment);
+
+// Управление пользователями — только admin.
+app.get('/admin/user/add',       requireAdmin, renderAddUser);
+app.get('/admin/user/edit/:id',  requireAdmin, renderEditUser);
 
 // ============================================
-// API ДЛЯ ТЕХНИКИ (только администраторы!)
+// API ДЛЯ ТЕХНИКИ
 // ============================================
-app.get('/api/admin/equipment', requireAdmin, getEquipmentAPI);
-// Сначала конкретные
-app.get('/api/admin/equipment/filtered', requireAdmin, getFilteredEquipmentAPI);
-app.get('/api/admin/equipment/counts', requireAdmin, getEquipmentCountsAPI);
+// Чтение — admin + supervisor + mol (МОЛ видит только свои
+// через SQL-scope; конкретная проверка — в роуте через permissions.js).
+// Запись — admin + mol (mol — только свои; см. permissions.js внутри).
 
-app.get('/api/admin/equipment/:id/details', requireAdmin, getEquipmentDetailsAPI);  
-app.get('/api/admin/equipment/:id/moves', requireAdmin, getEquipmentMovesAPI);  // 🆕
-app.get('/api/admin/equipment/:id', requireAdmin, getEquipmentByIdAPI);
-app.post('/api/admin/equipment/:id/move', requireAdmin, moveEquipmentAPI);      // 🆕
-app.post('/api/admin/equipment', requireAdmin, addEquipmentAPI);
-app.put('/api/admin/equipment/:id', requireAdmin, updateEquipmentAPI);
-app.delete('/api/admin/equipment/:id', requireAdmin, deleteEquipmentAPI);
+app.get('/api/admin/equipment',          requireSupervisor, getEquipmentAPI);
+app.get('/api/admin/equipment/filtered', requireSupervisor, getFilteredEquipmentAPI);
+app.get('/api/admin/equipment/counts',   requireSupervisor, getEquipmentCountsAPI);
+
+app.get('/api/admin/equipment/:id/details', requireSupervisor, getEquipmentDetailsAPI);
+app.get('/api/admin/equipment/:id/moves',   requireSupervisor, getEquipmentMovesAPI);
+app.get('/api/admin/equipment/:id',         requireSupervisor, getEquipmentByIdAPI);
+
+app.post('/api/admin/equipment/:id/move', requireMol, moveEquipmentAPI);
+app.post('/api/admin/equipment',          requireMol, addEquipmentAPI);
+app.put('/api/admin/equipment/:id',       requireMol, updateEquipmentAPI);
+app.delete('/api/admin/equipment/:id',    requireMol, deleteEquipmentAPI);
 
 
 
@@ -348,101 +362,110 @@ app.put('/api/admin/models/:id', requireAdmin, updateModelAPI);
 app.delete('/api/admin/models/:id', requireAdmin, deleteModelAPI);
 
 // ============================================
-// СКЛАДЫ (только администраторы!)
+// СКЛАДЫ
 // ============================================
+// Просмотр — admin + supervisor + mol (mol видит только свои).
+// Редактирование — admin + mol (mol — только свои).
 
 // Страницы
-app.get('/admin/warehouses', requireAdmin, renderWarehouses);
-app.get('/admin/warehouses/:id', requireAdmin, renderWarehouseDetails);
+app.get('/admin/warehouses',      requireSupervisor, renderWarehouses);
+app.get('/admin/warehouses/:id',  requireSupervisor, renderWarehouseDetails);
 
-// API складов
-app.get('/api/admin/warehouses', requireAdmin, getWarehousesAPI);
-app.get('/api/admin/warehouses/tree', requireAdmin, getFullTreeAPI);
-app.get('/api/admin/warehouses/stats', requireAdmin, getWarehouseStatsAPI);
-app.get('/api/admin/warehouses/:id/tree', requireAdmin, getWarehouseTreeAPI);
-app.get('/api/admin/warehouses/:id/zones', requireAdmin, getZonesAPI);
-app.get('/api/admin/warehouses/:id', requireAdmin, getWarehouseAPI);
-app.post('/api/admin/warehouses', requireAdmin, createWarehouseAPI);
-app.put('/api/admin/warehouses/:id', requireAdmin, updateWarehouseAPI);
-app.delete('/api/admin/warehouses/:id', requireAdmin, deleteWarehouseAPI);
+// API складов — чтение
+app.get('/api/admin/warehouses',         requireSupervisor, getWarehousesAPI);
+app.get('/api/admin/warehouses/tree',    requireSupervisor, getFullTreeAPI);
+app.get('/api/admin/warehouses/stats',   requireSupervisor, getWarehouseStatsAPI);
+app.get('/api/admin/warehouses/:id/tree',   requireSupervisor, getWarehouseTreeAPI);
+app.get('/api/admin/warehouses/:id/zones',  requireSupervisor, getZonesAPI);
+app.get('/api/admin/warehouses/:id',        requireSupervisor, getWarehouseAPI);
+
+// API складов — запись (admin + mol, mol — свои)
+app.post('/api/admin/warehouses',   requireMol, createWarehouseAPI);
+app.put('/api/admin/warehouses/:id', requireMol, updateWarehouseAPI);
+app.delete('/api/admin/warehouses/:id', requireMol, deleteWarehouseAPI);
 app.post('/api/admin/warehouses/:id/set-default', requireAdmin, setDefaultWarehouseAPI);
 
-// API зон
-app.post('/api/admin/zones', requireAdmin, createZoneAPI);
-app.put('/api/admin/zones/:id', requireAdmin, updateZoneAPI);
-app.delete('/api/admin/zones/:id', requireAdmin, deleteZoneAPI);
+// API зон — запись (admin + mol, mol — свои)
+app.post('/api/admin/zones',       requireMol, createZoneAPI);
+app.put('/api/admin/zones/:id',    requireMol, updateZoneAPI);
+app.delete('/api/admin/zones/:id', requireMol, deleteZoneAPI);
 
 // API стеллажей
-app.get('/api/admin/zones/:id/racks', requireAdmin, getRacksAPI);
-app.post('/api/admin/racks', requireAdmin, createRackAPI);
-app.put('/api/admin/racks/:id', requireAdmin, updateRackAPI);
-app.delete('/api/admin/racks/:id', requireAdmin, deleteRackAPI);
+app.get('/api/admin/zones/:id/racks', requireSupervisor, getRacksAPI);
+app.post('/api/admin/racks',          requireMol,        createRackAPI);
+app.put('/api/admin/racks/:id',       requireMol,        updateRackAPI);
+app.delete('/api/admin/racks/:id',    requireMol,        deleteRackAPI);
 
 // API ячеек
-app.get('/api/admin/racks/:id/cells', requireAdmin, getCellsAPI);
-app.get('/api/admin/cells/:id/equipment', requireAdmin, getCellEquipmentAPI);
-app.get('/api/admin/cells/:id', requireAdmin, getCellAPI);
-app.post('/api/admin/cells', requireAdmin, createCellAPI);
-app.put('/api/admin/cells/:id', requireAdmin, updateCellAPI);
-app.delete('/api/admin/cells/:id', requireAdmin, deleteCellAPI);
+app.get('/api/admin/racks/:id/cells',    requireSupervisor, getCellsAPI);
+app.get('/api/admin/cells/:id/equipment', requireSupervisor, getCellEquipmentAPI);
+app.get('/api/admin/cells/:id',          requireSupervisor, getCellAPI);
+app.post('/api/admin/cells',             requireMol,        createCellAPI);
+app.put('/api/admin/cells/:id',          requireMol,        updateCellAPI);
+app.delete('/api/admin/cells/:id',       requireMol,        deleteCellAPI);
 
 // ============================================
-// ИНВЕНТАРИЗАЦИЯ (только администраторы!)
+// ИНВЕНТАРИЗАЦИЯ (read-only для admin + supervisor + mol)
 // ============================================
+// МОЛ видит только свои склады — фильтр в SQL через scope.
 
 // Страница
-app.get('/admin/inventory', requireAdmin, renderInventory);
+app.get('/admin/inventory', requireSupervisor, renderInventory);
 
 // API
-app.get('/api/admin/inventory/summary', requireAdmin, getInventorySummaryAPI);
-app.get('/api/admin/inventory/totals', requireAdmin, getInventoryTotalsAPI);
-app.get('/api/admin/inventory/special', requireAdmin, getSpecialStatusSummaryAPI);  // 🆕 2.11.14
+app.get('/api/admin/inventory/summary', requireSupervisor, getInventorySummaryAPI);
+app.get('/api/admin/inventory/totals',  requireSupervisor, getInventoryTotalsAPI);
+app.get('/api/admin/inventory/special', requireSupervisor, getSpecialStatusSummaryAPI);
 
 // Сначала более конкретные
-app.get('/api/admin/warehouses/:id/inventory/export', requireAdmin, exportInventoryCSV);
-app.get('/api/admin/warehouses/:id/inventory', requireAdmin, getWarehouseInventoryAPI);
-app.get('/api/admin/warehouses/:id/occupancy', requireAdmin, getCellOccupancyAPI);
+app.get('/api/admin/warehouses/:id/inventory/export', requireSupervisor, exportInventoryCSV);
+app.get('/api/admin/warehouses/:id/inventory',        requireSupervisor, getWarehouseInventoryAPI);
+app.get('/api/admin/warehouses/:id/occupancy',        requireSupervisor, getCellOccupancyAPI);
 
 
 // ============================================
-// РАБОЧИЕ МЕСТА (только администраторы!)
+// РАБОЧИЕ МЕСТА
 // ============================================
+// Просмотр — admin + supervisor + mol (mol видит только свои).
+// Редактирование — admin + mol (mol — только свои).
 
 // Страницы
-app.get('/admin/workplaces', requireAdmin, renderWorkplaces);
-app.get('/admin/workplaces/:id', requireAdmin, renderWorkplaceDetails);
+app.get('/admin/workplaces',      requireSupervisor, renderWorkplaces);
+app.get('/admin/workplaces/:id',  requireSupervisor, renderWorkplaceDetails);
 
-// API офисов
-app.get('/api/admin/offices', requireAdmin, getOfficesAPI);
-app.get('/api/admin/offices/tree', requireAdmin, getFullWorkplaceTreeAPI);
-app.get('/api/admin/offices/:id/tree', requireAdmin, getOfficeTreeAPI);
-app.get('/api/admin/offices/:id/rooms', requireAdmin, getRoomsAPI);
-app.get('/api/admin/offices/:id/equipment/export', requireAdmin, exportOfficeInventoryCSV);
-app.get('/api/admin/offices/:id/equipment', requireAdmin, getOfficeEquipmentAPI);
-app.get('/api/admin/offices/:id/occupancy', requireAdmin, getWorkplaceOccupancyAPI);
-app.get('/api/admin/offices/:id', requireAdmin, getOfficeAPI);
-app.post('/api/admin/offices', requireAdmin, createOfficeAPI);
-app.put('/api/admin/offices/:id', requireAdmin, updateOfficeAPI);
-app.delete('/api/admin/offices/:id', requireAdmin, deleteOfficeAPI);
+// API офисов — чтение
+app.get('/api/admin/offices',         requireSupervisor, getOfficesAPI);
+app.get('/api/admin/offices/tree',    requireSupervisor, getFullWorkplaceTreeAPI);
+app.get('/api/admin/offices/:id/tree',      requireSupervisor, getOfficeTreeAPI);
+app.get('/api/admin/offices/:id/rooms',     requireSupervisor, getRoomsAPI);
+app.get('/api/admin/offices/:id/equipment/export', requireSupervisor, exportOfficeInventoryCSV);
+app.get('/api/admin/offices/:id/equipment', requireSupervisor, getOfficeEquipmentAPI);
+app.get('/api/admin/offices/:id/occupancy', requireSupervisor, getWorkplaceOccupancyAPI);
+app.get('/api/admin/offices/:id',           requireSupervisor, getOfficeAPI);
+
+// API офисов — запись
+app.post('/api/admin/offices',   requireMol,   createOfficeAPI);
+app.put('/api/admin/offices/:id', requireMol,  updateOfficeAPI);
+app.delete('/api/admin/offices/:id', requireMol, deleteOfficeAPI);
 app.post('/api/admin/offices/:id/set-default', requireAdmin, setDefaultOfficeAPI);
 
 // API статистики и сводки
-app.get('/api/admin/workplaces/stats', requireAdmin, getWorkplaceStatsAPI);
-app.get('/api/admin/workplaces/summary', requireAdmin, getWorkplaceSummaryAPI);
+app.get('/api/admin/workplaces/stats',   requireSupervisor, getWorkplaceStatsAPI);
+app.get('/api/admin/workplaces/summary', requireSupervisor, getWorkplaceSummaryAPI);
 
-// API кабинетов
-app.post('/api/admin/rooms', requireAdmin, createRoomAPI);
-app.put('/api/admin/rooms/:id', requireAdmin, updateRoomAPI);
-app.delete('/api/admin/rooms/:id', requireAdmin, deleteRoomAPI);
-app.get('/api/admin/rooms/:id/workplaces', requireAdmin, getWorkplacesAPI);
+// API кабинетов — запись
+app.post('/api/admin/rooms',       requireMol, createRoomAPI);
+app.put('/api/admin/rooms/:id',    requireMol, updateRoomAPI);
+app.delete('/api/admin/rooms/:id', requireMol, deleteRoomAPI);
+app.get('/api/admin/rooms/:id/workplaces', requireSupervisor, getWorkplacesAPI);
 
-// API рабочих мест
-app.get('/api/admin/workplaces/:id/equipment', requireAdmin, getWorkplaceEquipmentAPI);
-app.post('/api/admin/workplaces/:id/move-equipment', requireAdmin, moveEquipmentToWorkplaceAPI);
-app.get('/api/admin/workplaces/:id', requireAdmin, getWorkplaceAPI);
-app.post('/api/admin/workplaces', requireAdmin, createWorkplaceAPI);
-app.put('/api/admin/workplaces/:id', requireAdmin, updateWorkplaceAPI);
-app.delete('/api/admin/workplaces/:id', requireAdmin, deleteWorkplaceAPI);
+// API рабочих мест — запись
+app.get('/api/admin/workplaces/:id/equipment',      requireSupervisor, getWorkplaceEquipmentAPI);
+app.post('/api/admin/workplaces/:id/move-equipment', requireMol,       moveEquipmentToWorkplaceAPI);
+app.get('/api/admin/workplaces/:id',          requireSupervisor, getWorkplaceAPI);
+app.post('/api/admin/workplaces',             requireMol,        createWorkplaceAPI);
+app.put('/api/admin/workplaces/:id',          requireMol,        updateWorkplaceAPI);
+app.delete('/api/admin/workplaces/:id',       requireMol,        deleteWorkplaceAPI);
 
 // ============================================
 // API ДЛЯ ПОЛЬЗОВАТЕЛЕЙ (только администраторы!)
@@ -458,6 +481,36 @@ app.post('/api/admin/users/:id/block', requireAdmin, blockUserAPI);
 app.post('/api/admin/users/:id/unblock', requireAdmin, unblockUserAPI);
 
 // ============================================
+// УПРАВЛЕНИЕ МОЛ (только администратор!)
+// ============================================
+// Привязка/отвязка МОЛ к складам и офисам + назначение
+// ответственного за конкретный экземпляр техники.
+//
+// Импорт функций — из routes/admin-responsibles.js (см. ниже).
+
+const {
+  addWarehouseResponsibleAPI,
+  removeWarehouseResponsibleAPI,
+  getWarehouseResponsiblesAPI,
+  addOfficeResponsibleAPI,
+  removeOfficeResponsibleAPI,
+  getOfficeResponsiblesAPI,
+  setEquipmentResponsibleAPI,
+  getEquipmentResponsibleAPI,
+} = require('./routes/admin-responsibles');
+
+app.get('/api/admin/warehouses/:id/responsibles', requireAdmin, getWarehouseResponsiblesAPI);
+app.post('/api/admin/warehouses/:id/responsibles', requireAdmin, addWarehouseResponsibleAPI);
+app.delete('/api/admin/warehouses/:id/responsibles/:userId', requireAdmin, removeWarehouseResponsibleAPI);
+
+app.get('/api/admin/offices/:id/responsibles', requireAdmin, getOfficeResponsiblesAPI);
+app.post('/api/admin/offices/:id/responsibles', requireAdmin, addOfficeResponsibleAPI);
+app.delete('/api/admin/offices/:id/responsibles/:userId', requireAdmin, removeOfficeResponsibleAPI);
+
+app.get('/api/admin/equipment/:id/responsible', requireSupervisor, getEquipmentResponsibleAPI);
+app.post('/api/admin/equipment/:id/responsible', requireAdmin, setEquipmentResponsibleAPI);
+
+// ============================================
 // ЗАПУСК СЕРВЕРА
 // ============================================
 const server = app.listen(PORT, () => {
@@ -469,8 +522,10 @@ const server = app.listen(PORT, () => {
   console.log(`👤  Профиль:            http://localhost:${PORT}/profile`);
   console.log(`📖  Главная:            http://localhost:${PORT}/`);
   console.log(`⚙️  Админ-панель:       http://localhost:${PORT}/admin`);
+  console.log(`🏢  Склады:            http://localhost:${PORT}/admin/warehouses`);
   console.log(`🏛️  Рабочие места:      http://localhost:${PORT}/admin/workplaces`);
-  console.log(`🧩  Номенклатура:        http://localhost:${PORT}/admin/models`);
+  console.log(`🧩  Номенклатура:       http://localhost:${PORT}/admin/models`);
+  console.log(`📊  Инвентаризация:     http://localhost:${PORT}/admin/inventory`);
   console.log('🚀 ============================================');
   console.log('');
 });
