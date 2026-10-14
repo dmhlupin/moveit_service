@@ -1,0 +1,110 @@
+<!-- views/admin-users.html — Управление доступом (только admin) -->
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">🔐 Управление доступом</h1>
+        <div class="page-subtitle">Пользователи, роли и права доступа</div>
+    </div>
+    <div class="page-actions">
+        <a href="/users" class="btn btn-ghost btn-sm" title="Справочный список">👥 Обзор пользователей</a>
+        <a href="/admin/logs" class="btn btn-ghost btn-sm">📈 Логи</a>
+    </div>
+</div>
+
+<div class="table-container">
+    <div class="table-header">
+        <h2>📋 Список пользователей</h2>
+        <div class="table-search">
+            <a href="/admin/user/add" class="btn btn-success btn-sm">➕ Добавить пользователя</a>
+            <input type="text" id="searchUsers" placeholder="🔍 Поиск..." onkeyup="searchTable('users')">
+        </div>
+    </div>
+    <table class="users-table">
+        <thead>
+            <tr>
+                <th style="width: 50px;">ID</th>
+                <th style="width: 200px;">Пользователь</th>
+                <th style="width: 180px;">Email</th>
+                <th style="width: 130px;">Отдел</th>
+                <th style="width: 130px;">Роль</th>
+                <th style="width: 70px; text-align: center;">ТМЦ</th>
+                <th style="width: 130px;">Статус</th>
+                <th style="width: 150px;">Последний вход</th>
+                <th style="width: 200px;">Действия</th>
+            </tr>
+        </thead>
+        <tbody id="usersTableBody">
+            {{user_rows}}
+        </tbody>
+    </table>
+</div>
+
+<!-- ============================================================ -->
+<!-- МОДАЛКА: УДАЛЕНИЕ ПОЛЬЗОВАТЕЛЯ                                -->
+<!-- ============================================================ -->
+
+<div class="modal-overlay" id="deleteModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>🗑️ Подтверждение удаления</h3>
+        </div>
+        <p id="deleteUserText">Вы уверены, что хотите удалить этот элемент? Это действие нельзя отменить.</p>
+        <div class="delete-warning" id="deleteUserWarning" style="display: none;">
+            <span class="warning-icon">⚠️</span>
+            <div>
+                <strong>Внимание!</strong>
+                <p>У пользователя есть <span id="deleteEquipmentCount">0</span> единиц техники.
+                Вся техника будет автоматически возвращена в статус "Доступна".</p>
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button onclick="closeModal()" class="btn btn-ghost">Отмена</button>
+            <button onclick="confirmDelete()" class="btn btn-danger">Удалить</button>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- МОДАЛКА: ПОКАЗАТЬ ПАРОЛЬ                                      -->
+<!-- ============================================================ -->
+
+<div class="modal-overlay" id="passwordModal">
+    <div class="modal password-modal">
+        <div class="modal-header">
+            <h3>🔑 Временный пароль</h3>
+        </div>
+        <div class="modal-body">
+            <div class="password-warning">
+                <span class="warning-icon">⚠️</span>
+                <p>Сохраните этот пароль! Он показывается <strong>только один раз</strong>.</p>
+            </div>
+            <div class="password-display">
+                <code id="tempPasswordValue"></code>
+                <button onclick="copyPassword()" class="btn-copy" title="Скопировать">📋</button>
+            </div>
+            <div class="password-info">
+                <p><strong>Логин:</strong> <span id="passwordUsername"></span></p>
+                <p>Передайте эти данные пользователю. При первом входе система попросит сменить пароль.</p>
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button onclick="closePasswordModal()" class="btn btn-primary">Понятно, я сохранил</button>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- МОДАЛКА: ПРОСМОТР ПОЛЬЗОВАТЕЛЯ                                -->
+<!-- ============================================================ -->
+
+<div class="modal-overlay" id="viewUserModal">
+    <div class="modal view-user-modal">
+        <div class="modal-header">
+            <h3>👤 Информация о пользователе</h3>
+            <button onclick="closeViewUserModal()" class="modal-close">✕</button>
+        </div>
+        <div class="modal-body" id="viewUserBody">
+            <!-- Заполняется через JS -->
+        </div>
+    </div>
+</div>

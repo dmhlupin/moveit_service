@@ -2,7 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const { getUsersWithEquipment, getStats } = require('../database/db');
-const { renderPage } = require('../utils/layout');
+const { renderPageFor } = require('../utils/layout');
 
 /**
  * GET /users — страница просмотра пользователей
@@ -22,7 +22,7 @@ async function renderUsers(req, res) {
     html = html.replace(/\{\{available_equipment\}\}/g, stats.available_equipment || 0);
 
     // ===== Кнопки для админа =====
-    const isAdmin = req.session?.user?.role === 'admin';
+    const isAdmin = req.session?.role === 'admin';
     const adminActions = isAdmin
       ? '<a href="/admin/user/add" class="btn btn-success">➕ Добавить пользователя</a>'
       : '';
@@ -80,14 +80,13 @@ async function renderUsers(req, res) {
     html = html.replace('{{user_rows}}', tableRows);
 
     // ===== Сборка страницы с layout =====
-    const fullHtml = renderPage({
+    renderPageFor(req, res, {
       title: 'Пользователи — MoveIT service',
       content: html,
       pageCss: '/css/users.css',
       pageJs: '/js/users.js',
     });
 
-    res.send(fullHtml);
   } catch (error) {
     console.error('❌ Ошибка загрузки страницы пользователей:', error);
     res.status(500).send('Ошибка при загрузке страницы пользователей');

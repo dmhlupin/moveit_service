@@ -36,27 +36,44 @@ function clearCache() {
 }
 
 /**
- * 🆕 Построить sidebar с учётом роли.
+ * 🆕 Построить sidebar с учётом роли (Этап 4).
  *
- * В sidebar.html используются маркеры:
- *   {{#if admin}}...{{/if}}   — только для админа
- *   {{#if user}}...{{/if}}    — только для пользователя
+ * Поддерживаемые маркеры в sidebar.html:
+ *   {{#if admin}}...{{/if}}            — только admin
+ *   {{#if supervisor}}...{{/if}}       — только supervisor
+ *   {{#if mol}}...{{/if}}              — только mol
+ *   {{#if user}}...{{/if}}             — только user
+ *   {{#if admin_or_supervisor}}...{{/if}} — admin | supervisor
+ *   {{#if admin_or_mol}}...{{/if}}        — admin | mol
+ *   {{#if admin_or_supervisor_or_mol}}...{{/if}} — admin | supervisor | mol
+ *   {{#if all_roles}}...{{/if}}        — любая авторизованная роль
  *
  * Регулярки нежадные: [\s\S]*? — чтобы корректно обрабатывать
  * несколько блоков в файле.
  */
-function buildSidebar(sidebarHtml, isAdmin) {
+function buildSidebar(sidebarHtml, role) {
     let html = sidebarHtml;
 
-    // {{#if admin}}...{{/if}}
-    html = html.replace(/\{\{#if admin\}\}([\s\S]*?)\{\{\/if\}\}/g, (_, inner) => {
-        return isAdmin ? inner : '';
-    });
+    // Универсальный резолвер: маркер → функция (role) => bool
+    const markers = {
+        admin:                      (r) => r === 'admin',
+        supervisor:                 (r) => r === 'supervisor',
+        mol:                        (r) => r === 'mol',
+        user:                       (r) => r === 'user',
+        admin_or_supervisor:        (r) => r === 'admin' || r === 'supervisor',
+        admin_or_mol:               (r) => r === 'admin' || r === 'mol',
+        admin_or_supervisor_or_mol: (r) => r === 'admin' || r === 'supervisor' || r === 'mol',
+        all_roles:                  (r) => !!r,
+    };
 
-    // {{#if user}}...{{/if}}
-    html = html.replace(/\{\{#if user\}\}([\s\S]*?)\{\{\/if\}\}/g, (_, inner) => {
-        return isAdmin ? '' : inner;
-    });
+    // Для каждого маркера — свой проход.
+    for (const [marker, check] of Object.entries(markers)) {
+        const re = new RegExp(
+            `\\{\\{#if ${marker}\\}\\}([\\s\\S]*?)\\{\\{\\/if\\}\\}`,
+            'g'
+        );
+        html = html.replace(re, (_, inner) => check(role) ? inner : '');
+    }
 
     return html;
 }
@@ -97,12 +114,14 @@ function renderPage(options) {
     const extraCss = pageCss ? `<link rel="stylesheet" href="${pageCss}">` : '';
     const extraJs = pageJs ? `<script src="${pageJs}"></script>` : '';
     
-    // 🆕 Роле-зависимый sidebar.
+    // 🆕 Роле-зависимый sidebar (Этап 4).
     // Если user не передан (undefined) — считаем админом для обратной
-    // совместимости. Если передан явно (в т.ч. null для неавторизованных) —
-    // используем его роль.
-    const isAdmin = (user === undefined) || (user && user.role === 'admin');
-    const sidebar = buildSidebar(partials.sidebar, isAdmin);
+    // совместимости (старые роуты).
+    // Если user === null — неавторизованный: sidebar как у user.
+    const role = (user === undefined)
+        ? 'admin'
+        : (user && user.role ? user.role : 'user');
+    const sidebar = buildSidebar(partials.sidebar, role);
     
     // Собираем HTML
     return `<!DOCTYPE html>

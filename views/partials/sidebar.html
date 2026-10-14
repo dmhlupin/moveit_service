@@ -1,15 +1,49 @@
 <!-- views/partials/sidebar.html -->
-<!-- Боковое меню: роле-зависимое -->
+<!-- Боковое меню: роле-зависимое (admin / supervisor / mol / user) -->
 <!--
-  Маркеры:
-    {{#if admin}}...{{/if}}          — только для админа
-    {{#if user}}...{{/if}}           — только для пользователя
-    {{#if admin_or_user}}...{{/if}}  — для всех
+  Маркеры (см. utils/layout.js → buildSidebar):
+  Условные блоки (см. utils/layout.js -> buildSidebar):
+    маркер "admin"                      — только admin
+    маркер "supervisor"                 — только supervisor
+    маркер "mol"                        — только mol
+    маркер "user"                       — только user
+    маркер "admin_or_supervisor"        — admin | supervisor
+    маркер "admin_or_mol"               — admin | mol
+    маркер "admin_or_supervisor_or_mol" — admin | supervisor | mol
+    маркер "all_roles"                  — любая авторизованная роль
 -->
 
 <aside class="app-sidebar" id="appSidebar">
-    <!-- Логотип: админ → дашборд, пользователь → личный кабинет -->
+    <!-- Логотип -->
     {{#if admin}}
+    <a href="/" class="sidebar-logo">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+            <path d="M16 2L29 9L16 16L3 9L16 2Z" fill="currentColor" opacity="0.3"/>
+            <path d="M3 9V23L16 30V16L3 9Z" fill="currentColor" opacity="0.5"/>
+            <path d="M29 9V23L16 30V16L29 9Z" fill="currentColor"/>
+            <path d="M16 12V7M16 7L13.5 9.5M16 7L18.5 9.5"
+                  stroke="white" stroke-width="1.5"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="logo-text">MoveIT</span>
+    </a>
+    {{/if}}
+
+    {{#if supervisor}}
+    <a href="/" class="sidebar-logo">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none"> 
+            <path d="M16 2L29 9L16 16L3 9L16 2Z" fill="currentColor" opacity="0.3"/>
+            <path d="M3 9V23L16 30V16L3 9Z" fill="currentColor" opacity="0.5"/>
+            <path d="M29 9V23L16 30V16L29 9Z" fill="currentColor"/>
+            <path d="M16 12V7M16 7L13.5 9.5M16 7L18.5 9.5"
+                  stroke="white" stroke-width="1.5"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="logo-text">MoveIT</span>
+    </a>
+    {{/if}}
+
+    {{#if mol}}
     <a href="/" class="sidebar-logo">
         <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
             <path d="M16 2L29 9L16 16L3 9L16 2Z" fill="currentColor" opacity="0.3"/>
@@ -40,10 +74,10 @@
     <!-- Навигация -->
     <nav class="sidebar-nav">
 
-        {{#if admin}}
         <!-- ============================================ -->
-        <!-- ОБЗОР (только админ)                          -->
+        <!-- ОБЗОР — admin / supervisor / mol              -->
         <!-- ============================================ -->
+        {{#if admin_or_supervisor_or_mol}}
         <div class="sidebar-group">
             <div class="sidebar-group-title">Обзор</div>
 
@@ -58,10 +92,12 @@
                 <span class="sidebar-link-badge" id="equipmentCount">—</span>
             </a>
         </div>
+        {{/if}}
 
         <!-- ============================================ -->
-        <!-- ИНВЕНТАРИЗАЦИЯ                                -->
+        <!-- ИНВЕНТАРИЗАЦИЯ — admin / supervisor / mol     -->
         <!-- ============================================ -->
+        {{#if admin_or_supervisor_or_mol}}
         <div class="sidebar-group">
             <div class="sidebar-group-title">Инвентаризация</div>
 
@@ -70,10 +106,12 @@
                 <span class="sidebar-link-text">Инвентаризация</span>
             </a>
         </div>
+        {{/if}}
 
         <!-- ============================================ -->
-        <!-- УПРАВЛЕНИЕ                                    -->
+        <!-- УПРАВЛЕНИЕ — admin / mol                      -->
         <!-- ============================================ -->
+        {{#if admin_or_mol}}
         <div class="sidebar-group">
             <div class="sidebar-group-title">Управление</div>
 
@@ -104,10 +142,29 @@
         </div>
         {{/if}}
 
+        <!-- ============================================ -->
+        <!-- КЛАССИФИКАЦИЯ (просмотр) — supervisor          -->
+        <!-- ============================================ -->
+        {{#if supervisor}}
+        <div class="sidebar-group">
+            <div class="sidebar-group-title">Управление</div>
+
+            <a href="/admin/catalog" class="sidebar-link" data-page="catalog">
+                <span class="sidebar-link-icon">📚</span>
+                <span class="sidebar-link-text">Классификация</span>
+            </a>
+
+            <a href="/admin/models" class="sidebar-link" data-page="models">
+                <span class="sidebar-link-icon">🧩</span>
+                <span class="sidebar-link-text">Номенклатура</span>
+            </a>
+        </div>
+        {{/if}}
+
+        <!-- ============================================ -->
+        <!-- ЛИЧНЫЙ КАБИНЕТ — только user                  -->
+        <!-- ============================================ -->
         {{#if user}}
-        <!-- ============================================ -->
-        <!-- ЛИЧНЫЙ КАБИНЕТ (только пользователь)          -->
-        <!-- ============================================ -->
         <div class="sidebar-group">
             <div class="sidebar-group-title">Личный кабинет</div>
 
@@ -119,7 +176,7 @@
         {{/if}}
 
         <!-- ============================================ -->
-        <!-- СИСТЕМА (для всех)                            -->
+        <!-- СИСТЕМА — admin                               -->
         <!-- ============================================ -->
         {{#if admin}}
         <div class="sidebar-group">
@@ -128,6 +185,11 @@
             <a href="/users" class="sidebar-link" data-page="users">
                 <span class="sidebar-link-icon">👥</span>
                 <span class="sidebar-link-text">Пользователи</span>
+            </a>
+
+            <a href="/admin/users" class="sidebar-link" data-page="admin-users">
+                <span class="sidebar-link-icon">🔐</span>
+                <span class="sidebar-link-text">Управление доступом</span>
             </a>
 
             <a href="/admin/logs" class="sidebar-link" data-page="logs">
@@ -142,6 +204,42 @@
         </div>
         {{/if}}
 
+        <!-- ============================================ -->
+        <!-- СИСТЕМА — supervisor                          -->
+        <!-- ============================================ -->
+        {{#if supervisor}}
+        <div class="sidebar-group">
+            <div class="sidebar-group-title">Система</div>
+
+            <a href="/users" class="sidebar-link" data-page="users">
+                <span class="sidebar-link-icon">👥</span>
+                <span class="sidebar-link-text">Пользователи</span>
+            </a>
+
+            <a href="/pdf" class="sidebar-link" data-page="pdf">
+                <span class="sidebar-link-icon">📑</span>
+                <span class="sidebar-link-text">PDF инструкции</span>
+            </a>
+        </div>
+        {{/if}}
+
+        <!-- ============================================ -->
+        <!-- СИСТЕМА — mol                                 -->
+        <!-- ============================================ -->
+        {{#if mol}}
+        <div class="sidebar-group">
+            <div class="sidebar-group-title">Система</div>
+
+            <a href="/pdf" class="sidebar-link" data-page="pdf">
+                <span class="sidebar-link-icon">📑</span>
+                <span class="sidebar-link-text">PDF инструкции</span>
+            </a>
+        </div>
+        {{/if}}
+
+        <!-- ============================================ -->
+        <!-- СИСТЕМА — user                                -->
+        <!-- ============================================ -->
         {{#if user}}
         <div class="sidebar-group">
             <div class="sidebar-group-title">Система</div>

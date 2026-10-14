@@ -226,13 +226,13 @@ async function renderEquipmentDashboard(req, res) {
       query: req.query,
     }));
 
-    const { renderPage } = require('../utils/layout');
-    res.send(renderPage({
+    const { renderPageFor } = require('../utils/layout');
+    renderPageFor(req, res, {
       title: 'Учет техники — MoveIT service',
       content: html,
       pageCss: '/css/equipment.css',
       pageJs: '/js/equipment-filter.js',
-    }));
+    });
   } catch (error) {
     console.error('❌ Ошибка:', error);
     res.status(500).send('Ошибка при загрузке данных');

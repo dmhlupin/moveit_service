@@ -285,17 +285,15 @@ async function renderDashboard(req, res) {
     // ===== Данные для JS =====
     html = html.replace('{{activity_data}}', JSON.stringify(activityByDay));
     
-        // Собираем страницу через layout-контроллер
-    const { renderPage } = require('../utils/layout');
+    // Собираем страницу через layout-контроллер
+    const { renderPageFor } = require('../utils/layout');
     
-    const fullHtml = renderPage({
+    renderPageFor(req, res, {
         title: 'Дашборд — MoveIT service',
         content: html,
         pageCss: '/css/dashboard.css',
         pageJs: '/js/dashboard.js',
     });
-    
-    res.send(fullHtml);
   } catch (error) {
     console.error('❌ Ошибка загрузки дашборда:', error);
     res.status(500).send('Ошибка загрузки страницы');

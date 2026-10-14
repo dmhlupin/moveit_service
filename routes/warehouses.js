@@ -44,7 +44,7 @@ const {
   getSpecialStatusSummary,  // 🆕 2.11.14
 } = require('../database/db');
 const { logAction } = require('../utils/logger');
-const { renderPage } = require('../utils/layout');
+const { renderPageFor } = require('../utils/layout');
 
 // ============================================================
 // ХЕЛПЕРЫ
@@ -81,14 +81,13 @@ async function renderWarehouses(req, res) {
     content = content.replace(/\{\{total_cells\}\}/g, stats.total_cells || 0);
     content = content.replace(/\{\{equipment_on_stock\}\}/g, stats.equipment_on_stock || 0);
 
-    const fullHtml = renderPage({
+    renderPageFor(req, res, {
       title: 'Склады – MoveIT service',
       content,
       pageCss: '/css/warehouses.css',
       pageJs: '/js/warehouses.js',
     });
 
-    res.send(fullHtml);
   } catch (error) {
     console.error('❌ Ошибка загрузки складов:', error);
     res.status(500).send('Ошибка загрузки страницы');
@@ -792,14 +791,13 @@ async function renderWarehouseDetails(req, res) {
     content = content.replace(/\{\{warehouse\.name\}\}/g, escapeHtml(warehouse.name));
     content = content.replace(/\{\{warehouse\.description\}\}/g, escapeHtml(warehouse.description));
 
-    const fullHtml = renderPage({
+    renderPageFor(req, res, {
       title: `${warehouse.name} – MoveIT service`,
       content,
       pageCss: '/css/warehouse-details.css',
       pageJs: '/js/warehouse-details.js',
     });
 
-    res.send(fullHtml);
   } catch (error) {
     console.error('❌ Ошибка загрузки склада:', error);
     res.status(500).send('Ошибка загрузки страницы');
@@ -828,13 +826,13 @@ async function renderInventory(req, res) {
     content = content.replace(/\{\{totals\.equipment_on_stock\}\}/g, totals.equipment_on_stock || 0);
     content = content.replace(/\{\{totals\.equipment_assigned\}\}/g, totals.equipment_assigned || 0);
 
-    const fullHtml = renderPage({
+    renderPageFor(req, res, {
       title: 'Инвентаризация – MoveIT service',
       content,
       pageCss: '/css/inventory.css',
       pageJs: '/js/inventory.js',
     });
-    res.send(fullHtml);
+    
   } catch (error) {
     console.error('❌ Ошибка загрузки инвентаризации:', error);
     res.status(500).send('Ошибка загрузки страницы');

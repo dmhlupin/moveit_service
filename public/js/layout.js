@@ -67,30 +67,38 @@ async function loadCurrentUser() {
 function updateUserUI(user) {
     const fullName = user.fullName || user.username;
     const initials = getInitials(fullName);
-    const roleText = user.role === 'admin' ? 'Администратор' : 'Пользователь';
-    
+
+    // 🆕 Этап 4: 4 роли
+    const roleMap = {
+        admin:      { text: 'Администратор', short: 'Админ',       icon: '👑' },
+        supervisor: { text: 'Супервизор',    short: 'Супервизор',  icon: '👁️' },
+        mol:        { text: 'МОЛ',           short: 'МОЛ',         icon: '🧑‍💼' },
+        user:       { text: 'Пользователь',  short: 'Пользователь', icon: '👤' },
+    };
+    const roleInfo = roleMap[user.role] || { text: user.role || 'Пользователь', short: user.role || 'Пользователь', icon: '👤' };
+
     // Аватар
     const avatar = document.getElementById('userAvatar');
     if (avatar) avatar.textContent = initials;
-    
+
     // Имя в шапке
     const userName = document.getElementById('userName');
     if (userName) userName.textContent = fullName;
-    
+
     // Роль в шапке
     const userRole = document.getElementById('userRole');
-    if (userRole) userRole.textContent = roleText;
-    
+    if (userRole) userRole.textContent = roleInfo.text;
+
     // Dropdown
     const dropdownName = document.getElementById('dropdownUserName');
     if (dropdownName) dropdownName.textContent = fullName;
-    
+
     const dropdownEmail = document.getElementById('dropdownUserEmail');
     if (dropdownEmail) dropdownEmail.textContent = user.email || '—';
-    
+
     const dropdownRole = document.getElementById('dropdownUserRole');
     if (dropdownRole) {
-        dropdownRole.textContent = (user.role === 'admin' ? '👑 ' : '👤 ') + roleText;
+        dropdownRole.textContent = `${roleInfo.icon} ${roleInfo.text}`;
     }
 }
 
@@ -118,19 +126,57 @@ function highlightActiveSection() {
     // Определяем активный раздел
     let activePage = null;
     
-    // Точное совпадение
-    if (path === '/') activePage = 'dashboard';
-    else if (path === '/equipment' || path.startsWith('/equipment/')) activePage = 'equipment';
-    else if (path === '/users' || path.startsWith('/users/')) activePage = 'users';
-    else if (path === '/profile') activePage = 'profile';
-    else if (path === '/admin/warehouses' || path.startsWith('/admin/warehouses/')) activePage = 'warehouses';
-    else if (path === '/admin/workplaces' || path.startsWith('/admin/workplaces/')) activePage = 'workplaces';
-    else if (path === '/admin/inventory') activePage = 'inventory';
-    else if (path === '/admin/models') activePage = 'models';
-    else if (path === '/admin/logs') activePage = 'logs';
-    else if (path === '/admin/catalog') activePage = 'catalog';
-    else if (path === '/pdf' || path.startsWith('/pdf/')) activePage = 'pdf';
-    else if (path === '/admin' || path.startsWith('/admin/')) activePage = 'admin';
+    // Порядок важен: более конкретные пути — раньше общего /admin.
+    if (path === '/') {
+        activePage = 'dashboard';
+    }
+    else if (path === '/equipment' || path.startsWith('/equipment/')) {
+        activePage = 'equipment';
+    }
+    else if (path === '/profile') {
+        activePage = 'profile';
+    }
+    else if (path === '/pdf' || path.startsWith('/pdf/')) {
+        activePage = 'pdf';
+    }
+    // 🆕 Управление доступом (admin) — раньше общего /admin
+    else if (path === '/admin/users' || path.startsWith('/admin/users/')) {
+        activePage = 'admin-users';
+    }
+    // 🆕 Пользователи (read-only, admin + supervisor)
+    else if (path === '/users' || path.startsWith('/users/')) {
+        activePage = 'users';
+    }
+    // Конкретные /admin/*
+    else if (path === '/admin/warehouses' || path.startsWith('/admin/warehouses/')) {
+        activePage = 'warehouses';
+    }
+    else if (path === '/admin/workplaces' || path.startsWith('/admin/workplaces/')) {
+        activePage = 'workplaces';
+    }
+    else if (path === '/admin/inventory') {
+        activePage = 'inventory';
+    }
+    else if (path === '/admin/models') {
+        activePage = 'models';
+    }
+    else if (path === '/admin/logs') {
+        activePage = 'logs';
+    }
+    else if (path === '/admin/catalog') {
+        activePage = 'catalog';
+    }
+    // Формы добавления/редактирования — подсвечиваем родительский пункт
+    else if (path === '/admin/add' || path.startsWith('/admin/edit/')) {
+        activePage = 'admin';
+    }
+    else if (path === '/admin/user/add' || path.startsWith('/admin/user/edit/')) {
+        activePage = 'admin-users';   // 🆕 формы пользователя
+    }
+    // Общий /admin
+    else if (path === '/admin' || path.startsWith('/admin/')) {
+        activePage = 'admin';
+    }
         
     // Снимаем подсветку со всех
     document.querySelectorAll('.sidebar-link').forEach(link => {

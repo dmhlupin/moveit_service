@@ -36,7 +36,7 @@ const {
   getWorkplaceOccupancy,
 } = require('../database/db');
 const { logAction } = require('../utils/logger');
-const { renderPage } = require('../utils/layout');
+const { renderPageFor } = require('../utils/layout');
 
 // ============================================================
 // ХЕЛПЕРЫ
@@ -73,14 +73,13 @@ async function renderWorkplaces(req, res) {
     content = content.replace(/\{\{equipment_on_workplaces\}\}/g, stats.equipment_on_workplaces || 0);
     content = content.replace(/\{\{equipment_unassigned\}\}/g, stats.equipment_unassigned || 0);
 
-    const fullHtml = renderPage({
+    renderPageFor(req, res, {
       title: 'Рабочие места – MoveIT service',
       content,
       pageCss: '/css/workplaces.css',
       pageJs: '/js/workplaces.js',
     });
 
-    res.send(fullHtml);
   } catch (error) {
     console.error('❌ Ошибка загрузки рабочих мест:', error);
     res.status(500).send('Ошибка загрузки страницы');
@@ -111,14 +110,13 @@ async function renderWorkplaceDetails(req, res) {
     content = content.replace(/\{\{office\.name\}\}/g, escapeHtml(office.name));
     content = content.replace(/\{\{office\.description\}\}/g, escapeHtml(office.description));
 
-    const fullHtml = renderPage({
+    renderPageFor(req, res, {
       title: `${office.name} – MoveIT service`,
       content,
       pageCss: '/css/workplace-details.css',
       pageJs: '/js/workplace-details.js',
     });
-
-    res.send(fullHtml);
+    
   } catch (error) {
     console.error('❌ Ошибка загрузки офиса:', error);
     res.status(500).send('Ошибка загрузки страницы');

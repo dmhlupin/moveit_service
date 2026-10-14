@@ -65,36 +65,32 @@ const {
 // ============================================================
 
 /**
- * GET /admin — админ-панель
+ * GET /admin — страница «Учёт ТМЦ».
+ * Пользователи больше не рендерятся здесь (переехали в /admin/users).
  */
 async function renderAdmin(req, res) {
   try {
     const scope = { userId: req.session.userId, role: req.session.role };
     const stats = await getStats();
     const equipment = await getEquipmentWithLocation({}, scope);
-    // Список пользователей нужен только админу. Для МОЛ/супервизора
-    // он не рендерится в таблицу (см. ниже: userRows пустые).
-    const users = (req.session.role === 'admin')
-      ? await getAllUsersWithDetails()
-      : [];
-    
+
     const htmlPath = path.join(__dirname, '..', 'views', 'admin.html');
     let html = fs.readFileSync(htmlPath, 'utf8');
-    
+
     // Статистика
     html = html.replace(/\{\{total_equipment\}\}/g, stats.total_equipment || 0);
     html = html.replace(/\{\{available_equipment\}\}/g, stats.available_equipment || 0);
     html = html.replace(/\{\{assigned_equipment\}\}/g, stats.assigned_equipment || 0);
     html = html.replace(/\{\{total_users\}\}/g, stats.total_users || 0);
-    
+
     // Таблица техники
     let equipmentRows = '';
     equipment.forEach(item => {
       const statusClass = `status-${item.status}`;
-      const deleteButton = item.status === 'available' 
-        ? `<button onclick="deleteEquipment(${item.id})" class="btn-icon btn-delete" title="Удалить">🗑️</button>` 
+      const deleteButton = item.status === 'available'
+        ? `<button onclick="deleteEquipment(${item.id})" class="btn-icon btn-delete" title="Удалить">🗑️</button>`
         : '';
-      
+
       // Информация о назначении
       let assignedInfo = '—';
       if (item.status === 'assigned' && item.user_name) {
@@ -111,18 +107,15 @@ async function renderAdmin(req, res) {
       } else if (item.status === 'assigned') {
         assignedInfo = '<span style="color: #a0aec0; font-size: 12px;">не найдено</span>';
       }
-      
-      // Категория (из модели)
-      const categoryCell = item.category_name 
+
+      const categoryCell = item.category_name
         ? `<span class="catalog-badge">${item.category_icon || '📁'} ${item.category_name}</span>`
         : '<span style="color: #cbd5e0;">—</span>';
-      
-      // Тип (из модели)
-      const typeCell = item.type_name 
+
+      const typeCell = item.type_name
         ? `<span class="catalog-badge type">${item.type_icon || '📦'} ${item.type_name}</span>`
         : '<span style="color: #cbd5e0;">—</span>';
-      
-      // Место хранения: склад ИЛИ рабочее место
+
       let cellInfo = '<span style="color: #cbd5e0;">—</span>';
       if (item.cell_id) {
         cellInfo = `<div class="location-cell" title="${item.warehouse_name} → ${item.zone_name} → ${item.rack_name} → ${item.cell_name}">
@@ -140,7 +133,7 @@ async function renderAdmin(req, res) {
              <div class="location-path" style="font-size: 10px;">${officeLabel}</div>
            </div>`;
       }
-      
+
       const statusLabels = {
         'available':   '✅ Доступна',
         'placed':      '🪑 На рабочем месте',
@@ -150,7 +143,6 @@ async function renderAdmin(req, res) {
       };
       const statusLabel = statusLabels[item.status] || item.status;
 
-      // 🆕 Колонки: инв.№ | модель (name) | corporate_id | категория | тип | место | статус | назначена | действия
       equipmentRows += `
         <tr>
           <td>${item.id}</td>
@@ -174,31 +166,63 @@ async function renderAdmin(req, res) {
       `;
     });
     html = html.replace('{{equipment_rows}}', equipmentRows);
-    
-    // Таблица пользователей — без изменений
+
+    // Больше нет {{user_rows}} — шаблон не содержит эту переменную.
+
+    const fullHtml = renderPage({
+      title: 'Учёт ТМЦ – MoveIT service',
+      content: html,
+      pageCss: '/css/admin.css',
+      pageJs: '/js/admin.js',
+      user: { id: req.session.userId, role: req.session.role, username: req.session.username, fullName: req.session.fullName },
+    });
+
+    res.send(fullHtml);
+  } catch (error) {
+    console.error('❌ Ошибка загрузки страницы учёта ТМЦ:', error);
+    res.status(500).send('Ошибка при загрузке страницы учёта ТМЦ');
+  }
+}
+
+/**
+ * GET /admin/users — управление доступом (только admin).
+ * Рендерит список пользователей с CRUD-действиями.
+ */
+async function renderAdminUsers(req, res) {
+  try {
+    const users = await getAllUsersWithDetails();
+
+    const htmlPath = path.join(__dirname, '..', 'views', 'admin-users.html');
+    let html = fs.readFileSync(htmlPath, 'utf8');
+
     let userRows = '';
     users.forEach(user => {
       const equipmentCount = user.active_equipment_count || 0;
       const hasEquipment = equipmentCount > 0;
       const isActive = user.is_active === 1;
-      const isAdmin = user.role === 'admin';
-      
-      const roleBadge = isAdmin
-        ? '<span class="role-badge role-admin">👑 Админ</span>'
-        : '<span class="role-badge role-user">👤 Пользователь</span>';
-      
+
+      // 🆕 Роль — 4 варианта
+      const roleLabels = {
+        admin:      { label: '👑 Админ',       cls: 'role-admin' },
+        supervisor: { label: '👁️ Супервизор', cls: 'role-supervisor' },
+        mol:        { label: '🧑‍💼 МОЛ',        cls: 'role-mol' },
+        user:       { label: '👤 Пользователь', cls: 'role-user' },
+      };
+      const roleInfo = roleLabels[user.role] || { label: user.role, cls: 'role-user' };
+      const roleBadge = `<span class="role-badge ${roleInfo.cls}">${roleInfo.label}</span>`;
+
       const statusBadge = isActive
         ? '<span class="status-badge status-available">Активен</span>'
         : '<span class="status-badge status-retired">Заблокирован</span>';
-      
-      const lastLogin = user.last_login 
-        ? formatDate(user.last_login) 
+
+      const lastLogin = user.last_login
+        ? formatDate(user.last_login)
         : '<span style="color: #a0aec0;">никогда</span>';
-      
+
       const blockButton = isActive
         ? `<button onclick="blockUser(${user.id})" class="btn-icon btn-warning" title="Заблокировать">🚫</button>`
         : `<button onclick="unblockUser(${user.id})" class="btn-icon btn-success" title="Разблокировать">✅</button>`;
-      
+
       userRows += `
         <tr class="${!isActive ? 'row-blocked' : ''}">
           <td>${user.id}</td>
@@ -230,18 +254,19 @@ async function renderAdmin(req, res) {
       `;
     });
     html = html.replace('{{user_rows}}', userRows);
-    
+
     const fullHtml = renderPage({
-      title: 'Админ-панель – MoveIT service',
+      title: 'Управление доступом – MoveIT service',
       content: html,
       pageCss: '/css/admin.css',
-      pageJs: '/js/admin.js',
+      pageJs: '/js/admin-users.js',
+      user: { id: req.session.userId, role: req.session.role, username: req.session.username, fullName: req.session.fullName },
     });
-    
+
     res.send(fullHtml);
   } catch (error) {
-    console.error('❌ Ошибка загрузки админ-панели:', error);
-    res.status(500).send('Ошибка при загрузке админ-панели');
+    console.error('❌ Ошибка загрузки страницы управления доступом:', error);
+    res.status(500).send('Ошибка загрузки страницы');
   }
 }
 
@@ -1742,6 +1767,7 @@ async function getEquipmentMovesAPI(req, res) {
 module.exports = {
   // Страницы
   renderAdmin,
+  renderAdminUsers,     // 🆕
   renderLogs,
   
   // API техники

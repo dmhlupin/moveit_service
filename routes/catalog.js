@@ -24,7 +24,7 @@ const {
   getEquipmentCountsByType,
 } = require('../database/db');
 const { logAction } = require('../utils/logger');
-const { renderPage } = require('../utils/layout');
+const { renderPageFor } = require('../utils/layout');
 
 // ============================================================
 // СТРАНИЦА
@@ -52,14 +52,13 @@ async function renderCatalog(req, res) {
     content = content.replace(/\{\{total_types\}\}/g, totalTypes);
     content = content.replace(/\{\{total_equipment\}\}/g, totalEquipment);
 
-    const fullHtml = renderPage({
+    renderPageFor(req, res, {
       title: 'Справочник техники – MoveIT service',
       content,
       pageCss: '/css/catalog.css',
       pageJs: '/js/catalog.js',
     });
-
-    res.send(fullHtml);
+    
   } catch (error) {
     console.error('❌ Ошибка загрузки справочника:', error);
     res.status(500).send('Ошибка загрузки страницы');

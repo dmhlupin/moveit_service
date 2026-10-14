@@ -19,7 +19,7 @@ const {
   getAllTypes,
 } = require('../database/db');
 const { logAction } = require('../utils/logger');
-const { renderPage } = require('../utils/layout');
+const { renderPageFor } = require('../utils/layout');
 
 const PAGE_SIZE = 20;
 
@@ -55,14 +55,12 @@ async function renderModels(req, res) {
     const htmlPath = path.join(__dirname, '..', 'views', 'admin-models.html');
     let content = fs.readFileSync(htmlPath, 'utf8');
 
-    const fullHtml = renderPage({
+    renderPageFor(req, res, {
       title: 'Номенклатура – MoveIT service',
       content,
       pageCss: '/css/admin-models.css',
       pageJs: '/js/admin-models.js',
     });
-
-    res.send(fullHtml);
   } catch (error) {
     console.error('❌ Ошибка загрузки номенклатуры:', error);
     res.status(500).send('Ошибка загрузки страницы');
