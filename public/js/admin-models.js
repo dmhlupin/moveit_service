@@ -5,6 +5,15 @@
 // СОСТОЯНИЕ
 // ============================================================
 
+/**
+ * 🆕 Этап 4: роль пользователя — из скрытого поля #currentRole,
+ * которое заполняет сервер (routes/admin.js → renderModels).
+ */
+function getCurrentRole() {
+  const el = document.getElementById('currentRole');
+  return el ? (el.value || '') : '';
+}
+
 let categoriesCache = [];   // [{id, name, icon, ...}]
 let typesCache      = [];   // [{id, category_id, name, icon, ...}]
 let deleteTargetId  = null; // id модели, которую удаляем
@@ -103,6 +112,11 @@ function bindToolbar() {
   const type     = document.getElementById('filterType');
   const reset    = document.getElementById('btnResetFilters');
   const addBtn   = document.getElementById('btnAddModel');
+
+    // 🆕 Этап 4: supervisor не может добавлять модели — скрываем кнопку
+  if (addBtn && getCurrentRole() === 'supervisor') {
+    addBtn.style.display = 'none';
+  }
 
   // Поиск — дебаунс
   let searchTimer = null;
@@ -258,11 +272,15 @@ function renderTable(data) {
           <div class="row-actions">
             <button class="btn-icon btn-view" title="Карточка модели"
                     data-action="view" data-id="${m.id}">👁️</button>
-            <button class="btn-icon btn-edit" title="Редактировать"
-                    data-action="edit" data-id="${m.id}">✏️</button>
-            <button class="btn-icon btn-delete" title="Удалить"
-                    data-action="delete" data-id="${m.id}"
-                    ${eqCount > 0 ? 'disabled' : ''}>🗑️</button>
+            ${(getCurrentRole() === 'mol' || getCurrentRole() === 'admin') ? `
+              <button class="btn-icon btn-edit" title="Редактировать"
+                      data-action="edit" data-id="${m.id}">✏️</button>
+            ` : ''}
+            ${getCurrentRole() === 'mol' ? '' : `
+              <button class="btn-icon btn-delete" title="Удалить"
+                      data-action="delete" data-id="${m.id}"
+                      ${eqCount > 0 ? 'disabled' : ''}>🗑️</button>
+            `}
           </div>
         </td>
       </tr>

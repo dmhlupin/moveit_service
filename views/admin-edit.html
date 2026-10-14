@@ -17,6 +17,7 @@
 <input type="hidden" id="currentModelId" value="{{selected_model_id}}">
 <input type="hidden" id="currentCellId" value="{{cell_id}}">
 <input type="hidden" id="currentWorkplaceId" value="{{workplace_id}}">
+<input type="hidden" id="currentRole" value="{{current_role}}">
 
 <div class="edit-layout">
 
@@ -81,6 +82,19 @@
             <div class="help-text">
               Модель — это обобщённое описание устройства. При смене модели
               обновятся категория, тип и производитель.
+            </div>
+          </div>
+
+          <!-- 🆕 Этап 4: ответственный МОЛ — только для admin -->
+          <div class="form-group {{mol_field_class}}" id="responsibleGroup">
+            <label>Ответственный МОЛ</label>
+            <select id="responsible_user_id" name="responsible_user_id">
+              <option value="">— Не выбрано —</option>
+              {{mol_options}}
+            </select>
+            <div class="help-text">
+              Материально ответственное лицо, за которым закреплён экземпляр.
+              Для МОЛ это поле заполняется автоматически.
             </div>
           </div>
 
@@ -243,6 +257,9 @@
 
         <dt>Назначена</dt>
         <dd id="info_assigned" class="muted">—</dd>
+
+        <dt>Ответственный</dt>
+        <dd id="info_responsible" class="muted">{{info_responsible}}</dd>
 
         <dt>Расположение</dt>
         <dd id="info_location" class="muted">—</dd>

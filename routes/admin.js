@@ -52,7 +52,8 @@ const {
 const { logAction } = require('../utils/logger');
 
 // Layout
-const { renderPage } = require('../utils/layout');
+// Layout
+const { renderPage, renderPageFor } = require('../utils/layout');
 
 const {
   canEditEquipment,
@@ -629,6 +630,26 @@ async function renderAddEquipment(req, res) {
     });
     content = content.replace('{{model_options}}', modelOptions);
 
+        // 🆕 Этап 4: роль пользователя + ответственный МОЛ.
+    const currentRole = req.session.role || 'user';
+    content = content.replace(/\{\{current_role\}\}/g, currentRole);
+
+    if (currentRole === 'admin') {
+      // admin видит селект МОЛов
+      const users = await getAllUsers();
+      const mols = users.filter(u => u.role === 'mol' && u.is_active === 1);
+      let molOptions = '';
+      mols.forEach(m => {
+        molOptions += `<option value="${m.id}">${escapeHtml(m.full_name || m.username)}</option>`;
+      });
+      content = content.replace('{{mol_options}}', molOptions);
+      content = content.replace(/\{\{mol_field_class\}\}/g, '');
+    } else {
+      // mol — селект скрыт
+      content = content.replace('{{mol_options}}', '');
+      content = content.replace(/\{\{mol_field_class\}\}/g, 'hidden');
+    }
+
     // 🆕 Этап 4: селект «Ответственный МОЛ» — только для админа.
     // Для МОЛ поле скрыто (он сам ответственный).
     if (req.session.role === 'admin') {
@@ -679,7 +700,10 @@ async function renderEditEquipment(req, res) {
     const htmlPath = path.join(__dirname, '..', 'views', 'admin-edit.html');
     let content = fs.readFileSync(htmlPath, 'utf8');
 
-    // Скалярные плейсхолдеры
+    // ============================================================
+    // СКАЛЯРНЫЕ ПЛЕЙСХОЛДЕРЫ
+    // ============================================================
+
     content = content.replace(/\{\{id\}\}/g, equipment.id);
     content = content.replace(/\{\{inventory_number\}\}/g, escapeHtml(equipment.inventory_number || ''));
     content = content.replace(/\{\{serial_number\}\}/g, escapeHtml(equipment.serial_number || ''));
@@ -695,7 +719,10 @@ async function renderEditEquipment(req, res) {
     // Модель (model_id — текущее значение)
     content = content.replace(/\{\{selected_model_id\}\}/g, equipment.model_id || '');
 
-    // Статусы
+    // ============================================================
+    // СТАТУСЫ
+    // ============================================================
+
     const statusLabels = {
       'available':   '✅ Доступна',
       'placed':      '🪑 На месте',
@@ -712,7 +739,10 @@ async function renderEditEquipment(req, res) {
     });
     content = content.replace('{{status_options}}', statusOptions);
 
-    // Список моделей
+    // ============================================================
+    // СПИСОК МОДЕЛЕЙ
+    // ============================================================
+
     const models = await getAllModels();
     let modelOptions = '<option value="">— Выберите модель —</option>';
     models.forEach(m => {
@@ -724,22 +754,44 @@ async function renderEditEquipment(req, res) {
     });
     content = content.replace('{{model_options}}', modelOptions);
 
-    // 🆕 Этап 4: селект «Ответственный МОЛ» — только для админа.
-    if (req.session.role === 'admin') {
+    // ============================================================
+    // 🆕 ЭТАП 4: РОЛЬ ПОЛЬЗОВАТЕЛЯ + ОТВЕТСТВЕННЫЙ МОЛ
+    // ============================================================
+
+    const currentRole = req.session.role || 'user';
+    content = content.replace(/\{\{current_role\}\}/g, currentRole);
+
+    if (currentRole === 'admin') {
+      // admin видит селект МОЛов
       const { getAllUsers } = require('../database/db');
       const allUsers = await getAllUsers();
       const mols = allUsers.filter(u => u.role === 'mol' && u.is_active === 1);
-      let molOptions = '<option value="">— Выберите МОЛ —</option>';
+
+      let molOptions = '';
       mols.forEach(m => {
-        const selected = String(m.id) === String(equipment.responsible_user_id) ? 'selected' : '';
+        const selected = String(m.id) === String(equipment.responsible_user_id)
+          ? 'selected' : '';
         molOptions += `<option value="${m.id}" ${selected}>${escapeHtml(m.full_name || m.username)}</option>`;
       });
+
       content = content.replace('{{mol_options}}', molOptions);
+      content = content.replace(/\{\{mol_field_class\}\}/g, '');
     } else {
+      // mol (и любые другие роли) — селект скрыт
       content = content.replace('{{mol_options}}', '');
+      content = content.replace(/\{\{mol_field_class\}\}/g, 'hidden');
     }
 
-    // Правая колонка — инфо о текущем экземпляре
+    // Информационная строка «Ответственный» в правой колонке
+    const responsibleName = equipment.responsible_user_name
+      ? escapeHtml(equipment.responsible_user_name)
+      : '—';
+    content = content.replace(/\{\{info_responsible\}\}/g, responsibleName);
+
+    // ============================================================
+    // ПРАВАЯ КОЛОНКА — ИНФО О ТЕКУЩЕМ ЭКЗЕМПЛЯРЕ
+    // ============================================================
+
     const infoStatus = statusLabels[equipment.status] || equipment.status || '—';
 
     content = content.replace(/\{\{info_inventory\}\}/g, escapeHtml(equipment.inventory_number || '—'));
@@ -759,7 +811,10 @@ async function renderEditEquipment(req, res) {
     content = content.replace(/\{\{info_serial\}\}/g, escapeHtml(equipment.serial_number || '—'));
     content = content.replace(/\{\{info_status\}\}/g, escapeHtml(infoStatus));
 
-    // Пользователи для назначения
+    // ============================================================
+    // ПОЛЬЗОВАТЕЛИ ДЛЯ НАЗНАЧЕНИЯ
+    // ============================================================
+
     const users = await getAllUsers();
     let userOptions = '';
     users.forEach(user => {
@@ -769,14 +824,16 @@ async function renderEditEquipment(req, res) {
     });
     content = content.replace('{{user_options}}', userOptions);
 
-    const fullHtml = renderPage({
+    // ============================================================
+    // РЕНДЕР СТРАНИЦЫ
+    // ============================================================
+
+    renderPageFor(req, res, {
       title: 'Редактировать технику – MoveIT service',
       content,
       pageCss: '/css/admin-edit.css',
       pageJs: '/js/admin-edit.js',
     });
-
-    res.send(fullHtml);
   } catch (error) {
     console.error('❌ Ошибка при загрузке страницы редактирования:', error);
     res.status(500).send('Ошибка при загрузке страницы');

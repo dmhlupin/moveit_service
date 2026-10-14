@@ -1,3 +1,147 @@
+## [3.1.5] - 2026-10-14
+
+**👔 Этап 4.0.5 завершён: ответственный МОЛ в формах и карточках**
+
+Финальный подшаг «UI-карточки и формы»: селект ответственного МОЛ
+в формах техники, отображение ответственного в правой колонке,
+скрытие кнопок «Удалить»/«Редактировать» для ролей МОЛ и supervisor
+на странице «Номенклатура», скрытие кнопки «Добавить модель» для
+supervisor. Плюс — фильтрация по scope в API складов, чтобы МОЛ
+видел только свои склады.
+
+### Подшаги 4.0.1 – 4.0.5
+
+- **4.0.1** — модель данных для ролевой модели МОЛ:
+  таблицы `warehouse_responsibles` / `office_responsibles`,
+  поле `equipment.responsible_user_id`, индексы,
+  скрипт `scripts/check-roles.js`
+- **4.0.2** — middleware `requireSupervisor` / `requireMol` /
+  `requireRole`, модуль `utils/permissions.js`, сквозной
+  SQL-scope в функциях чтения
+- **4.0.3** — API-роуты под 4 роли, `routes/admin-responsibles.js`
+  (привязка МОЛ к складам / офисам / экземплярам),
+  `addEquipment` / `updateEquipment` принимают `responsible_user_id`
+- **4.0.4** — роле-зависимый sidebar под 4 роли, разнос `/admin`
+  и `/admin/users`, `views/admin-users.html` и
+  `public/js/admin-users.js`, перевод роутов на `renderPageFor`
+- **4.0.5** — селект «Ответственный МОЛ» в формах
+  `/admin/add` и `/admin/edit/:id`, строка «Ответственный»
+  в правой колонке карточки, скрытие кнопок для МОЛ и supervisor
+  на `/admin/models`, фильтрация списка складов по scope
+  для роли mol
+
+### Added
+
+- **`views/admin-users.html`** — страница «Управление доступом»
+  (CRUD пользователей, только admin)
+- **`public/js/admin-users.js`** — вся user-логика, вынесенная
+  из `admin.js`
+- **`routes/admin-responsibles.js`** — API управления МОЛ:
+  `POST/DELETE /api/admin/warehouses/:id/responsibles`,
+  `POST/DELETE /api/admin/offices/:id/responsibles`,
+  `GET/POST /api/admin/equipment/:id/responsible`
+- **`utils/permissions.js`** — `canAccessWarehouse` /
+  `canEditWarehouse` / `canAccessOffice` / `canEditOffice` /
+  `canAccessEquipment` / `canEditEquipment` +
+  низкоуровневые `isWarehouseResponsible` /
+  `isOfficeResponsible` / `isEquipmentResponsible`
+- **`scripts/check-roles.js`** — проверка структуры БД
+  для ролевой модели, сводка по ролям и связкам МОЛ
+- **Middleware** `requireSupervisor`, `requireMol`,
+  `requireRole([...])` в `middleware/auth.js`
+- **SQL-scope** в `getAllEquipment` / `getEquipmentById` /
+  `getEquipmentWithLocation` (equipment),
+  `getAllWarehouses` / `getWarehouseById` / `getWarehouseTree` /
+  `getWarehouseInventory` / `getCellOccupancy` (warehouses),
+  `getAllOffices` / `getOfficeById` / `getOfficeTree` /
+  `getWorkplaceSummary` / `getOfficeEquipment` /
+  `getWorkplaceOccupancy` (workplaces)
+- **`buildSidebar`** — 8 маркеров под 4 роли:
+  `admin` / `supervisor` / `mol` / `user` /
+  `admin_or_supervisor` / `admin_or_mol` /
+  `admin_or_supervisor_or_mol` / `all_roles`
+- **Селект «Ответственный МОЛ»** в `/admin/add` и
+  `/admin/edit/:id` (для admin — список МОЛов, для mol — hidden)
+- **Строка «Ответственный»** в правой колонке карточки
+  редактирования
+
+### Changed
+
+- **`users.role`** расширен до 4 значений:
+  `'admin' | 'supervisor' | 'mol' | 'user'` (валидация в коде)
+- **`server.js`** — права расставлены через
+  `requireRole` / `requireSupervisor` / `requireMol` /
+  `requireAdmin`:
+  * read-only роуты (дашборд, `/equipment`, `/admin`,
+    склады/офисы на просмотр, инвентаризация, каталог,
+    модели) — `admin + supervisor + mol`
+  * формы и API записи (склады, офисы, зоны, стеллажи,
+    ячейки, кабинеты, рабочие места, техника, категории,
+    типы, модели) — `admin + mol`
+  * управление пользователями, логи, удаление моделей /
+    категорий / типов, set-default, управление МОЛ — только admin
+- **`renderPage`** на ключевых страницах заменён на
+  **`renderPageFor(req, res, ...)`** — sidebar рендерится
+  по роли пользователя из сессии, а не fallback-ом на админа
+  (затронуты `dashboard.js`, `equipment.js`, `users.js`,
+  `catalog.js`, `equipment-models.js`, `warehouses.js`,
+  `workplaces.js`)
+- **`routes/users.js`** — `isAdmin` читается из
+  `req.session.role` (было `req.session.user.role` — всегда false)
+- **`routes/equipment-models.js → renderModels`** —
+  прокидывает `{{current_role}}` в шаблон
+- **`database/modules/equipment.js`** —
+  `addEquipment` / `updateEquipment` принимают
+  `responsible_user_id`; `getEquipmentById` отдаёт
+  `responsible_user_name` через LEFT JOIN users ru
+- **`public/js/admin-models.js`** — `getCurrentRole()` из
+  скрытого поля `#currentRole`; кнопка «Удалить» не рендерится
+  для mol; кнопка «Редактировать» не рендерится для supervisor;
+  кнопка «Добавить модель» скрывается для supervisor
+- **`public/js/admin-add.js` / `admin-edit.js`** —
+  `submitForm` отправляет `responsible_user_id` с учётом роли
+- **`views/partials/sidebar.html`** — новая разметка под 4 роли
+  без вложенных маркеров; шапка файла без маркеров внутри
+  HTML-комментария
+
+### Fixed
+
+- **`views/partials/sidebar.html`** — маркеры `{{#if ...}}` внутри
+  HTML-комментария разбирались `buildSidebar` как реальные
+  условные блоки и вырезали куски разметки (`<aside>` пропадал
+  целиком). Убраны из комментария.
+- **`routes/users.js`** — остаточная строка `res.send(fullHtml)`
+  после перевода на `renderPageFor` давала `ReferenceError:
+  fullHtml is not defined` и `ERR_HTTP_HEADERS_SENT`
+- **`routes/admin.js`** — добавлен импорт `renderPageFor`
+  (без него `ReferenceError` в `renderEditEquipment`)
+- **`/api/admin/warehouses` / `/api/admin/warehouses/:id` /
+  `/api/admin/warehouses/tree` / `/api/admin/warehouses/:id/tree` /
+  `/api/admin/warehouses/:id/zones`** — прокидывают scope,
+  чтобы МОЛ не видел чужие склады
+
+### Технический долг (перенесён)
+
+- `renderPage` без `user` — fallback на admin (техдолг с v2.13.0);
+  закрыт для ключевых страниц, но `renderAddUser`, `renderEditUser`,
+  `renderLogs` в `routes/admin.js` пока на старом `renderPage`
+- Селект размера страницы на `/equipment` (`PAGE_SIZE=10` хардкод)
+- Серверный фильтр на `/admin` (сейчас клиентский)
+- `getAllTypes` на `/equipment` без фильтра по категории грузит
+  все типы
+- Множественные перемещения (`/admin/moves` — заглушка)
+- `getWarehouseStats` / `getInventorySummary` / `getInventoryTotals`
+  — глобальные, без scope (для МОЛа показывают цифры всей системы)
+
+### Теги
+
+- v3.1.1 — модель данных МОЛ (таблицы + поле + индексы)
+- v3.1.2 — middleware + permissions + SQL-scope
+- v3.1.3 — API-роуты под 4 роли + управление МОЛ
+- v3.1.4 — роле-зависимый sidebar + разнос /admin и /admin/users
+- **v3.1.5 — ответственный МОЛ в формах и карточках (этот)**
+
+
 ## [3.1.0] - 2026-10-13
 
 **🎉 Этап 3.3 завершён: разделение «модель ТМЦ» / «экземпляр ТМЦ»**

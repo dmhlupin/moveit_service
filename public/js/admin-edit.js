@@ -191,6 +191,18 @@ async function submitForm(event) {
     return;
   }
 
+  // 🆕 Этап 4: ответственный МОЛ.
+  //   - admin может переназначить его через селект;
+  //   - mol всегда он сам (сервер перезапишет).
+  const currentRole = document.getElementById('currentRole')?.value || '';
+  let responsibleUserId = undefined; // undefined = «не трогать»
+  if (currentRole === 'admin') {
+    const sel = document.getElementById('responsible_user_id');
+    responsibleUserId = sel && sel.value ? parseInt(sel.value, 10) : null;
+  } else if (currentRole === 'mol') {
+    responsibleUserId = null; // сервер сам подставит mol.id
+  }
+
   const formData = {
     model_id: document.getElementById('model_id').value || null,
     inventory_number: document.getElementById('inventory_number').value.trim() || null,
@@ -201,6 +213,7 @@ async function submitForm(event) {
     description: document.getElementById('description').value.trim() || null,
     cell_id: cellId,
     workplace_id: workplaceId,
+    responsible_user_id: responsibleUserId,
   };
 
   if (!formData.model_id) {
@@ -688,6 +701,19 @@ async function loadCurrentLocation() {
       } else {
         assignedEl.textContent = '—';
         assignedEl.classList.add('muted');
+      }
+    }
+
+    // 🆕 Этап 4: ответственный МОЛ — из данных техники
+    const respEl = document.getElementById('info_responsible');
+    if (respEl) {
+      const respName = data.equipment?.responsible_user_name;
+      if (respName) {
+        respEl.textContent = respName;
+        respEl.classList.remove('muted');
+      } else {
+        respEl.textContent = '—';
+        respEl.classList.add('muted');
       }
     }
 

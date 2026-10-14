@@ -55,6 +55,9 @@ async function renderModels(req, res) {
     const htmlPath = path.join(__dirname, '..', 'views', 'admin-models.html');
     let content = fs.readFileSync(htmlPath, 'utf8');
 
+    // 🆕 Этап 4: роль пользователя — для JS (скрытие кнопки «Удалить»)
+    content = content.replace(/\{\{current_role\}\}/g, req.session.role || 'user');
+
     renderPageFor(req, res, {
       title: 'Номенклатура – MoveIT service',
       content,

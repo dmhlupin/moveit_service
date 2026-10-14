@@ -11,6 +11,9 @@
   </div>
 </div>
 
+<!-- 🆕 Этап 4: роль пользователя — для JS -->
+<input type="hidden" id="currentRole" value="{{current_role}}">
+
 <div class="edit-layout">
 
   <!-- ============================================================ -->
@@ -44,7 +47,18 @@
               Экземпляры одной модели могут отличаться инвентарным и серийным номером.
             </div>
           </div>
-
+          <!-- 🆕 Этап 4: ответственный МОЛ — только для admin -->
+          <div class="form-group {{mol_field_class}}" id="responsibleGroup">
+            <label>Ответственный МОЛ</label>
+            <select id="responsible_user_id" name="responsible_user_id">
+              <option value="">— Не выбрано —</option>
+              {{mol_options}}
+            </select>
+            <div class="help-text">
+              Материально ответственное лицо, за которым закрепляется этот экземпляр.
+              Для МОЛ это поле заполняется автоматически.
+            </div>
+          </div>
           <!-- Сетка полей экземпляра -->
           <div class="form-grid-2">
             <div class="form-group">

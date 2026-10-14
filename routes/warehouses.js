@@ -103,7 +103,8 @@ async function renderWarehouses(req, res) {
  */
 async function getWarehousesAPI(req, res) {
   try {
-    const warehouses = await getAllWarehouses();
+    const scope = { userId: req.session.userId, role: req.session.role };
+    const warehouses = await getAllWarehouses(scope);
     res.json(warehouses);
   } catch (error) {
     console.error('❌ Ошибка:', error);
@@ -121,8 +122,10 @@ async function getWarehouseAPI(req, res) {
       return res.status(400).json({ error: 'Неверный ID' });
     }
 
-    const warehouse = await getWarehouseById(id);
+    const scope = { userId: req.session.userId, role: req.session.role };
+    const warehouse = await getWarehouseById(id, scope);
     if (!warehouse) {
+      // 404 — не палим существование чужого склада
       return res.status(404).json({ error: 'Склад не найден' });
     }
 
@@ -303,7 +306,8 @@ async function getWarehouseTreeAPI(req, res) {
       return res.status(400).json({ error: 'Неверный ID' });
     }
 
-    const tree = await getWarehouseTree(id);
+    const scope = { userId: req.session.userId, role: req.session.role };
+    const tree = await getWarehouseTree(id, scope);
     if (!tree || tree.length === 0) {
       return res.status(404).json({ error: 'Склад не найден' });
     }
@@ -319,7 +323,8 @@ async function getWarehouseTreeAPI(req, res) {
  */
 async function getFullTreeAPI(req, res) {
   try {
-    const tree = await getWarehouseTree();
+    const scope = { userId: req.session.userId, role: req.session.role };
+    const tree = await getWarehouseTree(null, scope);
     res.json(tree);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -350,6 +355,13 @@ async function getZonesAPI(req, res) {
     const warehouseId = parseInt(req.params.id);
     if (isNaN(warehouseId)) {
       return res.status(400).json({ error: 'Неверный ID склада' });
+    }
+
+    // 🆕 Этап 4: проверяем доступ к складу через scope
+    const scope = { userId: req.session.userId, role: req.session.role };
+    const warehouse = await getWarehouseById(warehouseId, scope);
+    if (!warehouse) {
+      return res.status(404).json({ error: 'Склад не найден' });
     }
 
     const zones = await getZonesByWarehouse(warehouseId);

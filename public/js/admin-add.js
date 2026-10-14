@@ -104,6 +104,18 @@ async function submitForm(event) {
   submitBtn.disabled = true;
   submitBtn.textContent = '⏳ Сохранение...';
 
+  // 🆕 Этап 4: ответственный МОЛ.
+  //   - admin выбирает из селекта #responsible_user_id;
+  //   - mol всегда он сам (сервер всё равно перезапишет на себя,
+  //     но отправим null, чтобы не «притворяться»);
+  //   - если поле скрыто или отсутствует — null.
+  const currentRole = document.getElementById('currentRole')?.value || '';
+  let responsibleUserId = null;
+  if (currentRole === 'admin') {
+    const sel = document.getElementById('responsible_user_id');
+    responsibleUserId = sel && sel.value ? parseInt(sel.value, 10) : null;
+  }
+
   const formData = {
     model_id: document.getElementById('model_id').value || null,
     inventory_number: document.getElementById('inventory_number').value.trim() || null,
@@ -113,6 +125,7 @@ async function submitForm(event) {
     warranty_until: document.getElementById('warranty_until').value || null,
     description: document.getElementById('description').value.trim() || null,
     cell_id: document.getElementById('cellId')?.value || null,
+    responsible_user_id: responsibleUserId,
   };
 
   if (!formData.model_id) {

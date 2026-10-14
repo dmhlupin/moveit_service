@@ -156,6 +156,8 @@ module.exports = ({ db, run, get, all }) => {
           e.cell_id,
           e.workplace_id,
           e.responsible_user_id,
+          ru.full_name AS responsible_user_name,
+          ru.username  AS responsible_user_username,
           e.purchase_date,
           e.warranty_until,
           e.description,
@@ -192,6 +194,7 @@ module.exports = ({ db, run, get, all }) => {
         LEFT JOIN equipment_types      t ON t.id = m.type_id
         LEFT JOIN user_equipment ue ON e.id = ue.equipment_id AND ue.returned_date IS NULL
         LEFT JOIN users u ON ue.user_id = u.id
+        LEFT JOIN users ru ON e.responsible_user_id = ru.id
         ${where}
         ORDER BY m.name, e.inventory_number
       `, s.params, (err, rows) => {
@@ -218,6 +221,8 @@ module.exports = ({ db, run, get, all }) => {
           e.cell_id,
           e.workplace_id,
           e.responsible_user_id,
+          ru.full_name AS responsible_user_name,
+          ru.username  AS responsible_user_username,
           e.purchase_date,
           e.warranty_until,
           e.description,
@@ -270,6 +275,7 @@ module.exports = ({ db, run, get, all }) => {
         LEFT JOIN offices    o    ON r.office_id = o.id
         LEFT JOIN user_equipment ue ON e.id = ue.equipment_id AND ue.returned_date IS NULL
         LEFT JOIN users u ON ue.user_id = u.id
+        LEFT JOIN users ru ON e.responsible_user_id = ru.id
         WHERE e.id = ? ${extraWhere}
       `, [id, ...s.params], (err, row) => {
         if (err) reject(err);
@@ -359,6 +365,8 @@ module.exports = ({ db, run, get, all }) => {
           e.cell_id,
           e.workplace_id,
           e.responsible_user_id,
+          ru.full_name AS responsible_user_name,
+          ru.username  AS responsible_user_username,
           e.purchase_date,
           e.warranty_until,
           e.description,
@@ -400,6 +408,7 @@ module.exports = ({ db, run, get, all }) => {
         LEFT JOIN equipment_types      t ON t.id = m.type_id
         LEFT JOIN user_equipment ue ON e.id = ue.equipment_id AND ue.returned_date IS NULL
         LEFT JOIN users u ON ue.user_id = u.id
+        LEFT JOIN users ru ON e.responsible_user_id = ru.id
         LEFT JOIN cells      cell ON e.cell_id = cell.id
         LEFT JOIN racks      rack ON cell.rack_id = rack.id
         LEFT JOIN zones      zone ON rack.zone_id = zone.id
@@ -477,6 +486,8 @@ module.exports = ({ db, run, get, all }) => {
           e.cell_id,
           e.workplace_id,
           e.responsible_user_id,
+          ru.full_name AS responsible_user_name,
+          ru.username  AS responsible_user_username,
           e.purchase_date,
           e.warranty_until,
           e.description,
@@ -513,6 +524,7 @@ module.exports = ({ db, run, get, all }) => {
         LEFT JOIN equipment_types      t ON t.id = m.type_id
         LEFT JOIN user_equipment ue ON e.id = ue.equipment_id AND ue.returned_date IS NULL
         LEFT JOIN users u ON ue.user_id = u.id
+        LEFT JOIN users ru ON e.responsible_user_id = ru.id
         ORDER BY m.name, e.inventory_number
       `, (err, rows) => {
         if (err) reject(err);
