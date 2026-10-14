@@ -1390,6 +1390,103 @@ async function createEquipmentModelsIndexes() {
 }
 
 // ============================================================
+// ЭТАП 4.10: РОЛЕВАЯ МОДЕЛЬ — МОЛ (материально ответственные лица)
+// ============================================================
+//
+// Ролевая модель расширяется до 4 ролей:
+//   admin | supervisor | mol | user
+//
+// Появляется понятие МОЛ — материально ответственное лицо.
+// МОЛ отвечает за:
+//   - конкретные склады  (warehouse_responsibles, many-to-many)
+//   - конкретные офисы    (office_responsibles,    many-to-many)
+//   - конкретные экземпляры техники (equipment.responsible_user_id)
+//
+// Все FK — ON DELETE CASCADE для связок и SET NULL для экземпляров:
+//   - уволили МОЛа → связки складов/офисов удалились автоматически;
+//   - экземпляры на руках остаются, но без ответственного
+//     (админ назначит нового).
+// ============================================================
+
+async function createWarehouseResponsiblesTable() {
+  const exists = await tableExists('warehouse_responsibles');
+  if (exists) {
+    console.log('⏭️  Таблица warehouse_responsibles уже существует\n');
+    return;
+  }
+
+  console.log('📋 Создание таблицы warehouse_responsibles (МОЛ за склады)...');
+  await run(`
+    CREATE TABLE warehouse_responsibles (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      warehouse_id INTEGER NOT NULL,
+      user_id      INTEGER NOT NULL,
+      created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(warehouse_id, user_id),
+      FOREIGN KEY (warehouse_id) REFERENCES warehouses(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id)      REFERENCES users(id)      ON DELETE CASCADE
+    )
+  `);
+  console.log('✅ Таблица warehouse_responsibles создана\n');
+}
+
+async function createOfficeResponsiblesTable() {
+  const exists = await tableExists('office_responsibles');
+  if (exists) {
+    console.log('⏭️  Таблица office_responsibles уже существует\n');
+    return;
+  }
+
+  console.log('📋 Создание таблицы office_responsibles (МОЛ за офисы)...');
+  await run(`
+    CREATE TABLE office_responsibles (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      office_id  INTEGER NOT NULL,
+      user_id    INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(office_id, user_id),
+      FOREIGN KEY (office_id) REFERENCES offices(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id)   REFERENCES users(id)   ON DELETE CASCADE
+    )
+  `);
+  console.log('✅ Таблица office_responsibles создана\n');
+}
+
+async function addResponsibleUserIdToEquipment() {
+  const exists = await tableExists('equipment');
+  if (!exists) return;
+
+  console.log('📋 Проверка поля responsible_user_id в equipment...');
+  const hasField = await columnExists('equipment', 'responsible_user_id');
+
+  if (!hasField) {
+    // SQLite не даёт добавить колонку с ON DELETE SET NULL через ALTER TABLE,
+    // если таблица создана до этого. Поэтому добавляем без FK-констрейнта
+    // (он не критичен: SET NULL отрабатывает только при удалении users,
+    //  а в новых схемах оно и так не удаляет строки equipment).
+    // При свежей миграции (equipment создан через CREATE TABLE)
+    // поле добавляется как REFERENCES users(id) ON DELETE SET NULL.
+    await run(`ALTER TABLE equipment ADD COLUMN responsible_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL`);
+    console.log('  ✅ Добавлено поле: equipment.responsible_user_id');
+  } else {
+    console.log('  ⏭️  Поле equipment.responsible_user_id уже есть');
+  }
+  console.log('');
+}
+
+async function createRoleResponsiblesIndexes() {
+  console.log('📋 Создание индексов для ролевой модели...');
+
+  await createIndexIfMissing('idx_wh_resp_user',        'warehouse_responsibles', 'user_id');
+  await createIndexIfMissing('idx_wh_resp_wh',          'warehouse_responsibles', 'warehouse_id');
+  await createIndexIfMissing('idx_office_resp_user',    'office_responsibles',    'user_id');
+  await createIndexIfMissing('idx_office_resp_office',  'office_responsibles',    'office_id');
+  await createIndexIfMissing('idx_equipment_responsible','equipment',              'responsible_user_id');
+
+  console.log('✅ Индексы ролевой модели созданы\n');
+}
+
+// ============================================================
 // ГЛАВНАЯ ФУНКЦИЯ МИГРАЦИИ
 // ============================================================
 
@@ -1457,6 +1554,14 @@ async function migrate() {
     await migrateEquipmentToInstances();
     await createEquipmentModelsIndexes();
 
+        // ===== ЭТАП 4.10: Ролевая модель — МОЛ =====
+    console.log('👔 ЭТАП 4.10: Ролевая модель — МОЛ\n');
+
+    await createWarehouseResponsiblesTable();
+    await createOfficeResponsiblesTable();
+    await addResponsibleUserIdToEquipment();
+    await createRoleResponsiblesIndexes();
+
     // ===== ИТОГИ =====
     console.log('═══════════════════════════════════════════════');
     console.log('✅ МИГРАЦИЯ ЗАВЕРШЕНА УСПЕШНО');
@@ -1470,6 +1575,9 @@ async function migrate() {
         (SELECT COUNT(*) FROM equipment_types) as types,
         (SELECT COUNT(*) FROM equipment_models) as models,
         (SELECT COUNT(*) FROM equipment) as equipment,
+        (SELECT COUNT(*) FROM users WHERE role = 'mol') as mol_users,
+        (SELECT COUNT(*) FROM warehouse_responsibles) as wh_responsibles,
+        (SELECT COUNT(*) FROM office_responsibles) as office_responsibles,
         (SELECT COUNT(*) FROM warehouses) as warehouses,
         (SELECT COUNT(*) FROM zones) as zones,
         (SELECT COUNT(*) FROM racks) as racks,
@@ -1494,6 +1602,9 @@ async function migrate() {
     console.log(`   🚪 Кабинетов:      ${stats.rooms}`);
     console.log(`   💺 Рабочих мест:   ${stats.workplaces}`);
     console.log(`   🧩 Моделей ТМЦ:    ${stats.models}`);
+    console.log(`   👔 МОЛ:            ${stats.mol_users}`);
+    console.log(`   🔗 Связок МОЛ↔склад: ${stats.wh_responsibles}`);
+    console.log(`   🔗 Связок МОЛ↔офис:  ${stats.office_responsibles}`);
     console.log('');
     
   } catch (error) {

@@ -13,6 +13,7 @@
     "check-db": "node scripts/check-db.js",
     "check-catalog": "node scripts/check-catalog.js",
     "check-models": "node scripts/check-models.js",
+    "check-roles": "node scripts/check-roles.js",
     "check-css": "node scripts/check-css.js",
     "create-admin": "node scripts/create-admin.js",
     "reset-admin": "node scripts/reset-admin-password.js",
