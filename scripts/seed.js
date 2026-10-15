@@ -97,23 +97,27 @@ const USERS_DATA = [
   // Администраторы (кроме admin — он уже есть)
   { username: 'manager', email: 'manager@company.com', full_name: 'Смирнов Алексей Петрович', department: 'Администрация', phone: '+7(999)000-00-02', role: 'admin' },
   
-  // IT-отдел
+    // IT-отдел
   { username: 'ivanov', email: 'ivanov@company.com', full_name: 'Иван Иванов', department: 'IT-отдел', phone: '+7(999)111-22-33', role: 'user' },
-  { username: 'kozlov', email: 'kozlov@company.com', full_name: 'Козлов Юрий Борисович', department: 'IT-отдел', phone: '+7(999)111-22-34', role: 'user' },
-  { username: 'novikov', email: 'novikov@company.com', full_name: 'Новиков Дмитрий Сергеевич', department: 'IT-отдел', phone: '+7(999)111-22-35', role: 'user' },
+  // 🆕 Этап 4: МОЛ — отвечает за «Основной офис» (склад)
+  { username: 'kozlov', email: 'kozlov@company.com', full_name: 'Козлов Юрий Борисович', department: 'IT-отдел', phone: '+7(999)111-22-34', role: 'mol' },
+  // 🆕 Этап 4: МОЛ — отвечает за «Головной офис» (рабочие места)
+  { username: 'novikov', email: 'novikov@company.com', full_name: 'Новиков Дмитрий Сергеевич', department: 'IT-отдел', phone: '+7(999)111-22-35', role: 'mol' },
   
   // Бухгалтерия
   { username: 'petrova', email: 'petrova@company.com', full_name: 'Мария Петрова', department: 'Бухгалтерия', phone: '+7(999)444-55-66', role: 'user' },
   { username: 'kuznetsova', email: 'kuznetsova@company.com', full_name: 'Кузнецова Ольга Ивановна', department: 'Бухгалтерия', phone: '+7(999)444-55-67', role: 'user' },
   
   // Отдел продаж
-  { username: 'sidorov', email: 'sidorov@company.com', full_name: 'Пётр Сидоров', department: 'Отдел продаж', phone: '+7(999)777-88-99', role: 'user' },
+    { username: 'sidorov', email: 'sidorov@company.com', full_name: 'Пётр Сидоров', department: 'Отдел продаж', phone: '+7(999)777-88-99', role: 'user' },
   { username: 'morozov', email: 'morozov@company.com', full_name: 'Морозов Андрей Владимирович', department: 'Отдел продаж', phone: '+7(999)777-88-98', role: 'user' },
-  { username: 'volkov', email: 'volkov@company.com', full_name: 'Волков Сергей Николаевич', department: 'Отдел продаж', phone: '+7(999)777-88-97', role: 'user' },
+  // 🆕 Этап 4: МОЛ — отвечает за «Удалённый офис» (склад) и «Региональный офис»
+  { username: 'volkov', email: 'volkov@company.com', full_name: 'Волков Сергей Николаевич', department: 'Отдел продаж', phone: '+7(999)777-88-97', role: 'mol' },
   
-  // HR
+    // HR
   { username: 'smirnova', email: 'smirnova@company.com', full_name: 'Анна Смирнова', department: 'HR-отдел', phone: '+7(999)000-11-22', role: 'user' },
-  { username: 'sokolova', email: 'sokolova@company.com', full_name: 'Соколова Екатерина Андреевна', department: 'HR-отдел', phone: '+7(999)000-11-23', role: 'user' },
+  // 🆕 Этап 4: supervisor — read-only наблюдение (директор по персоналу)
+  { username: 'sokolova', email: 'sokolova@company.com', full_name: 'Соколова Екатерина Андреевна', department: 'HR-отдел', phone: '+7(999)000-11-23', role: 'supervisor' },
   
   // Маркетинг
   { username: 'popov', email: 'popov@company.com', full_name: 'Попов Максим Олегович', department: 'Маркетинг', phone: '+7(999)222-33-44', role: 'user' },
@@ -221,7 +225,10 @@ async function checkStructure() {
     'equipment_types',
     'user_equipment',
     'activity_log',
-    'app_meta'
+    'app_meta',
+    // 🆕 Этап 4: таблицы ролевой модели
+    'warehouse_responsibles',
+    'office_responsibles',
   ];
   
   for (const table of requiredTables) {
@@ -333,6 +340,9 @@ async function clearDemoData() {
   await run('DELETE FROM user_equipment');
   await run('DELETE FROM equipment');
   await run('DELETE FROM equipment_models');
+  // 🆕 Этап 4: чистим привязки МОЛ к складам и офисам
+  await run('DELETE FROM warehouse_responsibles');
+  await run('DELETE FROM office_responsibles');
   
   // Удаляем всех пользователей КРОМЕ админов
   const deleted = await run(`DELETE FROM users WHERE role != 'admin'`);
@@ -418,6 +428,69 @@ async function createUsers() {
   }
   
   return createdUsers;
+}
+
+// ============================================================
+// 🆕 ЭТАП 4: СОЗДАНИЕ ПРИВЯЗОК МОЛ
+// ============================================================
+
+/**
+ * Назначает МОЛов на склады и офисы.
+ *   kozlov   → склад «Основной офис» (warehouse_id = 1)
+ *   volkov   → склад «Удалённый офис» (warehouse_id = 2)
+ *   novikov  → офис «Головной офис» (office_id = 1)
+ *   volkov   → офис «Региональный офис» (office_id = 2)
+ *
+ * Склады и офисы создаются в migrate.js (seedWarehouses / seedOffices),
+ * поэтому их ID стабильны и предсказуемы.
+ */
+async function createMolResponsibles(users) {
+  log('\n🧑‍💼 Создание привязок МОЛ...', true);
+
+  // Ищем МОЛов по username (не по ID — надёжнее)
+  const kozlov  = users.find(u => u.username === 'kozlov');
+  const volkov  = users.find(u => u.username === 'volkov');
+  const novikov = users.find(u => u.username === 'novikov');
+
+  if (!kozlov && !volkov && !novikov) {
+    log('   ⚠️  Ни один МОЛ не найден, пропускаем', true);
+    return;
+  }
+
+  // Ищем склады и офисы по name (тоже надёжнее ID)
+  const whMain = await get(`SELECT id FROM warehouses WHERE name = 'Основной офис' LIMIT 1`);
+  const whRemote = await get(`SELECT id FROM warehouses WHERE name = 'Удалённый офис' LIMIT 1`);
+  const offHead = await get(`SELECT id FROM offices WHERE name = 'Головной офис' LIMIT 1`);
+  const offRegion = await get(`SELECT id FROM offices WHERE name = 'Региональный офис' LIMIT 1`);
+
+  const assignments = [];
+
+  if (kozlov && whMain) {
+    await run(`INSERT OR IGNORE INTO warehouse_responsibles (warehouse_id, user_id) VALUES (?, ?)`,
+      [whMain.id, kozlov.id]);
+    assignments.push(`   ✅ ${kozlov.full_name} → склад «Основной офис»`);
+  }
+  if (volkov && whRemote) {
+    await run(`INSERT OR IGNORE INTO warehouse_responsibles (warehouse_id, user_id) VALUES (?, ?)`,
+      [whRemote.id, volkov.id]);
+    assignments.push(`   ✅ ${volkov.full_name} → склад «Удалённый офис»`);
+  }
+  if (novikov && offHead) {
+    await run(`INSERT OR IGNORE INTO office_responsibles (office_id, user_id) VALUES (?, ?)`,
+      [offHead.id, novikov.id]);
+    assignments.push(`   ✅ ${novikov.full_name} → офис «Головной офис»`);
+  }
+  if (volkov && offRegion) {
+    await run(`INSERT OR IGNORE INTO office_responsibles (office_id, user_id) VALUES (?, ?)`,
+      [offRegion.id, volkov.id]);
+    assignments.push(`   ✅ ${volkov.full_name} → офис «Региональный офис»`);
+  }
+
+  assignments.forEach(a => log(a, true));
+
+  if (assignments.length === 0) {
+    log('   ⚠️  Ни одной привязки не создано (склады/офисы не найдены)', true);
+  }
 }
 
 // ============================================================
@@ -536,8 +609,12 @@ async function createEquipmentModels() {
 // СОЗДАНИЕ ЭКЗЕМПЛЯРОВ ТЕХНИКИ
 // ============================================================
 
-async function createEquipment(modelKeyToId) {
+async function createEquipment(modelKeyToId, users) {
   log('\n📦 Создание экземпляров техники...', true);
+
+  // 🆕 Этап 4: список МОЛов для распределения ответственных
+  const mols = (users || []).filter(u => u.role === 'mol');
+  let molIndex = 0;
 
   const createdEquipment = [];
   let counter = 1;
@@ -569,11 +646,18 @@ async function createEquipment(modelKeyToId) {
     // Статус: 60% assigned, 40% available
     const status = Math.random() < 0.6 ? 'assigned' : 'available';
 
+    // 🆕 Этап 4: распределяем ответственного МОЛ по кругу
+    const responsibleUserId = mols.length > 0
+      ? mols[molIndex % mols.length].id
+      : null;
+    molIndex++;
+
     const result = await run(`
       INSERT INTO equipment
         (model_id, inventory_number, serial_number, status,
-         purchase_date, warranty_until, description)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+         purchase_date, warranty_until, description,
+         responsible_user_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       modelId,
       inventoryNumber,
@@ -582,6 +666,7 @@ async function createEquipment(modelKeyToId) {
       purchaseDate.slice(0, 10),
       warrantyUntil,
       null,                                 // описание живёт на модели
+      responsibleUserId,                    // 🆕 Этап 4
     ]);
 
     createdEquipment.push({
@@ -591,6 +676,7 @@ async function createEquipment(modelKeyToId) {
       serial_number: eqData.serial,
       status,
       purchase_date: purchaseDate.slice(0, 10),
+      responsible_user_id: responsibleUserId,
     });
 
     counter++;
@@ -789,7 +875,14 @@ async function seed() {
     // ===== 4. Создание демо-данных =====
     const users = await createUsers();
     const modelKeyToId = await createEquipmentModels();
-    const equipment = await createEquipment(modelKeyToId);
+
+    // 🆕 Этап 4: привязки МОЛ к складам и офисам — ДО создания техники,
+    // потому что от этого зависит, кому достанется responsible_user_id
+    await createMolResponsibles(users);
+
+    // 🆕 Этап 4: users передаём, чтобы createEquipment знал МОЛов
+    const equipment = await createEquipment(modelKeyToId, users);
+
     await createAssignments(users, equipment);
     await createActivityLog(users);
     
@@ -805,16 +898,29 @@ async function seed() {
     console.log('      • admin     (создан migrate.js)');
     console.log('      • manager');
     console.log('');
+    console.log('   👁️  Супервизор (пароль ChangeMe123!):');
+    console.log('      • sokolova                      (HR-отдел)');
+    console.log('         └ read-only: видит всё, но без права редактирования');
+    console.log('');
+    console.log('   🧑‍💼 МОЛ — материально ответственные лица (пароль ChangeMe123!):');
+    console.log('      • kozlov      (IT)      → склад «Основной офис»');
+    console.log('      • volkov      (Продажи) → склад «Удалённый офис»');
+    console.log('      • novikov     (IT)      → офис «Головной офис»');
+    console.log('      • volkov                → офис «Региональный офис»');
+    console.log('');
     console.log('   👤 Обычные пользователи (пароль ChangeMe123!):');
-    console.log('      • ivanov, kozlov, novikov       (IT-отдел)');
+    console.log('      • ivanov                        (IT-отдел)');
     console.log('      • petrova, kuznetsova           (Бухгалтерия)');
-    console.log('      • sidorov, morozov, volkov      (Отдел продаж)');
-    console.log('      • smirnova, sokolova            (HR-отдел)');
+    console.log('      • sidorov, morozov              (Отдел продаж)');
+    console.log('      • smirnova                      (HR-отдел)');
     console.log('      • popov, lebedeva               (Маркетинг)');
     console.log('      • orlov, fedorov                (Логистика)');
     console.log('');
     console.log('🧩 Модели ТМЦ:  ~20 моделей (ноутбуки, мониторы, периферия...)');
-    console.log('📦 Экземпляры:  40 единиц техники');
+    console.log('📦 Экземпляры:  40 единиц техники (с ответственным МОЛ)');
+    console.log('');
+    console.log('🔍 Проверка ролевой модели:');
+    console.log('   npm run check-roles');
     console.log('');
     console.log('⚠️  ВСЕМ пользователям при первом входе');
     console.log('    будет предложено сменить пароль.');
