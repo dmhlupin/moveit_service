@@ -672,7 +672,9 @@ module.exports = ({ db, run, get, all }) => ({
   /**
    * Получить дерево всех офисов (для общей страницы)
    */
-  getFullWorkplaceTree() {
+  getFullWorkplaceTree(scope = {}) {
+    const s = buildOfficeScope(scope);
+    const extraWhere = s.clause ? `AND ${s.clause}` : '';
     return new Promise((resolve, reject) => {
       db.all(`
         SELECT
@@ -691,9 +693,9 @@ module.exports = ({ db, run, get, all }) => ({
         FROM offices o
         LEFT JOIN rooms r ON r.office_id = o.id AND r.is_active = 1
         LEFT JOIN workplaces w ON w.room_id = r.id AND w.is_active = 1
-        WHERE o.is_active = 1
+        WHERE o.is_active = 1 ${extraWhere}
         ORDER BY o.is_default DESC, o.name, r.sort_order, r.name, w.sort_order, w.name
-      `, (err, rows) => {
+      `, s.params, (err, rows) => {
         if (err) {
           reject(err);
           return;
@@ -740,7 +742,6 @@ module.exports = ({ db, run, get, all }) => ({
       });
     });
   },
-
   
   // ============================================================
   // ТЕХНИКА НА РАБОЧЕМ МЕСТЕ

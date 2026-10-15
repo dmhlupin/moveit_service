@@ -802,6 +802,8 @@ async function renderWarehouseDetails(req, res) {
     content = content.replace(/\{\{warehouse\.id\}\}/g, warehouse.id);
     content = content.replace(/\{\{warehouse\.name\}\}/g, escapeHtml(warehouse.name));
     content = content.replace(/\{\{warehouse\.description\}\}/g, escapeHtml(warehouse.description));
+    // 🆕 Этап 4: роль — чтобы показать блок «Ответственные МОЛ» только админу
+    content = content.replace(/\{\{current_role\}\}/g, req.session.role || 'user');
 
     renderPageFor(req, res, {
       title: `${warehouse.name} – MoveIT service`,

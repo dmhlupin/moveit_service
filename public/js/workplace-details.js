@@ -9,6 +9,9 @@ const pageData = document.getElementById('pageData');
 const OFFICE_ID = pageData ? parseInt(pageData.dataset.officeId) : null;
 const OFFICE_NAME = pageData ? pageData.dataset.officeName : '';
 
+// 🆕 Этап 4: роль
+const CURRENT_ROLE = pageData ? (pageData.dataset.currentRole || '') : '';
+
 let tree = null;              // Дерево офиса
 let deleteTarget = null;      // { type: 'room'|'workplace', id, name }
 
@@ -24,6 +27,12 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     await loadOfficeTree();
+
+    // 🆕 Этап 4: ответственные МОЛ — только для admin
+    if (CURRENT_ROLE === 'admin') {
+        document.getElementById('officeResponsiblesCard').style.display = '';
+        await loadOfficeResponsibles();
+    }
 
     // 🆕 Подсветка рабочего места из ?highlightWorkplace=ID
     const params = new URLSearchParams(window.location.search);
@@ -526,6 +535,112 @@ async function viewWorkplace(workplaceId) {
 
 function closeWorkplaceViewModal() {
     document.getElementById('workplaceViewModal').classList.remove('active');
+}
+
+// ============================================================
+// 🆕 ЭТАП 4: ОТВЕТСТВЕННЫЕ МОЛ
+// ============================================================
+
+let allMols = null;
+
+async function loadOfficeResponsibles() {
+  const listEl = document.getElementById('officeResponsiblesList');
+  const selectEl = document.getElementById('officeMolSelect');
+  if (!listEl || !selectEl) return;
+
+  listEl.innerHTML = '<div class="loading-block">⏳ Загрузка...</div>';
+
+  try {
+    const respRes = await fetch(`/api/admin/offices/${OFFICE_ID}/responsibles`);
+    const responsibles = await respRes.json();
+
+    if (!allMols) {
+      const usersRes = await fetch('/api/admin/users');
+      const users = await usersRes.json();
+      allMols = (users || []).filter(u => u.role === 'mol' && u.is_active === 1);
+    }
+
+    if (!responsibles || responsibles.length === 0) {
+      listEl.innerHTML = '<div class="mol-empty">Нет ответственных МОЛ</div>';
+    } else {
+      listEl.innerHTML = responsibles.map(r => `
+        <div class="mol-responsible-item">
+          <div class="mol-responsible-info">
+            <span class="mol-responsible-name">${escapeHtml(r.full_name || r.username)}</span>
+            ${r.department ? `<span class="mol-responsible-dept">${escapeHtml(r.department)}</span>` : ''}
+          </div>
+          <button type="button" class="btn-icon btn-delete"
+                  onclick="removeOfficeResponsible(${r.user_id})"
+                  title="Убрать">✕</button>
+        </div>
+      `).join('');
+    }
+
+    const assignedIds = new Set((responsibles || []).map(r => r.user_id));
+    const freeMols = allMols.filter(m => !assignedIds.has(m.id));
+
+    selectEl.innerHTML = '<option value="">— Выберите МОЛ для добавления —</option>' +
+      freeMols.map(m => `<option value="${m.id}">${escapeHtml(m.full_name || m.username)}</option>`).join('');
+
+    if (freeMols.length === 0) {
+      selectEl.disabled = true;
+      selectEl.innerHTML = '<option value="">— Все МОЛы уже назначены —</option>';
+    } else {
+      selectEl.disabled = false;
+    }
+  } catch (err) {
+    console.error('❌ Ошибка загрузки ответственных МОЛ:', err);
+    listEl.innerHTML = '<div class="mol-empty">Ошибка загрузки</div>';
+  }
+}
+
+async function addOfficeResponsible() {
+  const selectEl = document.getElementById('officeMolSelect');
+  const userId = selectEl?.value;
+  if (!userId) {
+    showToast('❌ Выберите МОЛ', 'error');
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/admin/offices/${OFFICE_ID}/responsibles`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: parseInt(userId, 10) }),
+    });
+    const data = await res.json();
+
+    if (data.success || data.already) {
+      showToast('✅ МОЛ назначен', 'success');
+      await loadOfficeResponsibles();
+    } else {
+      showToast('❌ ' + (data.error || 'Ошибка'), 'error');
+    }
+  } catch (err) {
+    console.error('❌ Ошибка добавления МОЛ:', err);
+    showToast('❌ Ошибка соединения', 'error');
+  }
+}
+
+async function removeOfficeResponsible(userId) {
+  if (!confirm('Убрать этого МОЛа с ответственного за офис?')) return;
+
+  try {
+    const res = await fetch(`/api/admin/offices/${OFFICE_ID}/responsibles/${userId}`, {
+      method: 'DELETE',
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      showToast('✅ МОЛ убран', 'success');
+      await loadOfficeResponsibles();
+    } else {
+      showToast('❌ ' + (data.error || 'Ошибка'), 'error');
+    }
+  } catch (err) {
+    console.error('❌ Ошибка удаления МОЛ:', err);
+    showToast('❌ Ошибка соединения', 'error');
+  }
 }
 
 // ============================================================

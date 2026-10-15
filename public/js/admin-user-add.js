@@ -5,6 +5,9 @@
 // ОТПРАВКА ФОРМЫ
 // ============================================================
 
+let createdUserId = null;
+let createdRole = null;
+
 async function submitForm(event) {
   event.preventDefault();
 
@@ -31,8 +34,20 @@ async function submitForm(event) {
     const result = await response.json();
 
     if (result.success) {
+      createdUserId = result.data.id;
+      createdRole = result.data.role;
+
       document.getElementById('tempPasswordValue').textContent = result.tempPassword;
       document.getElementById('passwordUsername').textContent = result.data.username;
+
+      // 🆕 Этап 4: если создан МОЛ — приглашаем сразу к привязке складов/офисов
+      const finishBtn = document.querySelector('#passwordModal .modal-actions button');
+      if (finishBtn) {
+        finishBtn.textContent = (createdRole === 'mol')
+          ? 'Понятно, привязать склады и офисы'
+          : 'Понятно, перейти к списку';
+      }
+
       document.getElementById('passwordModal').classList.add('active');
     } else {
       showToast('❌ ' + result.error, 'error');
@@ -48,5 +63,10 @@ async function submitForm(event) {
 }
 
 function finishCreate() {
+  // 🆕 Этап 4: МОЛ → сразу в edit для привязки складов и офисов
+  if (createdRole === 'mol' && createdUserId) {
+    window.location.href = `/admin/user/edit/${createdUserId}`;
+    return;
+  }
   window.location.href = '/admin';
 }

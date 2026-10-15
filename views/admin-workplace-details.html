@@ -10,6 +10,7 @@
 <div id="pageData"
      data-office-id="{{office.id}}"
      data-office-name="{{office.name}}"
+     data-current-role="{{current_role}}"
      style="display: none;">
 </div>
 
@@ -49,6 +50,29 @@
         ➕ Добавить кабинет
       </button>
     </div>
+  </div>
+</div>
+
+<!-- 🆕 Этап 4: ответственные МОЛ — только для админа (управляется через JS) -->
+<div class="card" id="officeResponsiblesCard" style="display:none;">
+  <div class="card-header">
+    <h2 class="card-title">🧑‍💼 Ответственные МОЛ</h2>
+  </div>
+  <div class="card-body">
+
+    <div id="officeResponsiblesList" class="mol-responsibles-list">
+      <div class="loading-block">⏳ Загрузка...</div>
+    </div>
+
+    <div class="mol-add-row" style="margin-top: 12px;">
+      <select id="officeMolSelect" class="mol-add-select">
+        <option value="">— Выберите МОЛ для добавления —</option>
+      </select>
+      <button type="button" class="btn btn-success btn-sm" onclick="addOfficeResponsible()">
+        ➕ Добавить
+      </button>
+    </div>
+
   </div>
 </div>
 

@@ -110,6 +110,9 @@ async function renderWorkplaceDetails(req, res) {
     content = content.replace(/\{\{office\.name\}\}/g, escapeHtml(office.name));
     content = content.replace(/\{\{office\.description\}\}/g, escapeHtml(office.description));
 
+    // 🆕 Этап 4: роль — чтобы показать блок «Ответственные МОЛ» только админу
+    content = content.replace(/\{\{current_role\}\}/g, req.session.role || 'user');
+
     renderPageFor(req, res, {
       title: `${office.name} – MoveIT service`,
       content,
@@ -132,7 +135,9 @@ async function renderWorkplaceDetails(req, res) {
  */
 async function getOfficesAPI(req, res) {
   try {
-    const offices = await getAllOffices();
+    // 🆕 Этап 4: scope — МОЛ видит только свои офисы
+    const scope = { userId: req.session.userId, role: req.session.role };
+    const offices = await getAllOffices(scope);
     res.json(offices);
   } catch (error) {
     console.error('❌ Ошибка:', error);
@@ -150,8 +155,10 @@ async function getOfficeAPI(req, res) {
       return res.status(400).json({ error: 'Неверный ID' });
     }
 
-    const office = await getOfficeById(id);
+    const scope = { userId: req.session.userId, role: req.session.role };
+    const office = await getOfficeById(id, scope);
     if (!office) {
+      // 404 — не палим существование чужого офиса
       return res.status(404).json({ error: 'Офис не найден' });
     }
 
@@ -331,7 +338,9 @@ async function setDefaultOfficeAPI(req, res) {
  */
 async function getFullWorkplaceTreeAPI(req, res) {
   try {
-    const tree = await getFullWorkplaceTree();
+    // 🆕 Этап 4: scope — МОЛ видит только свои офисы
+    const scope = { userId: req.session.userId, role: req.session.role };
+    const tree = await getFullWorkplaceTree(scope);
     res.json(tree);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -348,7 +357,8 @@ async function getOfficeTreeAPI(req, res) {
       return res.status(400).json({ error: 'Неверный ID' });
     }
 
-    const tree = await getOfficeTree(id);
+    const scope = { userId: req.session.userId, role: req.session.role };
+    const tree = await getOfficeTree(id, scope);
     if (!tree) {
       return res.status(404).json({ error: 'Офис не найден' });
     }
@@ -376,7 +386,9 @@ async function getWorkplaceStatsAPI(req, res) {
  */
 async function getWorkplaceSummaryAPI(req, res) {
   try {
-    const summary = await getWorkplaceSummary();
+    // 🆕 Этап 4: scope — МОЛ видит только свои офисы
+    const scope = { userId: req.session.userId, role: req.session.role };
+    const summary = await getWorkplaceSummary(scope);
     res.json(summary);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -396,6 +408,13 @@ async function getRoomsAPI(req, res) {
     const officeId = parseInt(req.params.id);
     if (isNaN(officeId)) {
       return res.status(400).json({ error: 'Неверный ID офиса' });
+    }
+
+    // 🆕 Этап 4: проверяем доступ к офису через scope
+    const scope = { userId: req.session.userId, role: req.session.role };
+    const office = await getOfficeById(officeId, scope);
+    if (!office) {
+      return res.status(404).json({ error: 'Офис не найден' });
     }
 
     const rooms = await getRoomsByOffice(officeId);

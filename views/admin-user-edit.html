@@ -55,11 +55,48 @@
 
       <div class="form-group">
         <label>Роль</label>
-        <select id="role">
+        <select id="role" onchange="onRoleChange()">
           <option value="user">👤 Пользователь</option>
+          <option value="mol">🧑‍💼 МОЛ (материально ответственное лицо)</option>
+          <option value="supervisor">👁️ Супервизор (только просмотр)</option>
           <option value="admin">👑 Администратор</option>
         </select>
-        <div class="help-text">Администратор имеет полный доступ к системе</div>
+        <div class="help-text">
+          Пользователь — только личный кабинет и PDF.
+          МОЛ — управляет своими складами, офисами и экземплярами техники.
+          Супервизор — видит всё, но без права редактирования.
+          Администратор — полный доступ.
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+    <!-- 🆕 Этап 4: блоки МОЛ — показываются только при роли mol -->
+  <div class="card" id="molResponsiblesCard" style="display: none;">
+    <div class="card-header">
+      <h2 class="card-title">🧑‍💼 Ответственность МОЛ</h2>
+    </div>
+    <div class="card-body">
+
+      <div class="form-group">
+        <label>Ответственный за склады</label>
+        <div class="mol-checkbox-list" id="warehouseCheckboxes">
+          {{warehouse_checkboxes}}
+        </div>
+        <div class="help-text">
+          Отметьте склады, за которые этот МОЛ отвечает. Управлять ими он сможет только после сохранения.
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Ответственный за офисы</label>
+        <div class="mol-checkbox-list" id="officeCheckboxes">
+          {{office_checkboxes}}
+        </div>
+        <div class="help-text">
+          Отметьте офисы, за которые этот МОЛ отвечает.
+        </div>
       </div>
 
     </div>

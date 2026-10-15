@@ -928,7 +928,8 @@ async function addUserAPI(req, res) {
       return res.status(400).json({ error: 'Пользователь с таким email уже существует' });
     }
     
-    const userRole = ['admin', 'user'].includes(role) ? role : 'user';
+    const ALLOWED_ROLES = ['admin', 'supervisor', 'mol', 'user'];
+    const userRole = ALLOWED_ROLES.includes(role) ? role : 'user';
     const tempPassword = generateTempPassword(12);
     const passwordHash = await hashPassword(tempPassword);
     
@@ -1007,7 +1008,8 @@ async function updateUserAPI(req, res) {
       return res.status(404).json({ error: 'Пользователь не найден' });
     }
     
-    const newRole = ['admin', 'user'].includes(role) ? role : user.role;
+    const ALLOWED_ROLES = ['admin', 'supervisor', 'mol', 'user'];
+    const newRole = ALLOWED_ROLES.includes(role) ? role : user.role;
     
     if (user.role === 'admin' && newRole === 'user') {
       const { db } = require('../database/db');
@@ -1041,7 +1043,55 @@ async function updateUserAPI(req, res) {
         }
       );
     });
-    
+
+    // 🆕 Этап 4: если роль = mol — обновляем привязки складов и офисов.
+    if (newRole === 'mol') {
+      const warehouseIds = Array.isArray(req.body.warehouse_ids)
+        ? req.body.warehouse_ids.map(n => parseInt(n, 10)).filter(n => !isNaN(n))
+        : [];
+      const officeIds = Array.isArray(req.body.office_ids)
+        ? req.body.office_ids.map(n => parseInt(n, 10)).filter(n => !isNaN(n))
+        : [];
+
+      // Удаляем старые связки
+      await new Promise((resolve, reject) => {
+        db.run('DELETE FROM warehouse_responsibles WHERE user_id = ?', [id],
+          (err) => err ? reject(err) : resolve());
+      });
+      await new Promise((resolve, reject) => {
+        db.run('DELETE FROM office_responsibles WHERE user_id = ?', [id],
+          (err) => err ? reject(err) : resolve());
+      });
+
+      // Вставляем новые
+      for (const wid of warehouseIds) {
+        await new Promise((resolve, reject) => {
+          db.run('INSERT OR IGNORE INTO warehouse_responsibles (warehouse_id, user_id) VALUES (?, ?)',
+            [wid, id],
+            (err) => err ? reject(err) : resolve());
+        });
+      }
+      for (const oid of officeIds) {
+        await new Promise((resolve, reject) => {
+          db.run('INSERT OR IGNORE INTO office_responsibles (office_id, user_id) VALUES (?, ?)',
+            [oid, id],
+            (err) => err ? reject(err) : resolve());
+        });
+      }
+    } else {
+      // При смене роли с mol на что-то другое — снимаем все привязки
+      // const oldUser = await getUserById(id);
+      // (oldUser был загружен выше как `user`, но перезагружаем на всякий случай)
+      await new Promise((resolve, reject) => {
+        db.run('DELETE FROM warehouse_responsibles WHERE user_id = ?', [id],
+          (err) => err ? reject(err) : resolve());
+      });
+      await new Promise((resolve, reject) => {
+        db.run('DELETE FROM office_responsibles WHERE user_id = ?', [id],
+          (err) => err ? reject(err) : resolve());
+      });
+    }
+
     await logAction({
       req,
       action: 'user_update',
@@ -1276,13 +1326,71 @@ async function renderEditUser(req, res) {
     content = content.replace(/\{\{phone\}\}/g, escapeHtml(user.phone || ''));
     content = content.replace(/\{\{role\}\}/g, user.role || 'user');
 
-    const fullHtml = renderPage({
+    // 🆕 Этап 4: чекбоксы складов и офисов для роли mol.
+    const { db } = require('../database/db');
+
+    const allWarehouses = await new Promise((resolve, reject) => {
+      db.all(`SELECT id, name, is_default FROM warehouses WHERE is_active = 1 ORDER BY is_default DESC, name`,
+        (err, rows) => err ? reject(err) : resolve(rows || []));
+    });
+
+    const allOffices = await new Promise((resolve, reject) => {
+      db.all(`SELECT id, name, is_default FROM offices WHERE is_active = 1 ORDER BY is_default DESC, name`,
+        (err, rows) => err ? reject(err) : resolve(rows || []));
+    });
+
+    const userWarehouseIds = await new Promise((resolve, reject) => {
+      db.all(`SELECT warehouse_id FROM warehouse_responsibles WHERE user_id = ?`,
+        [id],
+        (err, rows) => err ? reject(err) : resolve((rows || []).map(r => r.warehouse_id)));
+    });
+
+    const userOfficeIds = await new Promise((resolve, reject) => {
+      db.all(`SELECT office_id FROM office_responsibles WHERE user_id = ?`,
+        [id],
+        (err, rows) => err ? reject(err) : resolve((rows || []).map(r => r.office_id)));
+    });
+
+    let warehouseCheckboxes = '';
+    if (allWarehouses.length === 0) {
+      warehouseCheckboxes = '<div class="mol-empty">Нет активных складов</div>';
+    } else {
+      allWarehouses.forEach(w => {
+        const checked = userWarehouseIds.includes(w.id) ? 'checked' : '';
+        const star = w.is_default ? ' ⭐' : '';
+        warehouseCheckboxes += `
+          <label class="mol-checkbox-item">
+            <input type="checkbox" value="${w.id}" ${checked}>
+            <span>${escapeHtml(w.name)}${star}</span>
+          </label>
+        `;
+      });
+    }
+
+    let officeCheckboxes = '';
+    if (allOffices.length === 0) {
+      officeCheckboxes = '<div class="mol-empty">Нет активных офисов</div>';
+    } else {
+      allOffices.forEach(o => {
+        const checked = userOfficeIds.includes(o.id) ? 'checked' : '';
+        const star = o.is_default ? ' ⭐' : '';
+        officeCheckboxes += `
+          <label class="mol-checkbox-item">
+            <input type="checkbox" value="${o.id}" ${checked}>
+            <span>${escapeHtml(o.name)}${star}</span>
+          </label>
+        `;
+      });
+    }
+
+    content = content.replace('{{warehouse_checkboxes}}', warehouseCheckboxes);
+    content = content.replace('{{office_checkboxes}}', officeCheckboxes);
+
+    renderPageFor(req, res, {
       title: 'Редактировать пользователя – MoveIT service',
       content,
       pageJs: '/js/admin-user-edit.js',
     });
-
-    res.send(fullHtml);
   } catch (error) {
     console.error('❌ Ошибка при загрузке страницы редактирования пользователя:', error);
     res.status(500).send('Ошибка при загрузке страницы');

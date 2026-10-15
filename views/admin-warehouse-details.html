@@ -5,6 +5,7 @@
 <div id="pageData"
      data-warehouse-id="{{warehouse.id}}"
      data-warehouse-name="{{warehouse.name}}"
+     data-current-role="{{current_role}}"
      style="display: none;">
 </div>
 
@@ -44,6 +45,29 @@
         ➕ Добавить зону
       </button>
     </div>
+  </div>
+</div>
+
+<!-- 🆕 Этап 4: ответственные МОЛ — только для админа (управляется через JS) -->
+<div class="card" id="warehouseResponsiblesCard" style="display:none;">
+  <div class="card-header">
+    <h2 class="card-title">🧑‍💼 Ответственные МОЛ</h2>
+  </div>
+  <div class="card-body">
+
+    <div id="warehouseResponsiblesList" class="mol-responsibles-list">
+      <div class="loading-block">⏳ Загрузка...</div>
+    </div>
+
+    <div class="mol-add-row" style="margin-top: 12px;">
+      <select id="warehouseMolSelect" class="mol-add-select">
+        <option value="">— Выберите МОЛ для добавления —</option>
+      </select>
+      <button type="button" class="btn btn-success btn-sm" onclick="addWarehouseResponsible()">
+        ➕ Добавить
+      </button>
+    </div>
+
   </div>
 </div>
 

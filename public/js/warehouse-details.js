@@ -10,6 +10,9 @@ const pageData = document.getElementById('pageData');
 const WAREHOUSE_ID = pageData ? parseInt(pageData.dataset.warehouseId) : null;
 const WAREHOUSE_NAME = pageData ? pageData.dataset.warehouseName : '';
 
+// 🆕 Этап 4: роль
+const CURRENT_ROLE = pageData ? (pageData.dataset.currentRole || '') : '';
+
 let tree = null;              // Дерево склада
 let deleteTarget = null;      // { type: 'zone'|'rack'|'cell', id, name }
 
@@ -26,6 +29,12 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // Загружаем дерево
     await loadWarehouseTree();
+
+    // 🆕 Этап 4: ответственные МОЛ — только для admin
+    if (CURRENT_ROLE === 'admin') {
+        document.getElementById('warehouseResponsiblesCard').style.display = '';
+        await loadWarehouseResponsibles();
+    }
 });
 
 // ============================================================
@@ -658,6 +667,117 @@ async function viewCell(cellId) {
 function closeCellViewModal() {
     document.getElementById('cellViewModal').classList.remove('active');
 }
+
+// ============================================================
+// 🆕 ЭТАП 4: ОТВЕТСТВЕННЫЕ МОЛ
+// ============================================================
+
+let allMols = null; // кэш списка МОЛов
+
+async function loadWarehouseResponsibles() {
+  const listEl = document.getElementById('warehouseResponsiblesList');
+  const selectEl = document.getElementById('warehouseMolSelect');
+  if (!listEl || !selectEl) return;
+
+  listEl.innerHTML = '<div class="loading-block">⏳ Загрузка...</div>';
+
+  try {
+    // 1. Список ответственных за склад
+    const respRes = await fetch(`/api/admin/warehouses/${WAREHOUSE_ID}/responsibles`);
+    const responsibles = await respRes.json();
+
+    // 2. Список всех МОЛов (для селекта добавления)
+    if (!allMols) {
+      const usersRes = await fetch('/api/admin/users');
+      const users = await usersRes.json();
+      allMols = (users || []).filter(u => u.role === 'mol' && u.is_active === 1);
+    }
+
+    // Рендер списка
+    if (!responsibles || responsibles.length === 0) {
+      listEl.innerHTML = '<div class="mol-empty">Нет ответственных МОЛ</div>';
+    } else {
+      listEl.innerHTML = responsibles.map(r => `
+        <div class="mol-responsible-item">
+          <div class="mol-responsible-info">
+            <span class="mol-responsible-name">${escapeHtml(r.full_name || r.username)}</span>
+            ${r.department ? `<span class="mol-responsible-dept">${escapeHtml(r.department)}</span>` : ''}
+          </div>
+          <button type="button" class="btn-icon btn-delete"
+                  onclick="removeWarehouseResponsible(${r.user_id})"
+                  title="Убрать">✕</button>
+        </div>
+      `).join('');
+    }
+
+    // Заполняем селект (исключаем уже назначенных)
+    const assignedIds = new Set((responsibles || []).map(r => r.user_id));
+    const freeMols = allMols.filter(m => !assignedIds.has(m.id));
+
+    selectEl.innerHTML = '<option value="">— Выберите МОЛ для добавления —</option>' +
+      freeMols.map(m => `<option value="${m.id}">${escapeHtml(m.full_name || m.username)}</option>`).join('');
+
+    if (freeMols.length === 0) {
+      selectEl.disabled = true;
+      selectEl.innerHTML = '<option value="">— Все МОЛы уже назначены —</option>';
+    } else {
+      selectEl.disabled = false;
+    }
+  } catch (err) {
+    console.error('❌ Ошибка загрузки ответственных МОЛ:', err);
+    listEl.innerHTML = '<div class="mol-empty">Ошибка загрузки</div>';
+  }
+}
+
+async function addWarehouseResponsible() {
+  const selectEl = document.getElementById('warehouseMolSelect');
+  const userId = selectEl?.value;
+  if (!userId) {
+    showToast('❌ Выберите МОЛ', 'error');
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/admin/warehouses/${WAREHOUSE_ID}/responsibles`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: parseInt(userId, 10) }),
+    });
+    const data = await res.json();
+
+    if (data.success || data.already) {
+      showToast('✅ МОЛ назначен', 'success');
+      await loadWarehouseResponsibles();
+    } else {
+      showToast('❌ ' + (data.error || 'Ошибка'), 'error');
+    }
+  } catch (err) {
+    console.error('❌ Ошибка добавления МОЛ:', err);
+    showToast('❌ Ошибка соединения', 'error');
+  }
+}
+
+async function removeWarehouseResponsible(userId) {
+  if (!confirm('Убрать этого МОЛа с ответственного за склад?')) return;
+
+  try {
+    const res = await fetch(`/api/admin/warehouses/${WAREHOUSE_ID}/responsibles/${userId}`, {
+      method: 'DELETE',
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      showToast('✅ МОЛ убран', 'success');
+      await loadWarehouseResponsibles();
+    } else {
+      showToast('❌ ' + (data.error || 'Ошибка'), 'error');
+    }
+  } catch (err) {
+    console.error('❌ Ошибка удаления МОЛ:', err);
+    showToast('❌ Ошибка соединения', 'error');
+  }
+}
+
 
 // ============================================================
 // УДАЛЕНИЕ
