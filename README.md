@@ -683,19 +683,19 @@ myapp1/
 ├── database/
 │ ├── db.js # Точка входа, склейка модулей
 │ └── modules/
-│ ├── users.js # CRUD пользователей
-│ ├── equipment.js # Техника + назначения + фильтры + responsible_user_id
-│ ├── equipment-models.js # CRUD моделей ТМЦ
-│ ├── catalog.js # Категории и типы
-│ ├── auth.js # Пароли, роли, сессии
-│ ├── profile.js # Личный кабинет
-│ ├── logs.js # Логи активности
-│ ├── dashboard.js # Дашборд + статистика
-│ ├── stats.js # Общая статистика
-│ ├── meta.js # app_meta
-│ ├── warehouses.js # Склады, зоны, стеллажи, ячейки + scope
-│ ├── workplaces.js # Офисы, кабинеты, рабочие места + scope
-│ └── cells.js # checkCellAvailability (чистая функция)
+│ │ ├── users.js # CRUD пользователей
+│ │ ├── equipment.js # Техника + назначения + фильтры + responsible_user_id
+│ │ ├── equipment-models.js # CRUD моделей ТМЦ
+│ │ ├── catalog.js # Категории и типы
+│ │ ├── auth.js # Пароли, роли, сессии
+│ │ ├── profile.js # Личный кабинет
+│ │ ├── logs.js # Логи активности
+│ │ ├── dashboard.js # Дашборд + статистика
+│ │ ├── stats.js # Общая статистика
+│ │ ├── meta.js # app_meta
+│ │ ├── warehouses.js # Склады, зоны, стеллажи, ячейки + scope
+│ │ ├── workplaces.js # Офисы, кабинеты, рабочие места + scope
+│ └─└── cells.js # checkCellAvailability (чистая функция)
 │
 ├── middleware/
 │ └── auth.js # requireAuth, requireAdmin,
@@ -761,29 +761,29 @@ myapp1/
 │ │ ├── pdf.css # PDF
 │ │ └── help.css # Футер, помощь
 │ └── js/
-│ ├── main.js # Общее
-│ ├── layout.js # Sidebar, поиск, горячие клавиши, 4 роли
-│ ├── help.js # Модалка помощи
-│ ├── login.js
-│ ├── change-password.js
-│ ├── dashboard.js
-│ ├── profile.js
-│ ├── users.js # Read-only список пользователей
-│ ├── admin.js # Логика «Учёта ТМЦ»
-│ ├── admin-add.js # Форма добавления техники
-│ ├── admin-edit.js # Форма редактирования техники
-│ ├── admin-users.js # 🆕 Логика «Управления доступом»
-│ ├── admin-user-add.js # Форма добавления пользователя
-│ ├── admin-user-edit.js # Форма редактирования (+ МОЛ)
-│ ├── catalog.js # Справочник
-│ ├── equipment-filter.js # Серверный фильтр + поиск
-│ ├── admin-models.js # Номенклатура
-│ ├── logs.js # Логи
-│ ├── warehouses.js # Склады
-│ ├── warehouse-details.js # Дерево склада + ответственные МОЛ
-│ ├── workplaces.js # Офисы
-│ ├── workplace-details.js # Дерево офиса + ответственные МОЛ
-│ └── inventory.js # Инвентаризация
+│ │ ├── main.js # Общее
+│ │ ├── layout.js # Sidebar, поиск, горячие клавиши, 4 роли
+│ │ ├── help.js # Модалка помощи
+│ │ ├── login.js
+│ │ ├── change-password.js
+│ │ ├── dashboard.js
+│ │ ├── profile.js
+│ │ ├── users.js # Read-only список пользователей
+│ │ ├── admin.js # Логика «Учёта ТМЦ»
+│ │ ├── admin-add.js # Форма добавления техники
+│ │ ├── admin-edit.js # Форма редактирования техники
+│ │ ├── admin-users.js # 🆕 Логика «Управления доступом»
+│ │ ├── admin-user-add.js # Форма добавления пользователя
+│ │ ├── admin-user-edit.js # Форма редактирования (+ МОЛ)
+│ │ ├── catalog.js # Справочник
+│ │ ├── equipment-filter.js # Серверный фильтр + поиск
+│ │ ├── admin-models.js # Номенклатура
+│ │ ├── logs.js # Логи
+│ │ ├── warehouses.js # Склады
+│ │ ├── warehouse-details.js # Дерево склада + ответственные МОЛ
+│ │ ├── workplaces.js # Офисы
+│ │ ├── workplace-details.js # Дерево офиса + ответственные МОЛ
+│ └─└── inventory.js # Инвентаризация
 │
 ├── views/
 │ ├── partials/
