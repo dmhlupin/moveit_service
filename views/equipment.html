@@ -88,6 +88,12 @@
             {{status_options}}
         </select>
     </div>
+    <div class="filter-group filter-group--narrow">
+        <label>Показывать по</label>
+        <select id="filterPageSize" onchange="applyPageSize()">
+            {{page_size_options}}
+        </select>
+    </div>
     <div class="filter-actions">
         <button type="button" onclick="resetFilters()" class="btn btn-ghost">✕ Сбросить</button>
     </div>

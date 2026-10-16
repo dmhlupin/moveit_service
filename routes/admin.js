@@ -101,25 +101,35 @@ async function renderAdmin(req, res) {
     }
     html = html.replace('{{page_actions}}', pageActions);
 
+    // 🆕 Колонка «Ответственный МОЛ» — только для admin / supervisor
+    const responsibleTh = (currentRole === 'admin' || currentRole === 'supervisor')
+      ? '<th style="width: 150px;">Ответственный МОЛ</th>'
+      : '';
+    html = html.replace('{{responsible_th}}', responsibleTh);
+
     // Таблица техники
     let equipmentRows = '';
+
     equipment.forEach(item => {
       const statusClass = `status-${item.status}`;
 
-      // Кнопка «Удалить»: только для admin/mol и только для available
-      const deleteButton = (currentRole !== 'supervisor' && item.status === 'available')
-        ? `<button onclick="deleteEquipment(${item.id})" class="btn-icon btn-delete" title="Удалить">🗑️</button>`
-        : '';
+      // 🆕 Может ли текущий пользователь редактировать этот экземпляр
+      const canEditThis = currentRole === 'admin'
+        || (currentRole === 'mol' && Number(item.responsible_user_id) === Number(req.session.userId));
 
-      // Кнопка «Редактировать»: только для admin/mol
-      const editButton = (currentRole !== 'supervisor')
-        ? `<button onclick="editEquipment(${item.id})" class="btn-icon btn-edit" title="Редактировать">✏️</button>`
-        : '';
+      // 🆕 Кнопки действий — формируются inline в шаблоне,
+      // потому что каждая оборачивается в event.stopPropagation().
+      let actionButtons = `<button onclick="event.stopPropagation(); viewEquipment(${item.id})" class="btn-icon btn-info" title="Просмотр">👁️</button>`;
 
-      // Кнопка «Переместить»: только для admin/mol и только если не assigned
-      const moveButton = (currentRole !== 'supervisor' && item.status !== 'assigned')
-        ? `<button onclick="openMoveEquipmentModal(${item.id})" class="btn-icon btn-move" title="Переместить">🔄</button>`
-        : '';
+      if (canEditThis) {
+        actionButtons += `<button onclick="event.stopPropagation(); editEquipment(${item.id})" class="btn-icon btn-edit" title="Редактировать">✏️</button>`;
+        if (item.status !== 'assigned') {
+          actionButtons += `<button onclick="event.stopPropagation(); openMoveEquipmentModal(${item.id})" class="btn-icon btn-move" title="Переместить">🔄</button>`;
+        }
+        if (item.status === 'available') {
+          actionButtons += `<button onclick="event.stopPropagation(); deleteEquipment(${item.id})" class="btn-icon btn-delete" title="Удалить">🗑️</button>`;
+        }
+      }
 
       // Информация о назначении
       let assignedInfo = '—';
@@ -149,9 +159,9 @@ async function renderAdmin(req, res) {
       let cellInfo = '<span style="color: #cbd5e0;">—</span>';
       if (item.cell_id) {
         cellInfo = `<div class="location-cell" title="${item.warehouse_name} → ${item.zone_name} → ${item.rack_name} → ${item.cell_name}">
-             <div class="location-cell-code">${item.cell_code || item.cell_name}</div>
-             <div class="location-path" style="font-size: 10px;">${item.warehouse_name}</div>
-           </div>`;
+            <div class="location-cell-code">${item.cell_code || item.cell_name}</div>
+            <div class="location-path" style="font-size: 10px;">${item.warehouse_name}</div>
+          </div>`;
       } else if (item.workplace_id) {
         const wpLabel = `${item.workplace_name || 'Место'}${item.workplace_code ? ` [${item.workplace_code}]` : ''}`;
         const officeLabel = item.office_name || '';
@@ -159,9 +169,9 @@ async function renderAdmin(req, res) {
           ? `/admin/workplaces/${item.office_id}?highlightWorkplace=${item.workplace_id}`
           : '#';
         cellInfo = `<div class="location-cell">
-             <a href="${link}" class="location-cell-code" style="background: var(--purple-bg); color: var(--purple); text-decoration: none;" title="Открыть в дереве офиса">🪑 ${wpLabel}</a>
-             <div class="location-path" style="font-size: 10px;">${officeLabel}</div>
-           </div>`;
+            <a href="${link}" class="location-cell-code" style="background: var(--purple-bg); color: var(--purple); text-decoration: none;" title="Открыть в дереве офиса">🪑 ${wpLabel}</a>
+            <div class="location-path" style="font-size: 10px;">${officeLabel}</div>
+          </div>`;
       }
 
       const statusLabels = {
@@ -173,8 +183,26 @@ async function renderAdmin(req, res) {
       };
       const statusLabel = statusLabels[item.status] || item.status;
 
+      // 🆕 Ответственный МОЛ — ячейка (для admin / supervisor)
+      let responsibleCell = '';
+      if (currentRole === 'admin' || currentRole === 'supervisor') {
+        if (item.responsible_user_name) {
+          const initials = getInitials(item.responsible_user_name);
+          responsibleCell = `<td>
+            <div class="assigned-cell">
+              <span class="assigned-avatar" style="background: linear-gradient(135deg, var(--purple) 0%, var(--accent) 100%);">${initials}</span>
+              <div class="assigned-info">
+                <div class="assigned-name">${item.responsible_user_name}</div>
+              </div>
+            </div>
+          </td>`;
+        } else {
+          responsibleCell = `<td><span style="color: #cbd5e0;">—</span></td>`;
+        }
+      }
+
       equipmentRows += `
-        <tr>
+        <tr class="equipment-row-clickable" onclick="viewEquipment(${item.id})">
           <td>${item.id}</td>
           <td><strong>${item.inventory_number || '—'}</strong></td>
           <td>${item.model_name || '—'}</td>
@@ -184,17 +212,16 @@ async function renderAdmin(req, res) {
           <td>${cellInfo}</td>
           <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
           <td>${assignedInfo}</td>
+          ${responsibleCell}
           <td>
             <div class="action-buttons">
-              <button onclick="viewEquipment(${item.id})" class="btn-icon btn-info" title="Просмотр">👁️</button>
-              ${editButton}
-              ${moveButton}
-              ${deleteButton}
+              ${actionButtons}
             </div>
           </td>
         </tr>
       `;
     });
+
     html = html.replace('{{equipment_rows}}', equipmentRows);
 
     const fullHtml = renderPage({
@@ -424,6 +451,7 @@ async function updateEquipmentAPI(req, res) {
       workplace_id,
       assign_user_id,
       assign_condition,
+      responsible_user_id,   // 🆕 Этап 4
     } = req.body;
 
     if (!model_id) {
@@ -443,6 +471,23 @@ async function updateEquipmentAPI(req, res) {
     }
 
     const oldStatus = existing.status;
+    const oldResponsibleId = existing.responsible_user_id;
+
+    // 🆕 Этап 4: определяем ответственного МОЛа.
+    //   admin — из формы (может быть null, чтобы снять ответственного);
+    //   mol   — всегда он сам (не даём снять/сменить);
+    //   supervisor / user — не должно случаться (роут под requireRole).
+    let finalResponsibleId = undefined;   // undefined = «не трогать»
+    if (req.session.role === 'admin') {
+      // Пустая строка / отсутствие поля → null (снять ответственного)
+      finalResponsibleId = responsible_user_id
+        ? parseInt(responsible_user_id, 10)
+        : null;
+    } else if (req.session.role === 'mol') {
+      finalResponsibleId = req.session.userId;
+    }
+    // Для supervisor / user — оставляем undefined (не трогаем),
+    // но эти роли до сюда не дойдут из-за requireRole.
 
     // Финальные значения места
     let finalCellId = cell_id ? parseInt(cell_id, 10) : null;
@@ -550,6 +595,7 @@ async function updateEquipmentAPI(req, res) {
       warranty_until: warranty_until || null,
       cell_id: finalCellId,
       workplace_id: finalWorkplaceId,
+      responsible_user_id: finalResponsibleId,   // 🆕
     });
 
     if (willAutoReturn) {
@@ -572,6 +618,7 @@ async function updateEquipmentAPI(req, res) {
       details: JSON.stringify({
         inventory_number: inventory_number || null,
         status_changed: oldStatus !== finalStatus,
+        responsible_changed: oldResponsibleId !== finalResponsibleId,   // 🆕
       }),
     });
 

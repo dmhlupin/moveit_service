@@ -1,6 +1,6 @@
 {
   "name": "moveit-service",
-  "version": "4.1.1",
+  "version": "4.1.2",
   "description": "MoveIT service — система учёта ТМЦ с адресным хранением и ролевой моделью admin / supervisor / mol / user",
   "main": "server.js",
   "scripts": {

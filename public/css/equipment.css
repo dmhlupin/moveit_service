@@ -436,6 +436,19 @@
     flex-shrink: 0;
 }
 
+/* ============================================================ */
+/* УЗКИЙ СЕЛЕКТ (размер страницы)                                 */
+/* ============================================================ */
+
+.filter-group--narrow {
+    flex: 0 0 auto;
+    min-width: 100px;
+}
+
+.filter-group--narrow select {
+    min-width: 80px;
+}
+
 /* Адаптивность */
 @media (max-width: 768px) {
     .equipment-header-card {

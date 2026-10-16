@@ -17,7 +17,9 @@ const {
 /**
  * GET /equipment — страница просмотра техники
  */
-const PAGE_SIZE = 10;   // 🆕 размер страницы
+// Разрешённые размеры страницы
+const ALLOWED_PAGE_SIZES = [10, 15, 20, 50, 100];
+const DEFAULT_PAGE_SIZE = 10;
 
 async function renderEquipmentDashboard(req, res) {
   try {
@@ -35,20 +37,26 @@ async function renderEquipmentDashboard(req, res) {
       search: (q.search || '').trim() || null,
     };
 
+    // 🆕 Размер страницы: читаем из query, валидируем
+    const requestedLimit = parseInt(q.limit, 10);
+    const pageSize = ALLOWED_PAGE_SIZES.includes(requestedLimit)
+      ? requestedLimit
+      : DEFAULT_PAGE_SIZE;
+
     // 🆕 Пагинация
     const page = Math.max(1, parseInt(q.page, 10) || 1);
-    const offset = (page - 1) * PAGE_SIZE;
+    const offset = (page - 1) * pageSize;
 
     // 🆕 Загружаем ОТФИЛЬТРОВАННУЮ технику + total
     const result = await getEquipmentWithLocation({
       ...filters,
-      limit: PAGE_SIZE,
+      limit: pageSize,
       offset,
       include_total: true,
     });
     const equipment = result.items || [];
     const totalFiltered = result.total || 0;
-    const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE));
+    const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
 
     // Глобальная статистика (не зависит от фильтров)
     const stats = await getStats();
@@ -137,7 +145,15 @@ async function renderEquipmentDashboard(req, res) {
     });
     html = html.replace('{{status_options}}', statusOptions);
 
-        // 🆕 Значение поиска — чтобы не терять его после редиректа
+    // 🆕 Селект размера страницы
+    let pageSizeOptions = '';
+    ALLOWED_PAGE_SIZES.forEach(size => {
+      const sel = size === pageSize ? 'selected' : '';
+      pageSizeOptions += `<option value="${size}" ${sel}>${size}</option>`;
+    });
+    html = html.replace('{{page_size_options}}', pageSizeOptions);
+
+    // 🆕 Значение поиска — чтобы не терять его после редиректа
     html = html.replace(/\{\{search_value\}\}/g, escapeHtml(filters.search || ''));
 
     // 🆕 Таблица — построение без data-*
@@ -250,6 +266,7 @@ function renderPagination({ page, totalPages, totalFiltered, query }) {
   const buildUrl = (p) => {
     const params = new URLSearchParams();
     // Копируем все текущие query, кроме page
+    // (limit сохраняем — он часть query)
     Object.entries(query || {}).forEach(([k, v]) => {
       if (k !== 'page' && v) params.set(k, v);
     });

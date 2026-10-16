@@ -40,6 +40,12 @@ function applyFilters(options = {}) {
     if (status) params.set('status', status);
     if (search) params.set('search', search);
 
+    // 🆕 Сохраняем размер страницы
+    const limit = document.getElementById('filterPageSize')?.value;
+    if (limit && limit !== '10') {
+        params.set('limit', limit);
+    }
+
     // При смене фильтра — всегда на 1-ю страницу
     // (page в URL не задаём — сервер по умолчанию = 1)
 
@@ -47,15 +53,50 @@ function applyFilters(options = {}) {
     window.location.href = '/equipment' + (qs ? '?' + qs : '');
 }
 
-// ... resetFilters, filterUnplaced — без изменений ...
+// 🆕 Размер страницы
+function applyPageSize() {
+    const params = new URLSearchParams(window.location.search);
+    const size = document.getElementById('filterPageSize')?.value;
 
+    if (size && size !== '10') {
+        params.set('limit', size);
+    } else {
+        params.delete('limit');   // 10 = дефолт, не пишем в URL
+    }
+
+    // Сбрасываем страницу на 1 (размер изменился — контент другой)
+    params.delete('page');
+
+    const qs = params.toString();
+    window.location.href = '/equipment' + (qs ? '?' + qs : '');
+}
+
+// 🆕 Сброс фильтров — сохраняет размер страницы
 function resetFilters() {
-    window.location.href = '/equipment';
+    const params = new URLSearchParams();
+    const limit = document.getElementById('filterPageSize')?.value;
+
+    if (limit && limit !== '10') {
+        params.set('limit', limit);
+    }
+
+    const qs = params.toString();
+    window.location.href = '/equipment' + (qs ? '?' + qs : '');
 }
 
+// 🆕 Фильтр «Не размещено» — сохраняет размер страницы
 function filterUnplaced() {
-    window.location.href = '/equipment?status=unplaced';
+    const params = new URLSearchParams();
+    params.set('status', 'unplaced');
+
+    const limit = document.getElementById('filterPageSize')?.value;
+    if (limit && limit !== '10') {
+        params.set('limit', limit);
+    }
+
+    window.location.href = '/equipment?' + params.toString();
 }
+
 
 // ============================================================
 // ПРОСМОТР КАРТОЧКИ ТЕХНИКИ
