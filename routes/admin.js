@@ -52,10 +52,10 @@ const {
 const { logAction } = require('../utils/logger');
 
 // Layout
-// Layout
 const { renderPage, renderPageFor } = require('../utils/layout');
 
 const {
+  canAccessEquipment,
   canEditEquipment,
   canEditWarehouse,
   canEditOffice,
@@ -69,9 +69,11 @@ const {
  * GET /admin — страница «Учёт ТМЦ».
  * Пользователи больше не рендерятся здесь (переехали в /admin/users).
  */
+
 async function renderAdmin(req, res) {
   try {
     const scope = { userId: req.session.userId, role: req.session.role };
+    const currentRole = req.session.role;
     const stats = await getStats();
     const equipment = await getEquipmentWithLocation({}, scope);
 
@@ -84,12 +86,39 @@ async function renderAdmin(req, res) {
     html = html.replace(/\{\{assigned_equipment\}\}/g, stats.assigned_equipment || 0);
     html = html.replace(/\{\{total_users\}\}/g, stats.total_users || 0);
 
+    // 🆕 Текущая роль — для клиентского JS
+    html = html.replace(/\{\{current_role\}\}/g, currentRole || 'user');
+
+    // 🆕 Ссылки в шапке — по ролям
+    let pageActions = '';
+    if (currentRole === 'admin' || currentRole === 'supervisor') {
+      pageActions += `<a href="/admin/catalog" class="btn btn-ghost btn-sm" title="Управление категориями и типами">📚 Справочник</a>`;
+      pageActions += `<a href="/admin/warehouses" class="btn btn-ghost btn-sm" title="Управление складами">🏢 Склады</a>`;
+      pageActions += `<a href="/admin/inventory" class="btn btn-ghost btn-sm" title="Инвентаризация">📊 Инвентаризация</a>`;
+    }
+    if (currentRole === 'admin') {
+      pageActions += `<a href="/admin/logs" class="btn btn-ghost btn-sm">📈 Логи</a>`;
+    }
+    html = html.replace('{{page_actions}}', pageActions);
+
     // Таблица техники
     let equipmentRows = '';
     equipment.forEach(item => {
       const statusClass = `status-${item.status}`;
-      const deleteButton = item.status === 'available'
+
+      // Кнопка «Удалить»: только для admin/mol и только для available
+      const deleteButton = (currentRole !== 'supervisor' && item.status === 'available')
         ? `<button onclick="deleteEquipment(${item.id})" class="btn-icon btn-delete" title="Удалить">🗑️</button>`
+        : '';
+
+      // Кнопка «Редактировать»: только для admin/mol
+      const editButton = (currentRole !== 'supervisor')
+        ? `<button onclick="editEquipment(${item.id})" class="btn-icon btn-edit" title="Редактировать">✏️</button>`
+        : '';
+
+      // Кнопка «Переместить»: только для admin/mol и только если не assigned
+      const moveButton = (currentRole !== 'supervisor' && item.status !== 'assigned')
+        ? `<button onclick="openMoveEquipmentModal(${item.id})" class="btn-icon btn-move" title="Переместить">🔄</button>`
         : '';
 
       // Информация о назначении
@@ -158,8 +187,8 @@ async function renderAdmin(req, res) {
           <td>
             <div class="action-buttons">
               <button onclick="viewEquipment(${item.id})" class="btn-icon btn-info" title="Просмотр">👁️</button>
-              <button onclick="editEquipment(${item.id})" class="btn-icon btn-edit" title="Редактировать">✏️</button>
-              ${item.status !== 'assigned' ? `<button onclick="openMoveEquipmentModal(${item.id})" class="btn-icon btn-move" title="Переместить">🔄</button>` : ''}
+              ${editButton}
+              ${moveButton}
               ${deleteButton}
             </div>
           </td>
@@ -167,8 +196,6 @@ async function renderAdmin(req, res) {
       `;
     });
     html = html.replace('{{equipment_rows}}', equipmentRows);
-
-    // Больше нет {{user_rows}} — шаблон не содержит эту переменную.
 
     const fullHtml = renderPage({
       title: 'Учёт ТМЦ – MoveIT service',
@@ -1293,13 +1320,11 @@ function renderAddUser(req, res) {
     const htmlPath = path.join(__dirname, '..', 'views', 'admin-user-add.html');
     const content = fs.readFileSync(htmlPath, 'utf8');
 
-    const fullHtml = renderPage({
+    renderPageFor(req, res, {
       title: 'Добавить пользователя – MoveIT service',
       content,
       pageJs: '/js/admin-user-add.js',
     });
-
-    res.send(fullHtml);
   } catch (error) {
     console.error('❌ Ошибка загрузки страницы добавления пользователя:', error);
     res.status(500).send('Ошибка загрузки страницы');
@@ -1593,14 +1618,13 @@ async function renderLogs(req, res) {
     }
     content = content.replace('{{pagination}}', pagination);
 
-    const fullHtml = renderPage({
+    renderPageFor(req, res, {
       title: 'Логи активности – MoveIT service',
       content,
       pageCss: '/css/logs.css',
       pageJs: '/js/logs.js',
     });
 
-    res.send(fullHtml);
   } catch (error) {
     console.error('❌ Ошибка загрузки логов:', error);
     res.status(500).send('Ошибка загрузки страницы логов');
@@ -1682,18 +1706,25 @@ async function getEquipmentDetailsAPI(req, res) {
     if (isNaN(id)) {
       return res.status(400).json({ error: 'Неверный ID техники' });
     }
-    
-    const equipment = await getEquipmentById(id);
+
+    // 🆕 Scope по роли: mol видит только свои экземпляры.
+    // Для admin/supervisor scope пустой — видят всё.
+    const scope = { userId: req.session.userId, role: req.session.role };
+    const equipment = await getEquipmentById(id, scope);
     if (!equipment) {
       return res.status(404).json({ error: 'Техника не найдена' });
     }
 
+    // canAccessEquipment — проверка ДОСТУПА НА ПРОСМОТР (не редактирование).
+    // Для supervisor вернёт true (read-only), для mol — true если
+    // экземпляр его ИЛИ лежит в его складе/офисе.
     const userForPerm = { id: req.session.userId, role: req.session.role };
-    if (!(await canEditEquipment(userForPerm, id))) {
+    if (!(await canAccessEquipment(userForPerm, id))) {
       return res.status(404).json({ error: 'Техника не найдена' });
     }
     
     const { getEquipmentHistory } = require('../database/db');
+    // ...
     const history = await getEquipmentHistory(id);
     
     const activeAssignment = history.find(h => h.status === 'active');

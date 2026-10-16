@@ -1,3 +1,137 @@
+## [4.1.1] - 2026-10-16
+
+**🔧 Этап 4.1.1: мелкие фиксы supervisor / mol + UI-полировка**
+
+Закрыт первый подшаг этапа 4.1: быстрые фиксы ролевой модели
+(пункт «Учёт ТМЦ» в sidebar для supervisor, скрытие кнопок
+редактирования, разграничение доступа к карточке техники),
+убраны лишние ссылки с дашборда для supervisor/mol, в карточку
+просмотра техники добавлен ответственный МОЛ, поправлена
+читаемость бейджей статусов в шапке модалки.
+
+### Added
+
+- **`/admin` (Учёт ТМЦ) в sidebar для supervisor** —
+  в блоке «Управление» у supervisor добавлен пункт
+  «🧾 Учёт ТМЦ» (раньше был доступен по прямой ссылке,
+  но в меню отсутствовал)
+- **Ответственный МОЛ в карточке техники** — в модалке
+  просмотра (👁️) в блоке «📋 Информация о технике»
+  добавлено поле «Ответственный МОЛ» (занимает обе колонки),
+  подсвечено акцентным цветом
+- **`{{current_role}}` в `views/admin.html`** — скрытый input
+  `#currentRole` для клиентского JS (`getCurrentRole()`)
+- **`renderPageFor` в `routes/dashboard.js`** — перенесён
+  импорт наверх файла для единообразия
+
+### Changed
+
+- **`routes/admin.js` → `renderAdmin`**:
+  * кнопки в колонке «Действия» рендерятся с учётом роли:
+    - 👁️ — для всех (admin / supervisor / mol)
+    - ✏️ — только для admin / mol
+    - 🔄 — только для admin / mol (и только если не `assigned`)
+    - 🗑️ — только для admin / mol (и только если `available`)
+  * ссылки в шапке (`.page-actions`) собираются по ролям:
+    - **admin** — Справочник / Склады / Инвентаризация / Логи
+    - **supervisor** — Справочник / Склады / Инвентаризация
+    - **mol** — пусто (всё есть в sidebar)
+- **`routes/admin.js` → `getEquipmentDetailsAPI`**:
+  * `getEquipmentById(id)` → `getEquipmentById(id, scope)` —
+    для роли mol сразу отсекает чужие экземпляры (404)
+  * `canEditEquipment` → `canAccessEquipment` —
+    правильная проверка для **просмотра** (supervisor read-only,
+    но карточку открывать должен; mol видит экземпляры в своих
+    складах / офисах, даже если `responsible_user_id` не его)
+- **`routes/admin.js` → `renderAddUser`, `renderLogs`**:
+  `renderPage` → `renderPageFor(req, res, options)` —
+  единообразие, sidebar рендерится по роли из сессии
+- **`routes/dashboard.js` → `renderDashboard`**:
+  * карточка «👥 Пользователей» — только для admin / supervisor
+  * карточка «📈 Действий за 24ч» — только для admin
+  * кнопка «➕ Добавить технику» — только для admin / mol
+  * ссылка «Все логи →» — только для admin
+  * плейсхолдеры `{{action_add_equipment}}`, `{{card_users}}`,
+    `{{card_actions_today}}`, `{{link_all_logs}}`
+- **`public/js/admin.js` → `viewEquipment`**:
+  * добавлена `getCurrentRole()` (читает `#currentRole`)
+  * `canMove = equipment.status !== 'assigned' && currentRole !== 'supervisor'` —
+    кнопка «🔄 Переместить» скрыта для supervisor
+  * добавлен блок «Ответственный МОЛ» в detail-grid
+- **`public/js/admin.js` → `moveFromCard`**:
+  убран `setTimeout(200)` — модалка перемещения открывается
+  синхронно после закрытия карточки просмотра
+- **`public/css/admin.css`**:
+  * `.empty-equipment` — `color: var(--text-secondary)`
+    (было `var(--text-muted)`), `.empty-icon` без лишней
+    прозрачности, `<p>` явно `var(--text-secondary)`
+  * `.current-user-card` — явный `color: var(--text-primary)`
+  * `.current-user-date` — `font-weight: 500`
+  * `.current-user-status` — крупнее padding, `font-weight: 700`,
+    тень для отрыва от фона
+  * **`.equipment-header-badges .status-badge.status-*`** —
+    принудительно белый фон + тёмный текст + `font-weight: 700`
+    (специфичность 0,3,0 — перебивает `.status-badge.status-*`
+    из `components.css` независимо от порядка подключения)
+  * **`.user-header-badges .status-badge.status-*`** +
+    `.role-badge.role-*` — то же (на будущее)
+
+### Fixed
+
+- **Баг с модалкой перемещения** — при клике 🔄 «Переместить»
+  в карточке просмотра (👁️) модалка открывалась и сразу
+  закрывалась. Причина — гонка событий из-за `setTimeout(200)`
+  в `moveFromCard`. Убрано.
+- **Supervisor: 404 при открытии карточки техники (👁️)** —
+  `getEquipmentDetailsAPI` проверял `canEditEquipment`, который
+  для supervisor возвращает `false`. Заменено на `canAccessEquipment`.
+- **Плохая читаемость бейджа статуса в шапке модалки** —
+  текст `<span class="status-badge status-assigned">👤 Назначена</span>`
+  почти не читался (тёмный текст на тёмном фоне). Исправлено
+  принудительным белым фоном + тёмным текстом.
+
+### Файлы
+
+**Изменены:**
+- `routes/admin.js`
+- `routes/dashboard.js`
+- `public/js/admin.js`
+- `public/css/admin.css`
+- `views/admin.html`
+- `views/dashboard.html`
+- `views/partials/sidebar.html`
+
+**Не тронуты:**
+- `database/modules/equipment.js` (уже отдаёт `responsible_user_name`)
+- `utils/permissions.js` (используется `canAccessEquipment`)
+- `utils/layout.js` (`renderPageFor` уже есть)
+
+### Проверено
+
+- `node scripts/check-css.js` — зелёный
+- `node scripts/check-roles.js` — зелёный
+- Ручная проверка под 4 ролями:
+  * **admin** — `/admin`, кнопки ✏️🔄🗑️👁️ на месте; `/` — 7 карточек, обе кнопки, «Все логи →»
+  * **supervisor** — `/admin`, только 👁️; карточка техники **открывается**; `/` — 6 карточек, только «Инвентаризация», «Все логи →» отсутствует
+  * **mol** — `/admin`, кнопки на месте, видит только свою технику; `/` — 5 карточек, обе кнопки; «Все логи →» отсутствует
+  * **user** — дашборд недоступен (как и раньше)
+- Консоль браузера — без ошибок
+
+### Технический долг (перенесён в 4.1.x)
+
+- `getWarehouseStats` / `getInventorySummary` / `getInventoryTotals` /
+  `getSpecialStatusSummary` — глобальные, без scope (для МОЛа
+  показывают цифры всей системы) → 4.1.4
+- Селект размера страницы на `/equipment` → 4.1.2
+- Клик по строке техники на `/admin` → открыть карточку → 4.1.2
+- Серверный фильтр на `/admin` (сейчас клиентский) → 4.1.6
+- `getAllTypes` на `/equipment` без фильтра по категории → 4.1.4
+- Множественные перемещения (`/admin/moves`) → 4.1.6
+
+### Теги
+
+- **v4.1.1 — мелкие фиксы supervisor / mol + UI-полировка (этот)**
+
 ## [4.0.0] - 2026-10-15
 
 **🎉 Этап 4 завершён: ролевая модель admin / supervisor / mol / user**

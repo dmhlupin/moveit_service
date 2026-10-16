@@ -1,5 +1,8 @@
 <!-- views/admin.html — контент-шаблон «Учёт ТМЦ» -->
 
+<!-- 🆕 Текущая роль — для клиентского JS -->
+<input type="hidden" id="currentRole" value="{{current_role}}">
+
 <!-- ============================================================ -->
 <!-- PAGE HEADER                                                   -->
 <!-- ============================================================ -->
@@ -10,10 +13,7 @@
         <div class="page-subtitle">Управление техникой</div>
     </div>
     <div class="page-actions">
-        <a href="/admin/catalog" class="btn btn-ghost btn-sm" title="Управление категориями и типами">📚 Справочник</a>
-        <a href="/admin/warehouses" class="btn btn-ghost btn-sm" title="Управление складами">🏢 Склады</a>
-        <a href="/admin/inventory" class="btn btn-ghost btn-sm" title="Инвентаризация">📊 Инвентаризация</a>
-        <a href="/admin/logs" class="btn btn-ghost btn-sm">📈 Логи</a>
+        {{page_actions}}
     </div>
 </div>
 

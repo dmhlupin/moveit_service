@@ -7,7 +7,7 @@
         <div class="page-subtitle">Обзор системы учёта техники</div>
     </div>
     <div class="page-actions">
-        <a href="/admin/add" class="btn btn-success">➕ Добавить технику</a>
+        {{action_add_equipment}}
         <a href="/admin/inventory" class="btn">📊 Инвентаризация</a>
     </div>
 </div>
@@ -39,16 +39,8 @@
         <div class="number danger">{{stats.retired_equipment}}</div>
         <div class="label">Списано</div>
     </a>
-    <a href="/users" class="stat-card">
-        <span class="icon">👥</span>
-        <div class="number">{{stats.active_users}}</div>
-        <div class="label">Пользователей</div>
-    </a>
-    <a href="/admin/logs" class="stat-card">
-        <span class="icon">📈</span>
-        <div class="number accent">{{stats.actions_today}}</div>
-        <div class="label">Действий за 24ч</div>
-    </a>
+    {{card_users}}
+    {{card_actions_today}}
 </div>
 
 <!-- График активности -->
@@ -79,7 +71,7 @@
     <div class="card">
         <div class="card-header">
             <h2 class="card-title">🕐 Последние действия</h2>
-            <a href="/admin/logs" class="btn btn-ghost btn-sm">Все логи →</a>
+            {{link_all_logs}}
         </div>
         <div class="activity-list">
             {{recent_activity}}

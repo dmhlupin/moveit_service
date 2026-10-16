@@ -47,6 +47,12 @@ function escapeHtml(str) {
         .replace(/'/g, '&#039;');
 }
 
+// 🆕 Текущая роль (проброшена из сервера через #currentRole)
+function getCurrentRole() {
+    const el = document.getElementById('currentRole');
+    return el ? el.value : 'user';
+}
+
 // ============================================================
 // ПЕРЕМЕННЫЕ
 // ============================================================
@@ -245,7 +251,8 @@ async function viewEquipment(id) {
         }
 
         let locationHtml = '';
-        const canMove = equipment.status !== 'assigned';
+        const currentRole = getCurrentRole();
+        const canMove = equipment.status !== 'assigned' && currentRole !== 'supervisor';
 
         if (equipment.cell_id) {
             locationHtml = `
@@ -346,6 +353,14 @@ async function viewEquipment(id) {
                     <div class="detail-item">
                         <label>Гарантия до</label>
                         <div class="value">${warrantyDate} ${warrantyBadge}</div>
+                    </div>
+                    <div class="detail-item" style="grid-column: 1 / -1;">
+                        <label>Ответственный МОЛ</label>
+                        <div class="value">
+                            ${equipment.responsible_user_name
+                                ? `<span style="color: var(--accent); font-weight: 600;">${escapeHtml(equipment.responsible_user_name)}</span>`
+                                : '<span style="color: var(--text-muted);">—</span>'}
+                        </div>
                     </div>
                 </div>
                 ${equipment.description ? `
@@ -744,9 +759,7 @@ async function submitMoveEquipment(event) {
 
 function moveFromCard(equipmentId) {
     closeViewEquipmentModal();
-    setTimeout(() => {
-        openMoveEquipmentModal(equipmentId);
-    }, 200);
+    openMoveEquipmentModal(equipmentId);
 }
 
 // ============================================================

@@ -10,6 +10,7 @@ const {
   getCategoryStats,           
 } = require('../database/db');
 
+const { renderPageFor } = require('../utils/layout');
 /**
  * GET / — Дашборд (главная страница)
  */
@@ -26,6 +27,38 @@ async function renderDashboard(req, res) {
       getCategoryStats()
     ]);
     
+    const role = req.session.role || 'user';
+
+    // ===== Ссылки и карточки — по ролям =====
+
+    // Кнопка «Добавить технику» — admin, mol
+    const actionAddEquipment = (role === 'admin' || role === 'mol')
+      ? `<a href="/admin/add" class="btn btn-success">➕ Добавить технику</a>`
+      : '';
+
+    // Карточка «Пользователей» — admin, supervisor
+    const cardUsers = (role === 'admin' || role === 'supervisor')
+      ? `<a href="/users" class="stat-card">
+            <span class="icon">👥</span>
+            <div class="number">${stats.active_users || 0}</div>
+            <div class="label">Пользователей</div>
+        </a>`
+      : '';
+
+    // Карточка «Действий за 24ч» — только admin
+    const cardActionsToday = (role === 'admin')
+      ? `<a href="/admin/logs" class="stat-card">
+            <span class="icon">📈</span>
+            <div class="number accent">${stats.actions_today || 0}</div>
+            <div class="label">Действий за 24ч</div>
+        </a>`
+      : '';
+
+    // Ссылка «Все логи →» — только admin
+    const linkAllLogs = (role === 'admin')
+      ? `<a href="/admin/logs" class="btn btn-ghost btn-sm">Все логи →</a>`
+      : '';
+
     // Читаем HTML
     const htmlPath = path.join(__dirname, '..', 'views', 'dashboard.html');
     let html = fs.readFileSync(htmlPath, 'utf8');
@@ -38,6 +71,12 @@ async function renderDashboard(req, res) {
     html = html.replace(/\{\{stats\.retired_equipment\}\}/g, stats.retired_equipment || 0);
     html = html.replace(/\{\{stats\.active_users\}\}/g, stats.active_users || 0);
     html = html.replace(/\{\{stats\.actions_today\}\}/g, stats.actions_today || 0);
+
+    // 🆕 Ссылки и карточки по ролям
+    html = html.replace('{{action_add_equipment}}', actionAddEquipment);
+    html = html.replace('{{card_users}}', cardUsers);
+    html = html.replace('{{card_actions_today}}', cardActionsToday);
+    html = html.replace('{{link_all_logs}}', linkAllLogs);
     
     // ===== Последние действия =====
     let activityHtml = '';
@@ -286,14 +325,13 @@ async function renderDashboard(req, res) {
     html = html.replace('{{activity_data}}', JSON.stringify(activityByDay));
     
     // Собираем страницу через layout-контроллер
-    const { renderPageFor } = require('../utils/layout');
-    
     renderPageFor(req, res, {
         title: 'Дашборд — MoveIT service',
         content: html,
         pageCss: '/css/dashboard.css',
         pageJs: '/js/dashboard.js',
     });
+
   } catch (error) {
     console.error('❌ Ошибка загрузки дашборда:', error);
     res.status(500).send('Ошибка загрузки страницы');
