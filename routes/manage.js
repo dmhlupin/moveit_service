@@ -74,7 +74,7 @@ async function renderAdmin(req, res) {
   try {
     const scope = { userId: req.session.userId, role: req.session.role };
     const currentRole = req.session.role;
-    const stats = await getStats();
+    const stats = await getStats(scope);   // было getStats()
     const equipment = await getEquipmentWithLocation({}, scope);
 
     const htmlPath = path.join(__dirname, '..', 'views', 'manage.html');

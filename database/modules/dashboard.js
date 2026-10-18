@@ -3,18 +3,23 @@
 
 module.exports = ({ db, run, get, all }) => ({
   
-  /**
-   * Получить расширенную статистику для дашборда
-   */
-  getDashboardStats() {
+    /**
+     * Получить расширенную статистику для дашборда
+     */
+  getDashboardStats(scope = {}) {
     return new Promise((resolve, reject) => {
+      const isMol = scope.role === 'mol';
+      const uid = parseInt(scope.userId, 10) || 0;
+      const f = isMol ? ` WHERE e.responsible_user_id = ${uid}` : '';
+      const fAnd = isMol ? ` AND e.responsible_user_id = ${uid}` : '';
+
       db.get(`
         SELECT 
-          (SELECT COUNT(*) FROM equipment) as total_equipment,
-          (SELECT COUNT(*) FROM equipment WHERE status = 'available') as available_equipment,
-          (SELECT COUNT(*) FROM equipment WHERE status = 'assigned') as assigned_equipment,
-          (SELECT COUNT(*) FROM equipment WHERE status = 'maintenance') as maintenance_equipment,
-          (SELECT COUNT(*) FROM equipment WHERE status = 'retired') as retired_equipment,
+          (SELECT COUNT(*) FROM equipment e${f}) as total_equipment,
+          (SELECT COUNT(*) FROM equipment e WHERE e.status = 'available'${fAnd}) as available_equipment,
+          (SELECT COUNT(*) FROM equipment e WHERE e.status = 'assigned'${fAnd}) as assigned_equipment,
+          (SELECT COUNT(*) FROM equipment e WHERE e.status = 'maintenance'${fAnd}) as maintenance_equipment,
+          (SELECT COUNT(*) FROM equipment e WHERE e.status = 'retired'${fAnd}) as retired_equipment,
           (SELECT COUNT(*) FROM users WHERE is_active = 1) as active_users,
           (SELECT COUNT(*) FROM users WHERE role = 'admin' AND is_active = 1) as admins_count,
           (SELECT COUNT(*) FROM users WHERE is_active = 0) as blocked_users,
@@ -26,26 +31,25 @@ module.exports = ({ db, run, get, all }) => ({
       });
     });
   },
-  
-  /**
-   * Получить последние действия пользователей
-   */
-  getRecentActivity(limit = 10) {
+    
+    /**
+     * Получить последние действия пользователей
+     */
+  getRecentActivity(limit = 10, scope = {}) {
     return new Promise((resolve, reject) => {
+      const isMol = scope.role === 'mol';
+      const uid = parseInt(scope.userId, 10) || 0;
+      const where = isMol ? `WHERE al.user_id = ${uid}` : '';
+
       db.all(`
         SELECT 
-          al.id,
-          al.user_id,
-          al.username,
-          al.action,
-          al.entity_type,
-          al.entity_id,
-          al.details,
-          al.created_at,
+          al.id, al.user_id, al.username, al.action, al.entity_type,
+          al.entity_id, al.details, al.created_at,
           u.full_name as user_full_name,
           u.department as user_department
         FROM activity_log al
         LEFT JOIN users u ON al.user_id = u.id
+        ${where}
         ORDER BY al.id DESC
         LIMIT ?
       `, [limit], (err, rows) => {
@@ -61,9 +65,15 @@ module.exports = ({ db, run, get, all }) => ({
    * - истекающая гарантия
    * - просроченная гарантия
    * - без владельца > 6 месяцев
+   *
+   * 🆕 scope: { userId, role } — для mol фильтруем по responsible_user_id.
    */
-  getEquipmentNeedingAttention() {
+  getEquipmentNeedingAttention(scope = {}) {
     return new Promise((resolve, reject) => {
+      const isMol = scope.role === 'mol';
+      const uid = parseInt(scope.userId, 10) || 0;
+      const molFilter = isMol ? ` AND e.responsible_user_id = ${uid}` : '';
+
       // Техника в ремонте
       const maintenancePromise = new Promise((res, rej) => {
         db.all(`
@@ -75,7 +85,7 @@ module.exports = ({ db, run, get, all }) => ({
             e.status
           FROM equipment e
           JOIN equipment_models m ON m.id = e.model_id
-          WHERE e.status = 'maintenance'
+          WHERE e.status = 'maintenance'${molFilter}
           ORDER BY e.updated_at DESC
           LIMIT 5
         `, (err, rows) => {
@@ -98,7 +108,7 @@ module.exports = ({ db, run, get, all }) => ({
           JOIN equipment_models m ON m.id = e.model_id
           WHERE e.warranty_until IS NOT NULL
             AND e.warranty_until >= date('now')
-            AND e.warranty_until <= date('now', '+30 days')
+            AND e.warranty_until <= date('now', '+30 days')${molFilter}
           ORDER BY e.warranty_until ASC
           LIMIT 10
         `, (err, rows) => {
@@ -120,7 +130,7 @@ module.exports = ({ db, run, get, all }) => ({
           FROM equipment e
           JOIN equipment_models m ON m.id = e.model_id
           WHERE e.warranty_until IS NOT NULL
-            AND e.warranty_until < date('now')
+            AND e.warranty_until < date('now')${molFilter}
           ORDER BY e.warranty_until ASC
           LIMIT 10
         `, (err, rows) => {
@@ -142,7 +152,7 @@ module.exports = ({ db, run, get, all }) => ({
           JOIN equipment_models m ON m.id = e.model_id
           WHERE e.status = 'available'
             AND e.purchase_date IS NOT NULL
-            AND e.purchase_date <= date('now', '-180 days')
+            AND e.purchase_date <= date('now', '-180 days')${molFilter}
           ORDER BY e.purchase_date ASC
           LIMIT 5
         `, (err, rows) => {
@@ -195,9 +205,15 @@ module.exports = ({ db, run, get, all }) => ({
   
   /**
    * Получить топ активных пользователей за 30 дней
+   *
+   * 🆕 scope: { userId, role } — для mol показываем только его самого.
    */
-  getTopUsers(limit = 5) {
+  getTopUsers(limit = 5, scope = {}) {
     return new Promise((resolve, reject) => {
+      const isMol = scope.role === 'mol';
+      const uid = parseInt(scope.userId, 10) || 0;
+      const molFilter = isMol ? ` AND u.id = ${uid}` : '';
+
       db.all(`
         SELECT 
           u.id,
@@ -207,7 +223,7 @@ module.exports = ({ db, run, get, all }) => ({
           COUNT(al.id) as actions_count
         FROM users u
         JOIN activity_log al ON u.id = al.user_id
-        WHERE al.created_at >= datetime('now', '-30 days')
+        WHERE al.created_at >= datetime('now', '-30 days')${molFilter}
         GROUP BY u.id
         ORDER BY actions_count DESC
         LIMIT ?
@@ -216,25 +232,24 @@ module.exports = ({ db, run, get, all }) => ({
         else resolve(rows || []);
       });
     });
-  }
-
-    ,
+  },
   
   /**
    * Получить статистику по категориям для дашборда
    * Возвращает: список категорий с количеством техники и процентом
    */
-  getCategoryStats() {
+  getCategoryStats(scope = {}) {
     return new Promise((resolve, reject) => {
+      const isMol = scope.role === 'mol';
+      const uid = parseInt(scope.userId, 10) || 0;
+      const molFilter = isMol ? ` AND e.responsible_user_id = ${uid}` : '';
+
       db.all(`
         SELECT 
-          c.id,
-          c.name,
-          c.icon,
-          c.sort_order,
+          c.id, c.name, c.icon, c.sort_order,
           (SELECT COUNT(*) FROM equipment e
             JOIN equipment_models m ON m.id = e.model_id
-            WHERE m.category_id = c.id
+            WHERE m.category_id = c.id${molFilter}
           ) as equipment_count,
           (SELECT COUNT(*) FROM equipment_types WHERE category_id = c.id AND is_active = 1) as types_count
         FROM equipment_categories c
@@ -245,14 +260,11 @@ module.exports = ({ db, run, get, all }) => ({
           reject(err);
           return;
         }
-        
         const total = (rows || []).reduce((sum, r) => sum + (r.equipment_count || 0), 0);
-        
         const result = (rows || []).map(r => ({
           ...r,
           percent: total > 0 ? Math.round((r.equipment_count / total) * 100) : 0
         }));
-        
         resolve({ categories: result, total });
       });
     });

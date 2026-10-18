@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const invNum = this.querySelector('.inv-num')?.textContent;
             if (invNum) {
                 // Открываем админку для поиска
-                window.location.href = '/admin';
+                window.location.href = '/manage';
             }
         });
     });

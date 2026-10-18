@@ -18,13 +18,15 @@ const { renderPageFor } = require('../utils/layout');
 async function renderDashboard(req, res) {
   try {
     // Загружаем все данные параллельно
+    const scope = { userId: req.session.userId, role: req.session.role };
+
     const [stats, recentActivity, attention, activityByDay, topUsers, categoryStats] = await Promise.all([
-      getDashboardStats(),
-      getRecentActivity(10),
-      getEquipmentNeedingAttention(),
-      getDashboardActivityByDay(14),
-      getTopUsers(5),
-      getCategoryStats()
+      getDashboardStats(scope),
+      getRecentActivity(10, scope),
+      getEquipmentNeedingAttention(scope),
+      getDashboardActivityByDay(14),   // график активности — глобальный, не фильтруем
+      getTopUsers(5, scope),
+      getCategoryStats(scope)
     ]);
     
     const role = req.session.role || 'user';
@@ -33,7 +35,7 @@ async function renderDashboard(req, res) {
 
     // Кнопка «Добавить технику» — admin, mol
     const actionAddEquipment = (role === 'admin' || role === 'mol')
-      ? `<a href="/admin/add" class="btn btn-success">➕ Добавить технику</a>`
+      ? `<a href="/manage/add" class="btn btn-success">➕ Добавить технику</a>`
       : '';
 
     // Карточка «Пользователей» — admin, supervisor
