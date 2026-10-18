@@ -579,10 +579,21 @@ async function updateEquipmentAPI(req, res) {
       }
     }
 
-    // Если назначение не нужно, но старый статус был assigned — модуль
-    // сам закроет назначение при status='available' (см. updateEquipment).
-    // Здесь дополнительно логируем возврат для случая assigned → available.
-    const willAutoReturn = oldStatus === 'assigned' && finalStatus === 'available';
+    // 🆕 Если старый статус был assigned, а новый — не assigned,
+    // нужно сначала вернуть технику, чтобы модуль updateEquipment
+    // не обнулил cell_id / workplace_id.
+    const willAutoReturn = oldStatus === 'assigned' && finalStatus !== 'assigned';
+    if (willAutoReturn) {
+      try {
+        await returnEquipmentByEquipmentId(
+          id,
+          'Возвращена при смене статуса',
+          'Автовозврат: смена статуса'
+        );
+      } catch (error) {
+        console.warn('⚠️ Не удалось вернуть технику перед сменой статуса:', error.message);
+      }
+    }
 
     // Обновляем
     const result = await updateEquipment(id, {

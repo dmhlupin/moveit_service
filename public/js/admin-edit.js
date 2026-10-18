@@ -27,7 +27,7 @@ let locations = {
 document.addEventListener('DOMContentLoaded', async function () {
   if (!equipmentId || isNaN(equipmentId)) {
     showToast('❌ Ошибка: ID техники не указан', 'error');
-    setTimeout(() => window.location.href = '/admin', 2000);
+    setTimeout(() => window.location.href = '/manage', 2000);
     return;
   }
 
@@ -230,7 +230,7 @@ async function submitForm(event) {
   }
 
   try {
-    const response = await fetch(`/api/admin/equipment/${equipmentId}`, {
+    const response = await fetch(`/api/manage/equipment/${equipmentId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(formData)
@@ -247,7 +247,7 @@ async function submitForm(event) {
       }
       showToast(message, 'success');
       setTimeout(() => {
-        window.location.href = '/admin';
+        window.location.href = '/manage';
       }, 1500);
     } else {
       showToast('❌ ' + result.error, 'error');
@@ -685,7 +685,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function loadCurrentLocation() {
   try {
-    const res = await fetch(`/api/admin/equipment/${equipmentId}/details`);
+    const res = await fetch(`/api/manage/equipment/${equipmentId}/details`);
     if (!res.ok) return;
 
     const data = await res.json();
