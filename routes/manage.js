@@ -77,7 +77,7 @@ async function renderAdmin(req, res) {
     const stats = await getStats();
     const equipment = await getEquipmentWithLocation({}, scope);
 
-    const htmlPath = path.join(__dirname, '..', 'views', 'admin.html');
+    const htmlPath = path.join(__dirname, '..', 'views', 'manage.html');
     let html = fs.readFileSync(htmlPath, 'utf8');
 
     // Статистика
@@ -225,10 +225,10 @@ async function renderAdmin(req, res) {
     html = html.replace('{{equipment_rows}}', equipmentRows);
 
     const fullHtml = renderPage({
-      title: 'Учёт ТМЦ – MoveIT service',
-      content: html,
-      pageCss: '/css/admin.css',
-      pageJs: '/js/admin.js',
+        title: 'Учёт ТМЦ – MoveIT service',
+        content: html,
+        pageCss: '/css/manage.css',
+        pageJs: '/js/manage.js',
       user: { id: req.session.userId, role: req.session.role, username: req.session.username, fullName: req.session.fullName },
     });
 
@@ -2009,7 +2009,7 @@ async function getEquipmentMovesAPI(req, res) {
 
 module.exports = {
   // Страницы
-  renderAdmin,
+  renderManage: renderAdmin,
   renderAdminUsers,     // 🆕
   renderLogs,
   

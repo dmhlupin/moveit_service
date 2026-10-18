@@ -16,7 +16,7 @@ const { renderPdfList, renderPdfFile } = require('./routes/pdf');
 const renderEquipmentDashboard = require('./routes/equipment');
 
 const {
-  renderAdmin,
+  renderManage, // переименовываем функцию для ясности
   renderAdminUsers,
   renderLogs,
   getEquipmentAPI,
@@ -43,7 +43,7 @@ const {
   cleanLogsAPI,
   moveEquipmentAPI,
   getEquipmentMovesAPI,
-} = require('./routes/admin');
+} = require('./routes/manage');
 
 // Роуты каталога
 const {
@@ -278,13 +278,13 @@ app.get('/pdf',        requireAuth, renderPdfList);
 app.get('/pdf/:filename', requireAuth, renderPdfFile);
 
 // ============================================
-// УЧЁТ ТМЦ (/admin)
+// УЧЁТ ТМЦ (/manage)
 // ============================================
 // Просмотр — admin + supervisor + mol.
 // Формы add/edit — admin + mol.
-app.get('/admin',          requireRole(['admin', 'supervisor', 'mol']), renderAdmin);
-app.get('/admin/add',      requireMol, renderAddEquipment);
-app.get('/admin/edit/:id', requireMol, renderEditEquipment);
+app.get('/manage',          requireRole(['admin', 'supervisor', 'mol']), renderManage);
+app.get('/manage/add',      requireMol, renderAddEquipment);
+app.get('/manage/edit/:id', requireMol, renderEditEquipment)
 
 // ============================================
 // УПРАВЛЕНИЕ ПОЛЬЗОВАТЕЛЯМИ
@@ -300,18 +300,18 @@ app.get('/admin/user/edit/:id',  requireAdmin, renderEditUser);
 // Чтение — admin + supervisor + mol (mol видит только свои через scope).
 // Запись — admin + mol (mol — только свои через permissions.js).
 
-app.get('/api/admin/equipment',          requireRole(['admin', 'supervisor', 'mol']), getEquipmentAPI);
-app.get('/api/admin/equipment/filtered', requireRole(['admin', 'supervisor', 'mol']), getFilteredEquipmentAPI);
-app.get('/api/admin/equipment/counts',   requireRole(['admin', 'supervisor', 'mol']), getEquipmentCountsAPI);
+app.get('/api/manage/equipment',          requireRole(['admin', 'supervisor', 'mol']), getEquipmentAPI);
+app.get('/api/manage/equipment/filtered', requireRole(['admin', 'supervisor', 'mol']), getFilteredEquipmentAPI);
+app.get('/api/manage/equipment/counts',   requireRole(['admin', 'supervisor', 'mol']), getEquipmentCountsAPI);
 
-app.get('/api/admin/equipment/:id/details', requireRole(['admin', 'supervisor', 'mol']), getEquipmentDetailsAPI);
-app.get('/api/admin/equipment/:id/moves',   requireRole(['admin', 'supervisor', 'mol']), getEquipmentMovesAPI);
-app.get('/api/admin/equipment/:id',         requireRole(['admin', 'supervisor', 'mol']), getEquipmentByIdAPI);
+app.get('/api/manage/equipment/:id/details', requireRole(['admin', 'supervisor', 'mol']), getEquipmentDetailsAPI);
+app.get('/api/manage/equipment/:id/moves',   requireRole(['admin', 'supervisor', 'mol']), getEquipmentMovesAPI);
+app.get('/api/manage/equipment/:id',         requireRole(['admin', 'supervisor', 'mol']), getEquipmentByIdAPI);
 
-app.post('/api/admin/equipment/:id/move', requireMol, moveEquipmentAPI);
-app.post('/api/admin/equipment',          requireMol, addEquipmentAPI);
-app.put('/api/admin/equipment/:id',       requireMol, updateEquipmentAPI);
-app.delete('/api/admin/equipment/:id',    requireMol, deleteEquipmentAPI);
+app.post('/api/manage/equipment/:id/move', requireMol, moveEquipmentAPI);
+app.post('/api/manage/equipment',          requireMol, addEquipmentAPI);
+app.put('/api/manage/equipment/:id',       requireMol, updateEquipmentAPI);
+app.delete('/api/manage/equipment/:id',    requireMol, deleteEquipmentAPI);
 
 // ============================================
 // ЛОГИ (только admin)

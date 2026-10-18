@@ -92,7 +92,7 @@ function searchTable(type) {
 // ============================================================
 
 function editEquipment(id) {
-    window.location.href = `/admin/edit/${id}`;
+    window.location.href = `/manage/edit/${id}`;
 }
 
 function deleteEquipment(id) {
@@ -113,7 +113,7 @@ function closeModal() {
 async function confirmDelete() {
     if (!deleteId) return;
 
-    const endpoint = `/api/admin/equipment/${deleteId}`;
+    const endpoint = `/api/manage/equipment/${deleteId}`;
 
     try {
         const response = await fetch(endpoint, { method: 'DELETE' });
@@ -138,7 +138,7 @@ async function confirmDelete() {
 
 async function viewEquipment(id) {
     try {
-        const response = await fetch(`/api/admin/equipment/${id}/details`);
+        const response = await fetch(`/api/manage/equipment/${id}/details`);
         const data = await response.json();
 
         if (!data.equipment) {
@@ -417,7 +417,7 @@ async function openMoveEquipmentModal(equipmentId) {
     modal.classList.add('active');
 
     try {
-        const response = await fetch(`/api/admin/equipment/${equipmentId}/details`);
+        const response = await fetch(`/api/manage/equipment/${equipmentId}/details`);
         const data = await response.json();
 
         if (!data.equipment) {
@@ -729,7 +729,7 @@ async function submitMoveEquipment(event) {
     submitBtn.textContent = '⏳ Перемещение...';
 
     try {
-        const response = await fetch(`/api/admin/equipment/${equipmentId}/move`, {
+        const response = await fetch(`/api/manage/equipment/${equipmentId}/move`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

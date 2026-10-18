@@ -166,17 +166,19 @@ function highlightActiveSection() {
     else if (path === '/admin/catalog') {
         activePage = 'catalog';
     }
-    // Формы добавления/редактирования — подсвечиваем родительский пункт
-    else if (path === '/admin/add' || path.startsWith('/admin/edit/')) {
-        activePage = 'admin';
+    // Формы добавления/редактирования техники — подсвечиваем «Учёт ТМЦ»
+    else if (path === '/manage/add' || path.startsWith('/manage/edit/')) {
+        activePage = 'manage';
+    }
+    // Общий /manage — «Учёт ТМЦ»
+    else if (path === '/manage' || path.startsWith('/manage/')) {
+        activePage = 'manage';
     }
     else if (path === '/admin/user/add' || path.startsWith('/admin/user/edit/')) {
         activePage = 'admin-users';   // 🆕 формы пользователя
     }
-    // Общий /admin
-    else if (path === '/admin' || path.startsWith('/admin/')) {
-        activePage = 'admin';
-    }
+    // Остальные /admin/* покрыты выше (warehouses, workplaces, inventory,
+    // models, logs, catalog, users). Общий /admin больше не нужен.
         
     // Снимаем подсветку со всех
     document.querySelectorAll('.sidebar-link').forEach(link => {
