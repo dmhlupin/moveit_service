@@ -930,26 +930,47 @@ module.exports = ({ db, run, get, all }) => ({
 
 
   /**
-   * Получить статистику по складам
+   * Статистика по складам (с учётом scope).
+   * Для mol — только его склады и техника в них.
    */
-  getWarehouseStats() {
+  getWarehouseStats(scope = {}) {
+    const isMol = scope.role === 'mol';
+    const uid = parseInt(scope.userId, 10) || 0;
+
+    // Для mol — только его склады / техника.
+    const molWh = isMol ? `w.id IN (SELECT warehouse_id FROM warehouse_responsibles WHERE user_id = ${uid})` : '1=1';
+    const molEq = isMol ? `e.responsible_user_id = ${uid}` : '1=1';
+
     return new Promise((resolve, reject) => {
       db.get(`
         SELECT 
-          (SELECT COUNT(*) FROM warehouses WHERE is_active = 1) as total_warehouses,
-          (SELECT COUNT(*) FROM zones WHERE is_active = 1) as total_zones,
-          (SELECT COUNT(*) FROM racks WHERE is_active = 1) as total_racks,
-          (SELECT COUNT(*) FROM cells WHERE is_active = 1) as total_cells,
-          (SELECT COUNT(*) FROM equipment WHERE cell_id IS NOT NULL) as equipment_on_stock,
-          (SELECT COUNT(*) FROM equipment WHERE cell_id IS NULL AND status = 'available') as equipment_without_cell
+          (SELECT COUNT(*) FROM warehouses w WHERE w.is_active = 1 AND ${molWh}) as total_warehouses,
+          (SELECT COUNT(*) FROM zones z
+            JOIN warehouses w ON z.warehouse_id = w.id
+            WHERE z.is_active = 1 AND ${molWh}) as total_zones,
+          (SELECT COUNT(*) FROM racks r
+            JOIN zones z ON r.zone_id = z.id
+            JOIN warehouses w ON z.warehouse_id = w.id
+            WHERE r.is_active = 1 AND ${molWh}) as total_racks,
+          (SELECT COUNT(*) FROM cells c
+            JOIN racks r ON c.rack_id = r.id
+            JOIN zones z ON r.zone_id = z.id
+            JOIN warehouses w ON z.warehouse_id = w.id
+            WHERE c.is_active = 1 AND ${molWh}) as total_cells,
+          (SELECT COUNT(*) FROM equipment e
+            JOIN cells c ON e.cell_id = c.id
+            JOIN racks r ON c.rack_id = r.id
+            JOIN zones z ON r.zone_id = z.id
+            JOIN warehouses w ON z.warehouse_id = w.id
+            WHERE ${molWh} AND ${molEq}) as equipment_on_stock,
+          (SELECT COUNT(*) FROM equipment e
+            WHERE e.cell_id IS NULL AND e.status = 'available' AND ${molEq}) as equipment_without_cell
       `, (err, row) => {
         if (err) reject(err);
         else resolve(row);
       });
     });
-  }
-
-    ,
+  },
   
   // ============================================================
   // ИНВЕНТАРИЗАЦИЯ
@@ -1116,21 +1137,47 @@ module.exports = ({ db, run, get, all }) => ({
   },
   
   /**
-   * Общая статистика инвентаризации (по всем складам)
+   * Общая статистика инвентаризации (с учётом scope).
    */
-  getInventoryTotals() {
+  getInventoryTotals(scope = {}) {
+    const isMol = scope.role === 'mol';
+    const uid = parseInt(scope.userId, 10) || 0;
+
+    const molWh = isMol ? `w.id IN (SELECT warehouse_id FROM warehouse_responsibles WHERE user_id = ${uid})` : '1=1';
+    const molEq = isMol ? `e.responsible_user_id = ${uid}` : '1=1';
+
     return new Promise((resolve, reject) => {
       db.get(`
         SELECT 
-          (SELECT COUNT(*) FROM warehouses WHERE is_active = 1) as total_warehouses,
-          (SELECT COUNT(*) FROM zones WHERE is_active = 1) as total_zones,
-          (SELECT COUNT(*) FROM racks WHERE is_active = 1) as total_racks,
-          (SELECT COUNT(*) FROM cells WHERE is_active = 1) as total_cells,
-          (SELECT COUNT(*) FROM equipment WHERE cell_id IS NOT NULL) as equipment_on_stock,
-          (SELECT COUNT(*) FROM equipment WHERE status = 'available' AND cell_id IS NULL) as available_without_cell,
-          (SELECT COUNT(*) FROM equipment WHERE status = 'assigned') as equipment_assigned,
-          (SELECT COALESCE(SUM(capacity), 0) FROM cells WHERE is_active = 1 AND is_full = 0) as total_capacity,
-          (SELECT COUNT(*) FROM cells WHERE is_active = 1 AND is_full = 1) as cells_full
+          (SELECT COUNT(*) FROM warehouses w WHERE w.is_active = 1 AND ${molWh}) as total_warehouses,
+          (SELECT COUNT(*) FROM zones z
+            JOIN warehouses w ON z.warehouse_id = w.id
+            WHERE z.is_active = 1 AND ${molWh}) as total_zones,
+          (SELECT COUNT(*) FROM racks r
+            JOIN zones z ON r.zone_id = z.id
+            JOIN warehouses w ON z.warehouse_id = w.id
+            WHERE r.is_active = 1 AND ${molWh}) as total_racks,
+          (SELECT COUNT(*) FROM cells c
+            JOIN racks r ON c.rack_id = r.id
+            JOIN zones z ON r.zone_id = z.id
+            JOIN warehouses w ON z.warehouse_id = w.id
+            WHERE c.is_active = 1 AND ${molWh}) as total_cells,
+          (SELECT COUNT(*) FROM equipment e
+            WHERE e.cell_id IS NOT NULL AND ${molEq}) as equipment_on_stock,
+          (SELECT COUNT(*) FROM equipment e
+            WHERE e.status = 'available' AND e.cell_id IS NULL AND ${molEq}) as available_without_cell,
+          (SELECT COUNT(*) FROM equipment e
+            WHERE e.status = 'assigned' AND ${molEq}) as equipment_assigned,
+          (SELECT COALESCE(SUM(c.capacity), 0) FROM cells c
+            JOIN racks r ON c.rack_id = r.id
+            JOIN zones z ON r.zone_id = z.id
+            JOIN warehouses w ON z.warehouse_id = w.id
+            WHERE c.is_active = 1 AND c.is_full = 0 AND ${molWh}) as total_capacity,
+          (SELECT COUNT(*) FROM cells c
+            JOIN racks r ON c.rack_id = r.id
+            JOIN zones z ON r.zone_id = z.id
+            JOIN warehouses w ON z.warehouse_id = w.id
+            WHERE c.is_active = 1 AND c.is_full = 1 AND ${molWh}) as cells_full
       `, (err, row) => {
         if (err) {
           reject(err);
@@ -1153,16 +1200,14 @@ module.exports = ({ db, run, get, all }) => ({
    * Техника в этих статусах может физически лежать в ячейках
    * обычных складов (cell_id), но не может быть на рабочем месте.
    *
-   * Возвращает:
-   *   {
-   *     maintenance: {
-   *       total, with_cell, without_cell,
-   *       by_warehouse: [{ warehouse_id, warehouse_name, count }]
-   *     },
-   *     retired: { ... то же ... }
-   *   }
+   * Для mol — только его экземпляры и его склады.
    */
-  getSpecialStatusSummary() {
+  getSpecialStatusSummary(scope = {}) {
+    const isMol = scope.role === 'mol';
+    const uid = parseInt(scope.userId, 10) || 0;
+    const molEq = isMol ? ` AND e.responsible_user_id = ${uid}` : '';
+    const molWh = isMol ? `AND w.id IN (SELECT warehouse_id FROM warehouse_responsibles WHERE user_id = ${uid})` : '';
+
     return new Promise((resolve, reject) => {
       const statuses = ['maintenance', 'retired'];
       const result = {};
@@ -1175,14 +1220,14 @@ module.exports = ({ db, run, get, all }) => ({
       };
 
       statuses.forEach(status => {
-        // 1) Общее + с ячейкой / без
+        // 1) Общее + с ячейкой / без (с учётом scope)
         db.get(`
           SELECT
             COUNT(*) AS total,
-            SUM(CASE WHEN cell_id IS NOT NULL THEN 1 ELSE 0 END) AS with_cell,
-            SUM(CASE WHEN cell_id IS NULL     THEN 1 ELSE 0 END) AS without_cell
-          FROM equipment
-          WHERE status = ?
+            SUM(CASE WHEN e.cell_id IS NOT NULL THEN 1 ELSE 0 END) AS with_cell,
+            SUM(CASE WHEN e.cell_id IS NULL     THEN 1 ELSE 0 END) AS without_cell
+          FROM equipment e
+          WHERE e.status = ?${molEq}
         `, [status], (err, row) => {
           if (err) {
             reject(err);
@@ -1196,7 +1241,7 @@ module.exports = ({ db, run, get, all }) => ({
             by_warehouse: [],
           };
 
-          // 2) Разбивка по складам
+          // 2) Разбивка по складам (с учётом scope)
           db.all(`
             SELECT
               w.id   AS warehouse_id,
@@ -1207,7 +1252,7 @@ module.exports = ({ db, run, get, all }) => ({
             JOIN racks r ON c.rack_id = r.id
             JOIN zones z ON r.zone_id = z.id
             JOIN warehouses w ON z.warehouse_id = w.id
-            WHERE e.status = ?
+            WHERE e.status = ?${molEq} ${molWh}
             GROUP BY w.id, w.name
             ORDER BY count DESC, w.name ASC
           `, [status], (err2, rows) => {

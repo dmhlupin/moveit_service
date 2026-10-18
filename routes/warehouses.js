@@ -69,7 +69,8 @@ function escapeHtml(str) {
  */
 async function renderWarehouses(req, res) {
   try {
-    const stats = await getWarehouseStats();
+    const scope = { userId: req.session.userId, role: req.session.role };
+    const stats = await getWarehouseStats(scope);
 
     const htmlPath = path.join(__dirname, '..', 'views', 'admin-warehouses.html');
     let content = fs.readFileSync(htmlPath, 'utf8');
@@ -336,7 +337,8 @@ async function getFullTreeAPI(req, res) {
  */
 async function getWarehouseStatsAPI(req, res) {
   try {
-    const stats = await getWarehouseStats();
+    const scope = { userId: req.session.userId, role: req.session.role };
+    const stats = await getWarehouseStats(scope);
     res.json(stats);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -827,7 +829,8 @@ async function renderWarehouseDetails(req, res) {
  */
 async function renderInventory(req, res) {
   try {
-    const totals = await getInventoryTotals();
+    const scope = { userId: req.session.userId, role: req.session.role };
+    const totals = await getInventoryTotals(scope);
 
     const htmlPath = path.join(__dirname, '..', 'views', 'admin-inventory.html');
     let content = fs.readFileSync(htmlPath, 'utf8');
@@ -858,7 +861,8 @@ async function renderInventory(req, res) {
  */
 async function getInventorySummaryAPI(req, res) {
   try {
-    const summary = await getInventorySummary();
+    const scope = { userId: req.session.userId, role: req.session.role };
+    const summary = await getInventorySummary(scope);
     res.json(summary);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -870,7 +874,8 @@ async function getInventorySummaryAPI(req, res) {
  */
 async function getInventoryTotalsAPI(req, res) {
   try {
-    const totals = await getInventoryTotals();
+    const scope = { userId: req.session.userId, role: req.session.role };
+    const totals = await getInventoryTotals(scope);
     res.json(totals);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -883,7 +888,8 @@ async function getInventoryTotalsAPI(req, res) {
  */
 async function getSpecialStatusSummaryAPI(req, res) {
   try {
-    const summary = await getSpecialStatusSummary();
+    const scope = { userId: req.session.userId, role: req.session.role };
+    const summary = await getSpecialStatusSummary(scope);
     res.json(summary);
   } catch (error) {
     console.error('❌ Ошибка сводки maintenance/retired:', error);
@@ -901,7 +907,8 @@ async function getWarehouseInventoryAPI(req, res) {
       return res.status(400).json({ error: 'Неверный ID склада' });
     }
 
-    const inventory = await getWarehouseInventory(warehouseId);
+    const scope = { userId: req.session.userId, role: req.session.role };
+    const inventory = await getWarehouseInventory(warehouseId, scope);
     res.json(inventory);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -918,7 +925,8 @@ async function getCellOccupancyAPI(req, res) {
       return res.status(400).json({ error: 'Неверный ID склада' });
     }
 
-    const occupancy = await getCellOccupancy(warehouseId);
+    const scope = { userId: req.session.userId, role: req.session.role };
+    const occupancy = await getCellOccupancy(warehouseId, scope);
     res.json(occupancy);
   } catch (error) {
     res.status(500).json({ error: error.message });
