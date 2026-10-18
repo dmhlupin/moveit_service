@@ -1,5 +1,94 @@
 ## [4.1.2] - 2026-10-16
 
+## [4.1.0] - 2026-10-18
+
+**🎉 Этап 4.1 завершён: модернизация UI, ревизия роутов, scope для агрегатов**
+
+Закрыт этап 4.1 — доведение UI и структуры роутов до консистентного
+состояния под ролевую модель admin / supervisor / mol / user.
+
+### Подшаги 4.1.x
+
+- **4.1.1** — мелкие фиксы supervisor / mol:
+  * пункт «Учёт ТМЦ» в sidebar для supervisor;
+  * скрытие ✏️/🗑️/🔄 для supervisor на `/admin`;
+  * баг с модалкой перемещения;
+  * дашборд по ролям (убраны карточки и ссылки для supervisor/mol);
+  * ответственный МОЛ в модалке просмотра техники;
+  * читаемость бейджей статусов в шапке модалки;
+  * убраны лишние ссылки в шапке `/admin` для mol;
+  * `renderPage` → `renderPageFor` в `renderAddUser`, `renderLogs`;
+  * `getEquipmentDetailsAPI` — scope + `canAccessEquipment` вместо `canEditEquipment`.
+
+- **4.1.2** — клик по строке техники, колонка «Ответственный МОЛ»,
+  фиксы редактирования, размер страницы:
+  * клик по строке техники на `/admin` → открыть карточку;
+  * селект размера страницы на `/equipment` (10/20/50/100);
+  * колонка «Ответственный МОЛ» на `/admin` для admin/supervisor;
+  * **баг:** смена МОЛ в форме `/admin/edit/:id` не сохранялась;
+  * скрытие ✏️/🔄/🗑️ для mol на «чужих» экземплярах.
+
+- **4.1.3** — модернизация дашборда + scope для агрегатов дашборда:
+  * `getDashboardStats(scope)`, `getRecentActivity(limit, scope)`,
+    `getEquipmentNeedingAttention(scope)`, `getTopUsers(limit, scope)`,
+    `getCategoryStats(scope)`, `getStats(scope)`;
+  * для mol — только его экземпляры, действия, категории;
+  * для admin / supervisor — глобальные данные;
+  * карточки по ролям (уже частично в 4.1.1, доработано);
+  * кнопка «Добавить технику» → `/manage/add`.
+
+- **4.1.4** — scope для агрегатов складов и инвентаризации:
+  * `getWarehouseStats(scope)`, `getInventoryTotals(scope)`,
+    `getSpecialStatusSummary(scope)`;
+  * `getInventorySummary(scope)` — уже был, теперь передаётся из роутов;
+  * для mol — только его склады (`warehouse_responsibles`)
+    и его экземпляры (`responsible_user_id`);
+  * для admin / supervisor — глобальные данные.
+
+- **4.1.5** — ревизия роута `/admin` → `/manage`:
+  * `routes/admin.js` → `routes/manage.js` (`renderAdmin` → `renderManage`);
+  * `views/admin.html` → `views/manage.html`;
+  * `public/js/admin.js` → `public/js/manage.js`;
+  * `public/css/admin.css` → `public/css/manage.css`;
+  * `server.js`: роуты `/manage`, `/manage/add`, `/manage/edit/:id`,
+    `/api/manage/equipment/*`;
+  * `views/partials/sidebar.html`: ссылка «Учёт ТМЦ» → `/manage`;
+  * `public/js/layout.js`: подсветка активного пункта → `manage`;
+  * `public/js/manage.js`: AJAX-запросы → `/api/manage/equipment/*`,
+    редирект на `/manage/edit/:id`;
+  * `public/js/admin-edit.js`: редиректы на `/manage`,
+    `loadCurrentLocation` → `/api/manage/equipment/:id/details`;
+  * **баг:** `assigned → available` с ячейкой — техника не попадала
+    в ячейку (явный возврат перед `updateEquipment`).
+
+### Итог этапа
+
+- **`/admin`** — только системное администрирование (пользователи, логи,
+  справочники, склады, рабочие места, инвентаризация).
+- **`/manage`** — «Учёт ТМЦ» (admin, supervisor, mol).
+- **Дашборд** — разные данные под роли, mol видит только свои цифры.
+- **Агрегаты складов и инвентаризации** — scope для mol.
+- **Sidebar** — подсветка `/manage`, ссылка «Учёт ТМЦ» для supervisor.
+- **Формы техники** — работают под `/manage/add`, `/manage/edit/:id`,
+  редиректы на `/manage`.
+
+### Технический долг (перенесён в 4.2.x / 5.x)
+
+- Серверный фильтр на `/manage` (сейчас клиентский) → 4.1.6 (отложено).
+- Множественные перемещения → 4.1.6 (отложено).
+- Импорт CSV / Excel, экспорт XLSX, печать карточек → 5.x.
+- «Корневая переработка подхода к редактированию техники» (mol не может
+  редактировать «чужой» экземпляр из своего склада) → 5.x.
+
+### Теги этапа
+
+- v4.1.1 — мелкие фиксы supervisor / mol + UI-полировка
+- v4.1.2 — клик по строке, ответственный МОЛ, размер страницы
+- v4.1.3 — модернизация дашборда + scope для агрегатов
+- v4.1.4 — scope для агрегатов складов / инвентаризации
+- v4.1.5 — ревизия роута /admin → /manage
+- **v4.1.0 — этап 4.1 завершён (этот)**
+
 **🎛️ Этап 4.1.2: клик по строке, колонка ответственного МОЛ, фиксы редактирования, размер страницы**
 
 Закрыт второй подшаг этапа 4.1. Сделаны UX-улучшения таблицы

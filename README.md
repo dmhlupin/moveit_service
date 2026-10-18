@@ -6,7 +6,7 @@
 [![Express](https://img.shields.io/badge/Express-4.18-000000?logo=express&logoColor=white)](https://expressjs.com/)
 [![SQLite](https://img.shields.io/badge/SQLite-5.1-003B57?logo=sqlite&logoColor=white)](https://www.sqlite.org/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-4.0.0-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-4.1.0-blue.svg)](CHANGELOG.md)
 
 ---
 
@@ -90,6 +90,10 @@
 - **Удаление:** только admin
 
 ### 🔧 Учёт техники
+- **Страница `/manage`** — «Учёт ТМЦ» (admin / supervisor / mol).
+  Раньше была `/admin`, теперь `/admin` — только системное
+  администрирование.
+
 - Полный CRUD
 - **Модель ТМЦ** (обязательная) — из справочника номенклатуры
 - **5 статусов**:
@@ -1043,19 +1047,15 @@ myapp1/
 
 ### Следующий этап (v4.1.x)
 
-- [ ] 🧹 **Модернизация Дашборда** — разная выдача для admin /
-  supervisor / mol / user
-- [ ] 🧭 **Ревизия роута `/admin`** — вынести в отдельные роуты
-  `/manage` (Учёт ТМЦ), `/admin` (только системное),
-  `/view` (read-only для supervisor)
-- [ ] 🎛️ **Тонкая настройка supervisor** — колонка «Действия»
-  только с 👁️, убрать лишние ссылки из шапки, скрыть «Все логи»
-- [ ] 📦 **Scope для агрегатов** — `getWarehouseStats`,
-  `getInventorySummary`, `getInventoryTotals`,
-  `getSpecialStatusSummary` — фильтрация по ролям
-- [ ] 🎨 **Полировка UI** — селект размера страницы на `/equipment`,
-  серверный фильтр на `/admin`, аккуратные пустые состояния
-- [ ] 🔄 Множественные перемещения
+### Следующий этап (v4.1.x)
+
+- [x] 🧹 **Модернизация Дашборда** — разная выдача для admin / supervisor / mol
+- [x] 🧭 **Ревизия роута `/admin`** — вынесен в `/manage`
+- [x] 🎛️ **Тонкая настройка supervisor** — колонка «Действия» только с 👁️
+- [x] 📦 **Scope для агрегатов** — `getWarehouseStats`, `getInventorySummary`,
+  `getInventoryTotals`, `getSpecialStatusSummary`
+- [ ] 🎨 **Полировка UI** — серверный фильтр на `/manage` (отложено)
+- [ ] 🔄 Множественные перемещения (отложено)
 - [ ] 📥 Импорт CSV / Excel, экспорт XLSX, печать карточек
 
 
