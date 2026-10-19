@@ -117,19 +117,6 @@ async function renderAdmin(req, res) {
       const canEditThis = currentRole === 'admin'
         || (currentRole === 'mol' && Number(item.responsible_user_id) === Number(req.session.userId));
 
-      // 🆕 Кнопки действий — формируются inline в шаблоне,
-      // потому что каждая оборачивается в event.stopPropagation().
-      let actionButtons = `<button onclick="event.stopPropagation(); viewEquipment(${item.id})" class="btn-icon btn-info" title="Просмотр">👁️</button>`;
-
-      if (canEditThis) {
-        actionButtons += `<button onclick="event.stopPropagation(); editEquipment(${item.id})" class="btn-icon btn-edit" title="Редактировать">✏️</button>`;
-        if (item.status !== 'assigned') {
-          actionButtons += `<button onclick="event.stopPropagation(); openMoveEquipmentModal(${item.id})" class="btn-icon btn-move" title="Переместить">🔄</button>`;
-        }
-        if (item.status === 'available') {
-          actionButtons += `<button onclick="event.stopPropagation(); deleteEquipment(${item.id})" class="btn-icon btn-delete" title="Удалить">🗑️</button>`;
-        }
-      }
 
       // Информация о назначении
       let assignedInfo = '—';
@@ -213,11 +200,6 @@ async function renderAdmin(req, res) {
           <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
           <td>${assignedInfo}</td>
           ${responsibleCell}
-          <td>
-            <div class="action-buttons">
-              ${actionButtons}
-            </div>
-          </td>
         </tr>
       `;
     });
