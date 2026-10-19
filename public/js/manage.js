@@ -1,4 +1,4 @@
-// public/js/admin.js — Логика страницы «Учёт ТМЦ»
+// public/js/manage.js — Логика страницы «Учёт ТМЦ»
 
 // ============================================================
 // ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
@@ -139,6 +139,7 @@ async function confirmDelete() {
 async function viewEquipment(id) {
     try {
         const response = await fetch(`/api/manage/equipment/${id}/details`);
+
         const data = await response.json();
 
         if (!data.equipment) {
@@ -148,6 +149,7 @@ async function viewEquipment(id) {
 
         const { equipment, stats, history } = data;
 
+        // ===== Даты и гарантия =====
         const purchaseDate = equipment.purchase_date
             ? new Date(equipment.purchase_date).toLocaleDateString('ru-RU')
             : '—';
@@ -157,9 +159,10 @@ async function viewEquipment(id) {
 
         const warrantyExpired = equipment.warranty_until && new Date(equipment.warranty_until) < new Date();
         const warrantyBadge = warrantyExpired
-            ? '<span style="color: #c53030; font-size: 12px;">⚠️ Истекла</span>'
-            : (equipment.warranty_until ? '<span style="color: #2f855a; font-size: 12px;">✅ Действует</span>' : '');
+            ? '<span style="color: #c53030; font-size: 11px;">⚠️ Истекла</span>'
+            : (equipment.warranty_until ? '<span style="color: #2f855a; font-size: 11px;">✅ Действует</span>' : '');
 
+        // ===== Статус =====
         const statusLabels = {
             'available':   { label: 'Доступна', class: 'status-available', icon: '✅' },
             'placed':      { label: 'На месте', class: 'status-placed',    icon: '🪑' },
@@ -177,6 +180,7 @@ async function viewEquipment(id) {
             ? `<span class="status-badge" style="background: #e2e8f0; color: #4a5568;">📦 ${escapeHtml(equipment.type_name)}</span>`
             : '';
 
+        // ===== Текущий владелец =====
         let currentUserHtml = '';
         if (stats.current_user) {
             const u = stats.current_user;
@@ -202,24 +206,12 @@ async function viewEquipment(id) {
             `;
         }
 
+        // ===== История (аккордеон) =====
         let historyHtml = '';
         if (history.length === 0) {
-            historyHtml = '<p style="color: #a0aec0; text-align: center; padding: 15px;">История пуста</p>';
+            historyHtml = '<p style="color: var(--text-muted); text-align: center; padding: 10px; font-size: 12px;">История пуста</p>';
         } else {
-            historyHtml = `
-                <table class="history-table">
-                    <thead>
-                        <tr>
-                            <th>Пользователь</th>
-                            <th>Отдел</th>
-                            <th>Выдано</th>
-                            <th>Возвращено</th>
-                            <th>Состояние</th>
-                            <th>Статус</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
+            let rows = '';
             history.forEach(h => {
                 const assignedDate = h.assigned_date
                     ? new Date(h.assigned_date).toLocaleDateString('ru-RU')
@@ -228,10 +220,10 @@ async function viewEquipment(id) {
                     ? new Date(h.returned_date).toLocaleDateString('ru-RU')
                     : '—';
                 const statusBadge = h.status === 'active'
-                    ? '<span class="status-badge status-assigned">Активна</span>'
-                    : '<span class="status-badge status-available">Возвращена</span>';
+                    ? '<span class="status-badge status-assigned" style="font-size:10px;">Активна</span>'
+                    : '<span class="status-badge status-available" style="font-size:10px;">Возвращена</span>';
 
-                historyHtml += `
+                rows += `
                     <tr>
                         <td>
                             <div class="history-user">
@@ -242,59 +234,129 @@ async function viewEquipment(id) {
                         <td>${escapeHtml(h.department || '—')}</td>
                         <td>${assignedDate}</td>
                         <td>${returnedDate}</td>
-                        <td>${escapeHtml(h.condition_on_assign || '—')}</td>
                         <td>${statusBadge}</td>
                     </tr>
                 `;
             });
-            historyHtml += '</tbody></table>';
+
+            historyHtml = `
+                <details class="history-accordion">
+                    <summary>📜 История использования (${stats.total})</summary>
+                    <table class="history-table">
+                        <thead>
+                            <tr>
+                                <th>Пользователь</th>
+                                <th>Отдел</th>
+                                <th>Выдано</th>
+                                <th>Возвращено</th>
+                                <th>Статус</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </details>
+            `;
         }
 
+        // ===== Место хранения =====
         let locationHtml = '';
-        const currentRole = getCurrentRole();
-        const canMove = equipment.status !== 'assigned' && currentRole !== 'supervisor';
-
         if (equipment.cell_id) {
             locationHtml = `
-                <div class="user-detail-section">
-                    <h4>📍 Место хранения</h4>
-                    <div class="detail-item location-detail-item">
-                        <div class="location-detail-info">
-                            <div class="value">
-                                ${escapeHtml(equipment.warehouse_name || '—')} 
-                                → ${escapeHtml(equipment.zone_name || '—')} 
-                                → ${escapeHtml(equipment.rack_name || '—')} 
-                                → <strong>${escapeHtml(equipment.cell_name || '—')}${equipment.cell_code ? ` [${equipment.cell_code}]` : ''}</strong>
+                <div class="detail-item location-detail-item">
+                    <div class="location-detail-info">
+                        <div class="value">
+                            ${escapeHtml(equipment.warehouse_name || '—')} 
+                            → ${escapeHtml(equipment.zone_name || '—')} 
+                            → ${escapeHtml(equipment.rack_name || '—')} 
+                            → <strong>${escapeHtml(equipment.cell_name || '—')}${equipment.cell_code ? ` [${equipment.cell_code}]` : ''}</strong>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else if (equipment.workplace_id) {
+            locationHtml = `
+                <div class="detail-item location-detail-item">
+                    <div class="location-detail-info">
+                        <div class="value">
+                            🪑 ${escapeHtml(equipment.workplace_name || '—')}${equipment.workplace_code ? ` [${equipment.workplace_code}]` : ''}
+                            <div class="location-path" style="font-size: 11px; margin-top: 2px;">
+                                ${escapeHtml(equipment.office_name || '—')} / ${escapeHtml(equipment.room_name || '—')}
                             </div>
                         </div>
-                        ${canMove ? `
-                            <button onclick="moveFromCard(${equipment.id})" class="btn-move-inline" title="Переместить">
-                                🔄 Переместить
-                            </button>
-                        ` : ''}
                     </div>
                 </div>
             `;
         } else {
             locationHtml = `
-                <div class="user-detail-section">
-                    <h4>📍 Место хранения</h4>
-                    <div class="detail-item location-detail-item no-location">
-                        <div class="location-detail-info">
-                            <div class="value" style="color: #a0aec0;">
-                                Место не указано
-                            </div>
+                <div class="detail-item location-detail-item no-location">
+                    <div class="location-detail-info">
+                        <div class="value" style="color: var(--text-muted);">
+                            Место не указано
                         </div>
-                        ${canMove ? `
-                            <button onclick="moveFromCard(${equipment.id})" class="btn-move-inline" title="Разместить на складе">
-                                🔄 Разместить
-                            </button>
-                        ` : ''}
                     </div>
                 </div>
             `;
         }
 
+        // ===== Кнопки действий =====
+        // ===== Кнопки действий =====
+        const currentRole = getCurrentRole();
+        const currentUserId = Number(window.currentUserId);
+        const responsibleId = Number(equipment.responsible_user_id);
+        const canEdit = (currentRole === 'admin') ||
+                        (currentRole === 'mol' && responsibleId === currentUserId);
+
+        console.log('🔍 canEdit:', { currentRole, currentUserId, responsibleId, canEdit });
+        // window.currentUserId нужно будет пробросить из шаблона (см. ниже)
+
+        console.log('🔍 canEdit:', { currentRole, currentUserId, responsibleId, canEdit });
+
+        let actionButtons = '';
+
+        if (canEdit) {
+            // На склад / Переместить
+            if (equipment.status !== 'assigned') {
+                if (!equipment.cell_id && !equipment.workplace_id) {
+                    actionButtons += `<button onclick="event.stopPropagation(); moveFromCard(${equipment.id})" class="btn btn-primary">📦 На склад</button>`;
+                } else if (equipment.cell_id) {
+                    actionButtons += `<button onclick="event.stopPropagation(); moveFromCard(${equipment.id})" class="btn btn-ghost">🔄 Переместить (склад)</button>`;
+                } else if (equipment.workplace_id) {
+                    actionButtons += `<button onclick="event.stopPropagation(); moveFromCard(${equipment.id})" class="btn btn-ghost">🔄 Переместить на склад</button>`;
+                }
+            }
+
+            // Назначить (только available + cell_id)
+            if (equipment.status === 'available' && equipment.cell_id) {
+                actionButtons += `<button onclick="event.stopPropagation(); assignFromCard(${equipment.id})" class="btn btn-success">👤 Назначить</button>`;
+            }
+
+            // В ремонт / Списать (только available + cell_id)
+            if (equipment.status === 'available' && equipment.cell_id) {
+                actionButtons += `<button onclick="event.stopPropagation(); changeStatusFromCard(${equipment.id}, 'maintenance')" class="btn btn-warning">🔧 В ремонт</button>`;
+                actionButtons += `<button onclick="event.stopPropagation(); changeStatusFromCard(${equipment.id}, 'retired')" class="btn btn-danger">❌ Списать</button>`;
+            }
+
+            // Вернуть (только assigned)
+            if (equipment.status === 'assigned') {
+                actionButtons += `<button onclick="event.stopPropagation(); returnFromCard(${equipment.id})" class="btn btn-success">↩️ Вернуть</button>`;
+            }
+
+            // Вернуть в эксплуатацию (только maintenance / retired + cell_id)
+            if ((equipment.status === 'maintenance' || equipment.status === 'retired') && equipment.cell_id) {
+                actionButtons += `<button onclick="event.stopPropagation(); changeStatusFromCard(${equipment.id}, 'available')" class="btn btn-ghost">↩️ Вернуть в эксплуатацию</button>`;
+            }
+
+            // Редактировать
+            actionButtons += `<div class="equipment-actions-divider"></div>`;
+            actionButtons += `<button onclick="event.stopPropagation(); editFromCard(${equipment.id})" class="btn btn-ghost">✏️ Редактировать</button>`;
+
+            // Удалить (только available + cell_id null)
+            if (equipment.status === 'available' && !equipment.cell_id) {
+                actionButtons += `<button onclick="event.stopPropagation(); deleteFromCard(${equipment.id})" class="btn btn-danger">🗑️ Удалить</button>`;
+            }
+        }
+
+        // ===== Сборка HTML =====
         const body = document.getElementById('viewEquipmentBody');
         body.innerHTML = `
             <div class="equipment-header-card">
@@ -312,75 +374,83 @@ async function viewEquipment(id) {
                 </div>
             </div>
 
-            <div class="user-stats">
-                <div class="user-stat">
-                    <div class="user-stat-number active">${stats.active}</div>
-                    <div class="user-stat-label">Сейчас назначена</div>
-                </div>
-                <div class="user-stat">
-                    <div class="user-stat-number total">${stats.total}</div>
-                    <div class="user-stat-label">Всего выдач</div>
-                </div>
-                <div class="user-stat">
-                    <div class="user-stat-number returned">${stats.returned}</div>
-                    <div class="user-stat-label">Возвращено</div>
-                </div>
-            </div>
-
-            <div class="user-detail-section">
-                <h4>📋 Информация о технике</h4>
-                <div class="detail-grid">
-                    <div class="detail-item">
-                        <label>Модель</label>
-                        <div class="value">${escapeHtml(equipment.model_name || '—')}</div>
-                    </div>
-                    <div class="detail-item">
-                        <label>Корпоративный ИД</label>
-                        <div class="value">${escapeHtml(equipment.model_corporate_id || '—')}</div>
-                    </div>
-                    <div class="detail-item">
-                        <label>Производитель</label>
-                        <div class="value">${escapeHtml(equipment.model_manufacturer || '—')}</div>
-                    </div>
-                    <div class="detail-item">
-                        <label>Серийный номер</label>
-                        <div class="value">${escapeHtml(equipment.serial_number || '—')}</div>
-                    </div>
-                    <div class="detail-item">
-                        <label>Дата покупки</label>
-                        <div class="value">${purchaseDate}</div>
-                    </div>
-                    <div class="detail-item">
-                        <label>Гарантия до</label>
-                        <div class="value">${warrantyDate} ${warrantyBadge}</div>
-                    </div>
-                    <div class="detail-item" style="grid-column: 1 / -1;">
-                        <label>Ответственный МОЛ</label>
-                        <div class="value">
-                            ${equipment.responsible_user_name
-                                ? `<span style="color: var(--accent); font-weight: 600;">${escapeHtml(equipment.responsible_user_name)}</span>`
-                                : '<span style="color: var(--text-muted);">—</span>'}
+            <div class="equipment-detail-layout">
+                <!-- ЛЕВАЯ КОЛОНКА -->
+                <div class="equipment-detail-main">
+                    <div class="user-detail-section">
+                        <h4>📋 Информация о технике</h4>
+                        <div class="detail-grid">
+                            <div class="detail-item">
+                                <label>Модель</label>
+                                <div class="value">${escapeHtml(equipment.model_name || '—')}</div>
+                            </div>
+                            <div class="detail-item">
+                                <label>Корпоративный ИД</label>
+                                <div class="value">${escapeHtml(equipment.model_corporate_id || '—')}</div>
+                            </div>
+                            <div class="detail-item">
+                                <label>Производитель</label>
+                                <div class="value">${escapeHtml(equipment.model_manufacturer || '—')}</div>
+                            </div>
+                            <div class="detail-item">
+                                <label>Серийный номер</label>
+                                <div class="value">${escapeHtml(equipment.serial_number || '—')}</div>
+                            </div>
+                            <div class="detail-item">
+                                <label>Дата покупки</label>
+                                <div class="value">${purchaseDate}</div>
+                            </div>
+                            <div class="detail-item">
+                                <label>Гарантия до</label>
+                                <div class="value">${warrantyDate} ${warrantyBadge}</div>
+                            </div>
+                            <div class="detail-item" style="grid-column: 1 / -1;">
+                                <label>Ответственный МОЛ</label>
+                                <div class="value">
+                                    ${equipment.responsible_user_name
+                                        ? `<span style="color: var(--accent); font-weight: 600;">${escapeHtml(equipment.responsible_user_name)}</span>`
+                                        : '<span style="color: var(--text-muted);">—</span>'}
+                                </div>
+                            </div>
                         </div>
+                        ${equipment.description ? `
+                            <div class="detail-item" style="margin-top: 8px;">
+                                <label>Описание</label>
+                                <div class="value">${escapeHtml(equipment.description)}</div>
+                            </div>
+                        ` : ''}
+                    </div>
+
+                    <div class="user-detail-section">
+                        <h4>📍 Место хранения</h4>
+                        ${locationHtml}
+                    </div>
+
+                    <div class="user-detail-section">
+                        <h4>👤 Текущий владелец</h4>
+                        ${currentUserHtml}
+                    </div>
+
+                    ${historyHtml}
+                </div>
+
+                <!-- ПРАВАЯ КОЛОНКА -->
+                <div class="equipment-detail-side">
+                    ${canEdit && actionButtons ? `
+                        <div class="equipment-actions-card">
+                            <h4>⚡ Действия</h4>
+                            <div class="equipment-actions-list">
+                                ${actionButtons}
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <div class="equipment-mini-stats">
+                        <div>📊 Всего выдач: <strong>${stats.total}</strong></div>
+                        <div>✅ Активных: <strong>${stats.active}</strong></div>
+                        <div>↩️ Возвратов: <strong>${stats.returned}</strong></div>
                     </div>
                 </div>
-                ${equipment.description ? `
-                    <div class="detail-item" style="margin-top: 12px;">
-                        <label>Описание</label>
-                        <div class="value">${escapeHtml(equipment.description)}</div>
-                    </div>
-                ` : ''}
-            </div>
-
-            ${locationHtml}
-
-            <div class="user-detail-section">
-                <h4>👤 Текущий владелец</h4>
-                ${currentUserHtml}
-            </div>
-
-            <div class="user-detail-section">
-                <h4>📜 История использования (${stats.total})</h4>
-                ${historyHtml}
             </div>
         `;
 
@@ -762,11 +832,36 @@ function moveFromCard(equipmentId) {
     openMoveEquipmentModal(equipmentId);
 }
 
+// Заглушки для новых действий (реализация в 4.2.3–4.2.4)
+function assignFromCard(id) {
+    showToast('🚧 Назначение — в разработке', 'info');
+}
+function changeStatusFromCard(id, status) {
+    showToast('🚧 Смена статуса — в разработке', 'info');
+}
+function returnFromCard(id) {
+    showToast('🚧 Возврат — в разработке', 'info');
+}
+function editFromCard(id) {
+    window.location.href = `/manage/edit/${id}`;
+}
+function deleteFromCard(id) {
+    deleteId = id;
+    deleteType = 'equipment';
+    document.getElementById('deleteUserText').textContent =
+        'Вы уверены, что хотите удалить эту технику? Это действие нельзя отменить.';
+    document.getElementById('deleteModal').classList.add('active');
+}
+
 // ============================================================
 // ИНИЦИАЛИЗАЦИЯ
 // ============================================================
 
 document.addEventListener('DOMContentLoaded', function() {
+    // 🆕 ID текущего пользователя — для проверки прав в карточке
+    window.currentUserId = parseInt(document.getElementById('currentUserId')?.value || '0');
+    console.log('🔍 currentUserId из DOM:', window.currentUserId);
+
     document.querySelectorAll('.modal-overlay').forEach(modal => {
         modal.addEventListener('click', function(e) {
             if (e.target === this) {

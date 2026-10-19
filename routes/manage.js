@@ -88,6 +88,7 @@ async function renderAdmin(req, res) {
 
     // 🆕 Текущая роль — для клиентского JS
     html = html.replace(/\{\{current_role\}\}/g, currentRole || 'user');
+    html = html.replace(/\{\{current_user_id\}\}/g, req.session.userId || 0);
 
     // 🆕 Ссылки в шапке — по ролям
     let pageActions = '';

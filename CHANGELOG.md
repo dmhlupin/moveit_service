@@ -72,13 +72,27 @@
 - **Формы техники** — работают под `/manage/add`, `/manage/edit/:id`,
   редиректы на `/manage`.
 
-### Технический долг (перенесён в 4.2.x / 5.x)
+### Технический долг (перенесён в 5.x)
 
 - Серверный фильтр на `/manage` (сейчас клиентский) → 4.1.6 (отложено).
 - Множественные перемещения → 4.1.6 (отложено).
 - Импорт CSV / Excel, экспорт XLSX, печать карточек → 5.x.
 - «Корневая переработка подхода к редактированию техники» (mol не может
   редактировать «чужой» экземпляр из своего склада) → 5.x.
+
+- **Раздувание файлов:** `routes/manage.js` (~1500 строк),
+  `public/js/manage.js` (~800 строк), `database/modules/warehouses.js`
+  (~1000 строк), `routes/warehouses.js` (~900 строк),
+  `public/css/manage.css` (~1000 строк). Требуется разбиение
+  на модули:
+  - `routes/manage.js` → `manage/equipment.js`, `admin-users.js`,
+    `admin-logs.js` (вынести пользователей и логи в отдельные роуты).
+  - `public/js/manage.js` → `manage/equipment-card.js`,
+    `manage/equipment-actions.js`, `manage/equipment-table.js`.
+  - `database/modules/warehouses.js` → `warehouses/crud.js`,
+    `warehouses/inventory.js`, `warehouses/tree.js`.
+  - `public/css/manage.css` → `manage/table.css`, `manage/card.css`,
+    `manage/actions.css`, `manage/modals.css`.
 
 ### Теги этапа
 
