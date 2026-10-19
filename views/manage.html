@@ -181,3 +181,126 @@
         </form>
     </div>
 </div>
+
+<!-- ============================================================ -->
+<!-- МОДАЛКА: НАЗНАЧЕНИЕ ПОЛЬЗОВАТЕЛЮ                              -->
+<!-- ============================================================ -->
+<div class="modal-overlay" id="assignModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>👤 Назначить пользователю</h3>
+            <button onclick="closeAssignModal()" class="modal-close">✕</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="assignEquipmentId">
+            <div class="form-group">
+                <label>Пользователь <span class="required">*</span></label>
+                <select id="assignUserId">
+                    <option value="">— Выберите пользователя —</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Состояние при выдаче</label>
+                <input type="text" id="assignCondition" placeholder="В хорошем состоянии">
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button onclick="closeAssignModal()" class="btn btn-ghost">Отмена</button>
+            <button onclick="submitAssign()" class="btn btn-success" id="assignSubmitBtn">👤 Назначить</button>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- МОДАЛКА: СМЕНА СТАТУСА                                        -->
+<!-- ============================================================ -->
+<div class="modal-overlay" id="statusChangeModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 id="statusChangeTitle">Смена статуса</h3>
+            <button onclick="closeStatusChangeModal()" class="modal-close">✕</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="statusChangeEquipmentId">
+            <input type="hidden" id="statusChangeNewStatus">
+            <p id="statusChangeText" style="margin: 0; color: var(--text-secondary);"></p>
+        </div>
+        <div class="modal-actions">
+            <button onclick="closeStatusChangeModal()" class="btn btn-ghost">Отмена</button>
+            <button onclick="submitStatusChange()" class="btn btn-primary" id="statusChangeSubmitBtn">Подтвердить</button>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- МОДАЛЬ: ПЕРЕМЕЩЕНИЕ НА РАБОЧЕЕ МЕСТО                          -->
+<!-- ============================================================ -->
+<div class="modal-overlay" id="moveToWorkplaceModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>🪑 Переместить на рабочее место</h3>
+            <button onclick="closeMoveToWorkplaceModal()" class="modal-close">✕</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="moveToWorkplaceEquipmentId">
+            <div class="form-group">
+                <label>Рабочее место <span class="required">*</span></label>
+                <select id="moveToWorkplaceSelect">
+                    <option value="">— Выберите рабочее место —</option>
+                </select>
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button onclick="closeMoveToWorkplaceModal()" class="btn btn-ghost">Отмена</button>
+            <button onclick="submitMoveToWorkplace()" class="btn btn-primary" id="moveToWorkplaceSubmitBtn">🪑 Переместить</button>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- МОДАЛЬ: ВОЗВРАТ НА СКЛАД                                      -->
+<!-- ============================================================ -->
+<div class="modal-overlay" id="returnModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>↩️ Вернуть на склад</h3>
+            <button onclick="closeReturnModal()" class="modal-close">✕</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="returnEquipmentId">
+            <p style="margin: 0 0 16px 0; color: var(--text-secondary); font-size: var(--text-sm);">
+                Выберите ячейку, в которую вернётся техника.
+            </p>
+            <div class="form-group">
+                <label>Склад</label>
+                <select id="returnWarehouse" onchange="onReturnWarehouseChange()">
+                    <option value="">— Выберите склад —</option>
+                </select>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Зона</label>
+                    <select id="returnZone" onchange="onReturnZoneChange()" disabled>
+                        <option value="">— Сначала выберите склад —</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Стеллаж</label>
+                    <select id="returnRack" onchange="onReturnRackChange()" disabled>
+                        <option value="">— Сначала выберите зону —</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Ячейка <span class="required">*</span></label>
+                <select id="returnCell" disabled>
+                    <option value="">— Сначала выберите стеллаж —</option>
+                </select>
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button onclick="closeReturnModal()" class="btn btn-ghost">Отмена</button>
+            <button onclick="submitReturn()" class="btn btn-success" id="returnSubmitBtn">↩️ Вернуть</button>
+        </div>
+    </div>
+</div>

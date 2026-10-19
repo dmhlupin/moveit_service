@@ -45,6 +45,13 @@ const {
   getEquipmentMovesAPI,
 } = require('./routes/manage');
 
+const {
+  changeEquipmentStatusAPI,
+  assignEquipmentAPI,
+  returnEquipmentAPI,
+  moveToWorkplaceFromCardAPI,
+} = require('./routes/manage-equipment-actions');
+
 // Роуты каталога
 const {
   renderCatalog,
@@ -309,6 +316,13 @@ app.get('/api/manage/equipment/:id/moves',   requireRole(['admin', 'supervisor',
 app.get('/api/manage/equipment/:id',         requireRole(['admin', 'supervisor', 'mol']), getEquipmentByIdAPI);
 
 app.post('/api/manage/equipment/:id/move', requireMol, moveEquipmentAPI);
+
+// 🆕 Действия с техникой из карточки
+app.post('/api/manage/equipment/:id/status',            requireMol, changeEquipmentStatusAPI);
+app.post('/api/manage/equipment/:id/assign',            requireMol, assignEquipmentAPI);
+app.post('/api/manage/equipment/:id/return',            requireMol, returnEquipmentAPI);
+app.post('/api/manage/equipment/:id/move-to-workplace', requireMol, moveToWorkplaceFromCardAPI);
+
 app.post('/api/manage/equipment',          requireMol, addEquipmentAPI);
 app.put('/api/manage/equipment/:id',       requireMol, updateEquipmentAPI);
 app.delete('/api/manage/equipment/:id',    requireMol, deleteEquipmentAPI);

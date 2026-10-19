@@ -325,6 +325,15 @@ async function viewEquipment(id) {
                 }
             }
 
+            // На рабочее место / Переместить (место)
+            if (equipment.status === 'available' || equipment.status === 'placed') {
+                if (!equipment.workplace_id) {
+                    actionButtons += `<button onclick="event.stopPropagation(); moveToWorkplaceFromCard(${equipment.id})" class="btn btn-ghost">🪑 На рабочее место</button>`;
+                } else {
+                    actionButtons += `<button onclick="event.stopPropagation(); moveToWorkplaceFromCard(${equipment.id})" class="btn btn-ghost">🔄 Переместить (место)</button>`;
+                }
+            }
+
             // Назначить (только available + cell_id)
             if (equipment.status === 'available' && equipment.cell_id) {
                 actionButtons += `<button onclick="event.stopPropagation(); assignFromCard(${equipment.id})" class="btn btn-success">👤 Назначить</button>`;
@@ -832,25 +841,372 @@ function moveFromCard(equipmentId) {
     openMoveEquipmentModal(equipmentId);
 }
 
-// Заглушки для новых действий (реализация в 4.2.3–4.2.4)
-function assignFromCard(id) {
-    showToast('🚧 Назначение — в разработке', 'info');
-}
-function changeStatusFromCard(id, status) {
-    showToast('🚧 Смена статуса — в разработке', 'info');
-}
-function returnFromCard(id) {
-    showToast('🚧 Возврат — в разработке', 'info');
-}
+// ============================================================
+// ДЕЙСТВИЯ ИЗ КАРТОЧКИ
+// ============================================================
+
 function editFromCard(id) {
     window.location.href = `/manage/edit/${id}`;
 }
+
 function deleteFromCard(id) {
     deleteId = id;
     deleteType = 'equipment';
     document.getElementById('deleteUserText').textContent =
         'Вы уверены, что хотите удалить эту технику? Это действие нельзя отменить.';
     document.getElementById('deleteModal').classList.add('active');
+}
+
+// ===== Назначение пользователю =====
+async function assignFromCard(id) {
+    document.getElementById('assignEquipmentId').value = id;
+    document.getElementById('assignCondition').value = 'В хорошем состоянии';
+
+    // Загружаем пользователей
+    try {
+        const response = await fetch('/api/admin/users');
+        const users = await response.json();
+        const select = document.getElementById('assignUserId');
+        select.innerHTML = '<option value="">— Выберите пользователя —</option>' +
+            users
+                .filter(u => u.is_active === 1 && u.role !== 'admin')
+                .map(u => {
+                    const name = u.full_name || u.username;
+                    const dept = u.department ? ` (${u.department})` : '';
+                    return `<option value="${u.id}">${escapeHtml(name)}${escapeHtml(dept)}</option>`;
+                }).join('');
+    } catch (err) {
+        console.error('Ошибка загрузки пользователей:', err);
+    }
+
+    document.getElementById('assignModal').classList.add('active');
+}
+
+function closeAssignModal() {
+    document.getElementById('assignModal').classList.remove('active');
+}
+
+async function submitAssign() {
+    const id = document.getElementById('assignEquipmentId').value;
+    const userId = document.getElementById('assignUserId').value;
+    const condition = document.getElementById('assignCondition').value.trim();
+
+    if (!userId) {
+        showToast('❌ Выберите пользователя', 'error');
+        return;
+    }
+
+    const btn = document.getElementById('assignSubmitBtn');
+    btn.disabled = true;
+    btn.textContent = '⏳ Назначение...';
+
+    try {
+        const response = await fetch(`/api/manage/equipment/${id}/assign`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: parseInt(userId), condition })
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            showToast(result.message, 'success');
+            closeAssignModal();
+            closeViewEquipmentModal();
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast('❌ ' + result.error, 'error');
+            btn.disabled = false;
+            btn.textContent = '👤 Назначить';
+        }
+    } catch (err) {
+        console.error(err);
+        showToast('❌ Ошибка соединения', 'error');
+        btn.disabled = false;
+        btn.textContent = '👤 Назначить';
+    }
+}
+
+// ===== Смена статуса (в ремонт / списать / вернуть в эксплуатацию) =====
+function changeStatusFromCard(id, status) {
+    const titles = {
+        maintenance: '🔧 Передать в ремонт',
+        retired: '❌ Списать технику',
+        available: '↩️ Вернуть в эксплуатацию'
+    };
+    const texts = {
+        maintenance: 'Техника будет переведена в статус «В ремонте». Ячейка склада сохранится.',
+        retired: 'Техника будет списана. Ячейка склада сохранится.',
+        available: 'Техника будет возвращена в эксплуатацию (статус «Доступна»). Ячейка склада сохранится.'
+    };
+
+    document.getElementById('statusChangeEquipmentId').value = id;
+    document.getElementById('statusChangeNewStatus').value = status;
+    document.getElementById('statusChangeTitle').textContent = titles[status] || 'Смена статуса';
+    document.getElementById('statusChangeText').textContent = texts[status] || '';
+    document.getElementById('statusChangeModal').classList.add('active');
+}
+
+function closeStatusChangeModal() {
+    document.getElementById('statusChangeModal').classList.remove('active');
+}
+
+async function submitStatusChange() {
+    const id = document.getElementById('statusChangeEquipmentId').value;
+    const status = document.getElementById('statusChangeNewStatus').value;
+
+    const btn = document.getElementById('statusChangeSubmitBtn');
+    btn.disabled = true;
+    btn.textContent = '⏳...';
+
+    try {
+        const response = await fetch(`/api/manage/equipment/${id}/status`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status })
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            showToast(result.message, 'success');
+            closeStatusChangeModal();
+            closeViewEquipmentModal();
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast('❌ ' + result.error, 'error');
+            btn.disabled = false;
+            btn.textContent = 'Подтвердить';
+        }
+    } catch (err) {
+        console.error(err);
+        showToast('❌ Ошибка соединения', 'error');
+        btn.disabled = false;
+        btn.textContent = 'Подтвердить';
+    }
+}
+
+// ===== Возврат от пользователя =====
+async function returnFromCard(id) {
+    document.getElementById('returnEquipmentId').value = id;
+    document.getElementById('returnWarehouse').value = '';
+    document.getElementById('returnZone').innerHTML = '<option value="">— Сначала выберите склад —</option>';
+    document.getElementById('returnZone').disabled = true;
+    document.getElementById('returnRack').innerHTML = '<option value="">— Сначала выберите зону —</option>';
+    document.getElementById('returnRack').disabled = true;
+    document.getElementById('returnCell').innerHTML = '<option value="">— Сначала выберите стеллаж —</option>';
+    document.getElementById('returnCell').disabled = true;
+
+    // Загружаем склады
+    try {
+        const response = await fetch('/api/admin/warehouses');
+        const warehouses = await response.json();
+        const select = document.getElementById('returnWarehouse');
+        select.innerHTML = '<option value="">— Выберите склад —</option>' +
+            warehouses.map(w => `<option value="${w.id}">${w.is_default ? '⭐ ' : '🏢 '}${escapeHtml(w.name)}</option>`).join('');
+    } catch (err) {
+        console.error('Ошибка загрузки складов:', err);
+    }
+
+    document.getElementById('returnModal').classList.add('active');
+}
+
+function closeReturnModal() {
+    document.getElementById('returnModal').classList.remove('active');
+}
+
+async function onReturnWarehouseChange() {
+    const whId = document.getElementById('returnWarehouse').value;
+    const zoneSelect = document.getElementById('returnZone');
+    const rackSelect = document.getElementById('returnRack');
+    const cellSelect = document.getElementById('returnCell');
+
+    rackSelect.innerHTML = '<option value="">— Сначала выберите зону —</option>';
+    rackSelect.disabled = true;
+    cellSelect.innerHTML = '<option value="">— Сначала выберите стеллаж —</option>';
+    cellSelect.disabled = true;
+
+    if (!whId) {
+        zoneSelect.innerHTML = '<option value="">— Сначала выберите склад —</option>';
+        zoneSelect.disabled = true;
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/admin/warehouses/${whId}/zones`);
+        const zones = await response.json();
+        zoneSelect.innerHTML = '<option value="">— Выберите зону —</option>' +
+            zones.map(z => `<option value="${z.id}">${escapeHtml(z.name)}</option>`).join('');
+        zoneSelect.disabled = false;
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+async function onReturnZoneChange() {
+    const zoneId = document.getElementById('returnZone').value;
+    const rackSelect = document.getElementById('returnRack');
+    const cellSelect = document.getElementById('returnCell');
+
+    cellSelect.innerHTML = '<option value="">— Сначала выберите стеллаж —</option>';
+    cellSelect.disabled = true;
+
+    if (!zoneId) {
+        rackSelect.innerHTML = '<option value="">— Сначала выберите зону —</option>';
+        rackSelect.disabled = true;
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/admin/zones/${zoneId}/racks`);
+        const racks = await response.json();
+        rackSelect.innerHTML = '<option value="">— Выберите стеллаж —</option>' +
+            racks.map(r => `<option value="${r.id}">${escapeHtml(r.name)}</option>`).join('');
+        rackSelect.disabled = false;
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+async function onReturnRackChange() {
+    const rackId = document.getElementById('returnRack').value;
+    const cellSelect = document.getElementById('returnCell');
+
+    if (!rackId) {
+        cellSelect.innerHTML = '<option value="">— Сначала выберите стеллаж —</option>';
+        cellSelect.disabled = true;
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/admin/racks/${rackId}/cells`);
+        const cells = await response.json();
+        cellSelect.innerHTML = '<option value="">— Выберите ячейку —</option>' +
+            cells.map(c => {
+                const code = c.code ? ` [${c.code}]` : '';
+                const count = c.equipment_count || 0;
+                const capacity = c.capacity || 0;
+                const countText = capacity > 0 ? ` (${count}/${capacity})` : (count > 0 ? ` (${count})` : '');
+                const isFull = capacity > 0 && count >= capacity;
+                return `<option value="${c.id}" ${isFull ? 'disabled' : ''}>${escapeHtml(c.name)}${code}${countText}${isFull ? ' ⛔' : ''}</option>`;
+            }).join('');
+        cellSelect.disabled = false;
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+async function submitReturn() {
+    const id = document.getElementById('returnEquipmentId').value;
+    const cellId = document.getElementById('returnCell').value;
+
+    if (!cellId) {
+        showToast('❌ Выберите ячейку склада', 'error');
+        return;
+    }
+
+    const btn = document.getElementById('returnSubmitBtn');
+    btn.disabled = true;
+    btn.textContent = '⏳ Возврат...';
+
+    try {
+        const response = await fetch(`/api/manage/equipment/${id}/return`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cell_id: parseInt(cellId) })
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            showToast(result.message, 'success');
+            closeReturnModal();
+            closeViewEquipmentModal();
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast('❌ ' + result.error, 'error');
+            btn.disabled = false;
+            btn.textContent = '↩️ Вернуть';
+        }
+    } catch (err) {
+        console.error(err);
+        showToast('❌ Ошибка соединения', 'error');
+        btn.disabled = false;
+        btn.textContent = '↩️ Вернуть';
+    }
+}
+
+// ===== Перемещение на рабочее место =====
+async function moveToWorkplaceFromCard(id) {
+    document.getElementById('moveToWorkplaceEquipmentId').value = id;
+
+    // Загружаем рабочие места
+    try {
+        const response = await fetch('/api/admin/offices/tree');
+        const offices = await response.json();
+
+        let html = '<option value="">— Выберите рабочее место —</option>';
+        offices.forEach(office => {
+            (office.rooms || []).forEach(room => {
+                const workplaces = room.workplaces || [];
+                if (workplaces.length === 0) return;
+
+                const groupLabel = `🏛️ ${office.name} / 🚪 ${room.name}`;
+                let groupHtml = '';
+                workplaces.forEach(wp => {
+                    const code = wp.code ? ` [${wp.code}]` : '';
+                    groupHtml += `<option value="${wp.id}">🪑 ${escapeHtml(wp.name)}${code}</option>`;
+                });
+                html += `<optgroup label="${escapeHtml(groupLabel)}">${groupHtml}</optgroup>`;
+            });
+        });
+
+        document.getElementById('moveToWorkplaceSelect').innerHTML = html;
+    } catch (err) {
+        console.error(err);
+    }
+
+    document.getElementById('moveToWorkplaceModal').classList.add('active');
+}
+
+function closeMoveToWorkplaceModal() {
+    document.getElementById('moveToWorkplaceModal').classList.remove('active');
+}
+
+async function submitMoveToWorkplace() {
+    const id = document.getElementById('moveToWorkplaceEquipmentId').value;
+    const workplaceId = document.getElementById('moveToWorkplaceSelect').value;
+
+    if (!workplaceId) {
+        showToast('❌ Выберите рабочее место', 'error');
+        return;
+    }
+
+    const btn = document.getElementById('moveToWorkplaceSubmitBtn');
+    btn.disabled = true;
+    btn.textContent = '⏳...';
+
+    try {
+        const response = await fetch(`/api/manage/equipment/${id}/move-to-workplace`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ workplace_id: parseInt(workplaceId) })
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            showToast(result.message, 'success');
+            closeMoveToWorkplaceModal();
+            closeViewEquipmentModal();
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast('❌ ' + result.error, 'error');
+            btn.disabled = false;
+            btn.textContent = '🪑 Переместить';
+        }
+    } catch (err) {
+        console.error(err);
+        showToast('❌ Ошибка соединения', 'error');
+        btn.disabled = false;
+        btn.textContent = '🪑 Переместить';
+    }
 }
 
 // ============================================================
