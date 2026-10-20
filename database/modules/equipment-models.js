@@ -261,13 +261,14 @@ module.exports = ({ db, run, get, all }) => ({
       category_id,
       type_id,
       description = null,
+      import_id = null,
     } = data;
     
     const result = await run(`
       INSERT INTO equipment_models
-        (corporate_id, name, manufacturer, category_id, type_id, description)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `, [corporate_id, name, manufacturer, category_id, type_id, description]);
+        (corporate_id, name, manufacturer, category_id, type_id, description, import_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `, [corporate_id, name, manufacturer, category_id, type_id, description, import_id]);
     
     return { id: result.lastID, ...data };
   },

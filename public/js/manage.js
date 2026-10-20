@@ -130,6 +130,9 @@ async function confirmDelete() {
     }
 
     closeModal();
+    if (document.getElementById('viewEquipmentModal').classList.contains('active')) {
+        closeViewEquipmentModal();
+    }
 }
 
 // ============================================================

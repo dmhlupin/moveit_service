@@ -680,7 +680,8 @@ module.exports = ({ db, run, get, all }) => {
       purchase_date    = null,
       warranty_until   = null,
       description      = null,
-      responsible_user_id = null,   // 🆕 Этап 4
+      responsible_user_id = null,
+      import_id           = null,   // 🆕
     } = eqData;
 
     if (!model_id) {
@@ -718,13 +719,13 @@ module.exports = ({ db, run, get, all }) => {
         (model_id, inventory_number, serial_number, status,
          cell_id, workplace_id,
          purchase_date, warranty_until, description,
-         responsible_user_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         responsible_user_id, import_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       model_id, inv, sn, status || 'available',
       cell_id || null, workplace_id || null,
       purchase_date || null, warranty_until || null, description || null,
-      responsible_user_id || null,
+      responsible_user_id || null, import_id,
     ]);
 
     return { id: result.lastID, ...eqData };

@@ -93,6 +93,7 @@ const stats = require('./modules/stats')(ctx);
 const meta = require('./modules/meta')(ctx);
 const warehouses = require('./modules/warehouses')(ctx);
 const workplaces = require('./modules/workplaces')(ctx);
+const importModule = require('./modules/import')(ctx);
 const equipmentModels = require('./modules/equipment-models')(ctx);
 
 
@@ -120,6 +121,7 @@ module.exports = {
   // Модули
   ...users,
   ...equipment,
+  ...importModule,   // 🆕
   ...catalog,
   ...auth,
   ...profile,
@@ -135,3 +137,4 @@ module.exports = {
   // Управление БД
   closeDatabase
 };
+

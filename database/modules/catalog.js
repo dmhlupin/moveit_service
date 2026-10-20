@@ -65,12 +65,12 @@ module.exports = ({ db, run, get, all }) => ({
    */
   createCategory(data) {
     return new Promise((resolve, reject) => {
-      const { name, description, icon, sort_order } = data;
+      const { name, description, icon, sort_order, import_id } = data;
       
       db.run(`
-        INSERT INTO equipment_categories (name, description, icon, sort_order, is_active)
-        VALUES (?, ?, ?, ?, 1)
-      `, [name, description || null, icon || null, sort_order || 0], function(err) {
+        INSERT INTO equipment_categories (name, description, icon, sort_order, is_active, import_id)
+        VALUES (?, ?, ?, ?, 1, ?)
+      `, [name, description || null, icon || null, sort_order || 0, import_id || null], function(err) {
         if (err) {
           reject(err);
           return;
@@ -284,9 +284,8 @@ module.exports = ({ db, run, get, all }) => ({
    */
   createType(data) {
     return new Promise((resolve, reject) => {
-      const { category_id, name, description, icon, sort_order } = data;
+      const { category_id, name, description, icon, sort_order, import_id } = data;
       
-      // Проверяем категорию
       db.get('SELECT id FROM equipment_categories WHERE id = ?', [category_id], (err, cat) => {
         if (err) {
           reject(err);
@@ -298,9 +297,9 @@ module.exports = ({ db, run, get, all }) => ({
         }
         
         db.run(`
-          INSERT INTO equipment_types (category_id, name, description, icon, sort_order, is_active)
-          VALUES (?, ?, ?, ?, ?, 1)
-        `, [category_id, name, description || null, icon || null, sort_order || 0], function(err) {
+          INSERT INTO equipment_types (category_id, name, description, icon, sort_order, is_active, import_id)
+          VALUES (?, ?, ?, ?, ?, 1, ?)
+        `, [category_id, name, description || null, icon || null, sort_order || 0, import_id || null], function(err) {
           if (err) {
             if (err.message.includes('UNIQUE constraint failed')) {
               reject(new Error('Тип с таким названием уже существует в этой категории'));

@@ -9,75 +9,91 @@
         <a href="/manage" class="btn btn-ghost">← К учёту ТМЦ</a>
     </div>
 </div>
+<div class="import-layout">
+    <div class="import-main">
+        <div class="card" style="max-width: 800px;">
+            <div class="card-header">
+                <h2 class="card-title">Загрузка файла</h2>
+            </div>
+            <div class="card-body">
+                <div class="form-group">
+                    <label>Ответственный МОЛ <span class="required">*</span></label>
+                    <select id="importMol">
+                        <option value="">— Выберите МОЛа —</option>
+                        {{mol_options}}
+                    </select>
+                </div>
 
-<div class="card" style="max-width: 800px;">
-    <div class="card-header">
-        <h2 class="card-title">Загрузка файла</h2>
+                <div class="form-group">
+                    <label>Файл CSV <span class="required">*</span></label>
+                    <input type="file" id="importFile" accept=".csv">
+                    <p class="help-text">Разделитель — точка с запятой (<code>;</code>).</p>
+                </div>
+
+                <div class="form-group">
+                    <label>Кодировка файла</label>
+                    <select id="importEncoding">
+                        <option value="windows-1251" selected>Windows-1251 (CP1251) — выгрузка 1С</option>
+                        <option value="utf-8">UTF-8</option>
+                        <option value="auto">Автоопределение</option>
+                    </select>
+                    <p class="help-text">Если в импортированных данных «кракозябры» — смените кодировку.</p>
+                </div>
+
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="importSkipDuplicates" checked>
+                        Пропускать дубликаты без номеров
+                    </label>
+                    <p class="help-text">Если экземпляр без инвентарного номера уже есть в базе — он не будет создан повторно.</p>
+                </div>
+
+                <div class="form-actions">
+                    <button onclick="submitImport()" class="btn btn-primary" id="importSubmitBtn">
+                        📥 Импортировать
+                    </button>
+                    <button onclick="downloadTemplate()" class="btn btn-ghost">
+                        📄 Скачать шаблон
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Блок предпросмотра -->
+        <div class="card" id="importPreviewCard" style="max-width: 1200px; margin-top: 24px; display: none;">
+            <div class="card-header">
+                <h2 class="card-title">👁️ Предпросмотр файла</h2>
+                <button onclick="clearPreview()" class="btn btn-ghost btn-sm">✕ Скрыть</button>
+            </div>
+            <div class="card-body">
+                <p class="help-text" id="previewInfo"></p>
+                <div class="preview-table-wrapper">
+                    <table class="preview-table" id="previewTable"></table>
+                </div>
+            </div>
+            <div id="previewForecast" style="display: none; margin-top: 16px;"></div>
+        </div>
+
+        <!-- Блок отчёта (скрыт до импорта) -->
+        <div class="card" id="importReportCard" style="max-width: 800px; margin-top: 24px; display: none;">
+            <div class="card-header">
+                <h2 class="card-title">📊 Отчёт об импорте</h2>
+            </div>
+            <div class="card-body" id="importReportBody">
+                <!-- Заполняется через JS -->
+            </div>
+        </div>
     </div>
-    <div class="card-body">
-        <div class="form-group">
-            <label>Ответственный МОЛ <span class="required">*</span></label>
-            <select id="importMol">
-                <option value="">— Выберите МОЛа —</option>
-                {{mol_options}}
-            </select>
-        </div>
 
-        <div class="form-group">
-            <label>Файл CSV <span class="required">*</span></label>
-            <input type="file" id="importFile" accept=".csv">
-            <p class="help-text">Разделитель — точка с запятой (<code>;</code>).</p>
+    <div class="import-side">
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">📜 История импортов</h2>
+                <button onclick="refreshHistory()" class="btn btn-ghost btn-sm">🔄</button>
+            </div>
+            <div class="card-body" id="importHistoryBody">
+                <div class="import-history-empty">Загрузка...</div>
+            </div>
         </div>
-
-        <div class="form-group">
-            <label>Кодировка файла</label>
-            <select id="importEncoding">
-                <option value="windows-1251" selected>Windows-1251 (CP1251) — выгрузка 1С</option>
-                <option value="utf-8">UTF-8</option>
-                <option value="auto">Автоопределение</option>
-            </select>
-            <p class="help-text">Если в импортированных данных «кракозябры» — смените кодировку.</p>
-        </div>
-
-        <div class="form-group">
-            <label class="checkbox-label">
-                <input type="checkbox" id="importSkipDuplicates" checked>
-                Пропускать дубликаты без номеров
-            </label>
-            <p class="help-text">Если экземпляр без инвентарного номера уже есть в базе — он не будет создан повторно.</p>
-        </div>
-
-        <div class="form-actions">
-            <button onclick="submitImport()" class="btn btn-primary" id="importSubmitBtn">
-                📥 Импортировать
-            </button>
-            <button onclick="downloadTemplate()" class="btn btn-ghost">
-                📄 Скачать шаблон
-            </button>
-        </div>
-    </div>
-</div>
-
-<!-- Блок предпросмотра -->
-<div class="card" id="importPreviewCard" style="max-width: 1200px; margin-top: 24px; display: none;">
-    <div class="card-header">
-        <h2 class="card-title">👁️ Предпросмотр файла</h2>
-        <button onclick="clearPreview()" class="btn btn-ghost btn-sm">✕ Скрыть</button>
-    </div>
-    <div class="card-body">
-        <p class="help-text" id="previewInfo"></p>
-        <div class="preview-table-wrapper">
-            <table class="preview-table" id="previewTable"></table>
-        </div>
-    </div>
-</div>
-
-<!-- Блок отчёта (скрыт до импорта) -->
-<div class="card" id="importReportCard" style="max-width: 800px; margin-top: 24px; display: none;">
-    <div class="card-header">
-        <h2 class="card-title">📊 Отчёт об импорте</h2>
-    </div>
-    <div class="card-body" id="importReportBody">
-        <!-- Заполняется через JS -->
     </div>
 </div>

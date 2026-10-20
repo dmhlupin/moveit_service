@@ -89,6 +89,61 @@ function renderPreview(csvText) {
 
     table.innerHTML = html;
 
+        // 🆕 Прогноз
+    fetch('/api/manage/import/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ csvText }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        const forecast = document.getElementById('previewForecast');
+        if (!forecast) return;
+
+        let html = '<h4>🔮 Прогноз изменений в БД</h4>';
+
+        if (data.new_categories.length === 0 &&
+            data.new_types.length === 0 &&
+            data.new_models.length === 0) {
+            html += '<p class="forecast-none">Всё уже есть в базе — новых записей не будет.</p>';
+        } else {
+            if (data.new_categories.length > 0) {
+                html += `
+                    <div class="forecast-section">
+                        <div class="forecast-title">📁 Новые категории (${data.new_categories.length})</div>
+                        <ul>${data.new_categories.map(c => `<li>${escapeHtml(c)}</li>`).join('')}</ul>
+                    </div>
+                `;
+            }
+            if (data.new_types.length > 0) {
+                html += `
+                    <div class="forecast-section">
+                        <div class="forecast-title">📦 Новые типы (${data.new_types.length})</div>
+                        <ul>${data.new_types.map(t => `<li>${escapeHtml(t)}</li>`).join('')}</ul>
+                    </div>
+                `;
+            }
+            if (data.new_models.length > 0) {
+                html += `
+                    <div class="forecast-section">
+                        <div class="forecast-title">🧩 Новые модели (${data.new_models.length})</div>
+                        <ul>
+                            ${data.new_models.map(m => {
+                                const id = typeof m === 'string' ? m : m.id;
+                                const name = typeof m === 'string' ? '' : m.name;
+                                return `<li><strong>${escapeHtml(id)}</strong>${name ? ' — ' + escapeHtml(name) : ''}</li>`;
+                            }).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+        }
+
+        forecast.innerHTML = html;
+        forecast.style.display = 'block';
+    })
+    .catch(err => console.error('Ошибка прогноза:', err));
+
     const total = dataLines.length;
     const shown = previewLines.length;
     let infoText = `Всего строк данных: ${total}. Показано: ${shown}.`;
@@ -262,6 +317,97 @@ async function cancelLastImport(importId) {
 
 function downloadTemplate() {
     window.location.href = '/api/manage/import/template';
+}
+
+// ============================================================
+// ИСТОРИЯ
+// ============================================================
+
+document.addEventListener('DOMContentLoaded', function() {
+    refreshHistory();
+});
+
+async function refreshHistory() {
+    const body = document.getElementById('importHistoryBody');
+    if (!body) return;
+
+    body.innerHTML = '<div class="import-history-empty">Загрузка...</div>';
+
+    try {
+        const response = await fetch('/api/manage/import/history');
+        const history = await response.json();
+
+        if (history.length === 0) {
+            body.innerHTML = '<div class="import-history-empty">Импортов ещё не было</div>';
+            return;
+        }
+
+        let html = '';
+        history.forEach(item => {
+            const date = new Date(item.created_at).toLocaleString('ru-RU', {
+                day: '2-digit', month: '2-digit', year: '2-digit',
+                hour: '2-digit', minute: '2-digit'
+            });
+            const isCanceled = !!item.canceled_at;
+            const userName = item.user_name || item.user_username || '—';
+
+            html += `
+                <div class="import-history-item ${isCanceled ? 'canceled' : ''}">
+                    <div class="import-history-header">
+                        <span class="import-history-date">📅 ${date}</span>
+                        ${isCanceled ? '<span class="import-history-badge">Отменён</span>' : ''}
+                    </div>
+                    <div class="import-history-user">👤 ${escapeHtml(userName)}</div>
+                    <div class="import-history-stats">
+                        📦 ${item.equipment_count} экз.
+                        🧩 ${item.models_count} мод.
+                        📁 ${item.categories_count} кат.
+                        📦 ${item.types_count} тип.
+                    </div>
+                    ${!isCanceled ? `
+                        <button onclick="cancelImportById('${item.import_id}')" class="btn btn-danger btn-sm" style="margin-top: 8px;">
+                            🗑️ Отменить
+                        </button>
+                    ` : `
+                        <div class="import-history-canceled-info">
+                            Отменён ${new Date(item.canceled_at).toLocaleString('ru-RU')}
+                            ${item.canceled_by_name ? ' · ' + escapeHtml(item.canceled_by_name) : ''}
+                        </div>
+                    `}
+                </div>
+            `;
+        });
+
+        body.innerHTML = html;
+    } catch (err) {
+        console.error('❌ Ошибка истории:', err);
+        body.innerHTML = '<div class="import-history-empty">Ошибка загрузки истории</div>';
+    }
+}
+
+async function cancelImportById(importId) {
+    if (!confirm('Удалить все данные, созданные этим импортом? Это действие нельзя отменить.')) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/manage/import/cancel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ importId }),
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            showToast(result.message, 'success');
+            refreshHistory();
+        } else {
+            showToast('❌ ' + result.error, 'error');
+        }
+    } catch (err) {
+        console.error(err);
+        showToast('❌ Ошибка соединения', 'error');
+    }
 }
 
 // ============================================================

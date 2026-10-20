@@ -59,6 +59,8 @@ const {
     importCSVAPI,
     downloadTemplate,
     cancelLastImportAPI,
+    getImportHistoryAPI,
+    previewImportAPI,
 } = require('./routes/manage-import');
 
 // Роуты каталога
@@ -340,6 +342,8 @@ app.delete('/api/manage/equipment/:id',    requireMol, deleteEquipmentAPI);
 app.get('/manage/import',              requireAdmin, renderImportPage);
 app.post('/api/manage/import',         requireAdmin, importCSVAPI);
 app.post('/api/manage/import/cancel',  requireAdmin, cancelLastImportAPI);
+app.post('/api/manage/import/preview', requireAdmin, previewImportAPI);
+app.get('/api/manage/import/history',  requireAdmin, getImportHistoryAPI);
 app.get('/api/manage/import/template', requireAdmin, downloadTemplate);
 
 // ============================================
