@@ -1486,6 +1486,56 @@ async function createRoleResponsiblesIndexes() {
   console.log('✅ Индексы ролевой модели созданы\n');
 }
 
+/**
+ * Добавить колонку import_id в таблицы (для отмены импорта).
+ * Идемпотентно: если колонка уже есть — пропускаем.
+ */
+function migrateImportIdColumns() {
+  return new Promise((resolve, reject) => {
+    const tables = [
+      'equipment',
+      'equipment_models',
+      'equipment_categories',
+      'equipment_types',
+    ];
+
+    let pending = tables.length;
+
+    const done = (err) => {
+      if (err) reject(err);
+      else {
+        pending -= 1;
+        if (pending === 0) resolve();
+      }
+    };
+
+    tables.forEach(table => {
+      db.all(`PRAGMA table_info(${table})`, (err, rows) => {
+        if (err) {
+          done(err);
+          return;
+        }
+
+        const hasImportId = rows.some(r => r.name === 'import_id');
+        if (hasImportId) {
+          done();
+          return;
+        }
+
+        db.run(`ALTER TABLE ${table} ADD COLUMN import_id TEXT`, (err) => {
+          if (err) {
+            console.error(`❌ ${table}.import_id:`, err.message);
+            done(err);
+          } else {
+            console.log(`✅ ${table}.import_id добавлена`);
+            done();
+          }
+        });
+      });
+    });
+  });
+}
+
 // ============================================================
 // ГЛАВНАЯ ФУНКЦИЯ МИГРАЦИИ
 // ============================================================
@@ -1553,6 +1603,8 @@ async function migrate() {
     await createEquipmentModelsTable();
     await migrateEquipmentToInstances();
     await createEquipmentModelsIndexes();
+      // Добавление id импорта
+    await migrateImportIdColumns();
 
         // ===== ЭТАП 4.10: Ролевая модель — МОЛ =====
     console.log('👔 ЭТАП 4.10: Ролевая модель — МОЛ\n');

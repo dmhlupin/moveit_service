@@ -52,6 +52,15 @@ const {
   moveToWorkplaceFromCardAPI,
 } = require('./routes/manage-equipment-actions');
 
+// Роуты импорта данных
+
+const {
+    renderImportPage,
+    importCSVAPI,
+    downloadTemplate,
+    cancelLastImportAPI,
+} = require('./routes/manage-import');
+
 // Роуты каталога
 const {
   renderCatalog,
@@ -197,7 +206,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ===== БАЗОВЫЕ MIDDLEWARE =====
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true }));
 
 // ===== НАСТРОЙКА СЕССИЙ =====
@@ -326,6 +335,12 @@ app.post('/api/manage/equipment/:id/move-to-workplace', requireMol, moveToWorkpl
 app.post('/api/manage/equipment',          requireMol, addEquipmentAPI);
 app.put('/api/manage/equipment/:id',       requireMol, updateEquipmentAPI);
 app.delete('/api/manage/equipment/:id',    requireMol, deleteEquipmentAPI);
+
+// Импорт CSV (только admin)
+app.get('/manage/import',              requireAdmin, renderImportPage);
+app.post('/api/manage/import',         requireAdmin, importCSVAPI);
+app.post('/api/manage/import/cancel',  requireAdmin, cancelLastImportAPI);
+app.get('/api/manage/import/template', requireAdmin, downloadTemplate);
 
 // ============================================
 // ЛОГИ (только admin)

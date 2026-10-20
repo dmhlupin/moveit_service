@@ -98,6 +98,9 @@ async function renderAdmin(req, res) {
       pageActions += `<a href="/admin/inventory" class="btn btn-ghost btn-sm" title="Инвентаризация">📊 Инвентаризация</a>`;
     }
     if (currentRole === 'admin') {
+      pageActions += `<a href="/manage/import" class="btn btn-success btn-sm">📥 Импорт</a>`;
+    }
+    if (currentRole === 'admin') {
       pageActions += `<a href="/admin/logs" class="btn btn-ghost btn-sm">📈 Логи</a>`;
     }
     html = html.replace('{{page_actions}}', pageActions);
