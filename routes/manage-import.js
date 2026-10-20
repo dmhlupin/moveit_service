@@ -191,7 +191,46 @@ async function importCSVAPI(req, res) {
 
         // ===== ВАЛИДАЦИЯ =====
         for (const row of rows) {
-            // ... (без изменений)
+            const line = row._line;
+            const corporateId = (row['Корпоративный ИД'] || '').trim();
+            const modelName = (row['Наименование'] || '').trim();
+            const categoryName = (row['Группа'] || '').trim();
+            const typeName = (row['Вид'] || '').trim();
+            const inventoryNumber = (row['Инвентарный номер'] || '').trim();
+            const quantityStr = (row['Конечный остаток'] || '').trim();
+            const quantity = parseInt(quantityStr, 10);
+
+            if (!corporateId) {
+                report.errors.push({ line, message: 'Пустой «Корпоративный ИД»' });
+                continue;
+            }
+            if (!modelName) {
+                report.errors.push({ line, message: 'Пустое «Наименование»' });
+                continue;
+            }
+            if (!categoryName) {
+                report.errors.push({ line, message: 'Пустая «Группа»' });
+                continue;
+            }
+            if (!typeName) {
+                report.errors.push({ line, message: 'Пустой «Вид»' });
+                continue;
+            }
+
+            if (isNaN(quantity) || quantity < 1) {
+                report.errors.push({
+                    line,
+                    message: `Неверное «Конечный остаток»: "${quantityStr}"`,
+                });
+                continue;
+            }
+
+            if (quantity > 1 && inventoryNumber) {
+                report.errors.push({
+                    line,
+                    message: `Инвентарный номер "${inventoryNumber}" не может быть у ${quantity} экземпляров`,
+                });
+            }
         }
 
         if (report.errors.length > 0) {
