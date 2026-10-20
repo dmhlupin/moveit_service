@@ -137,7 +137,7 @@ async function submitForm(event) {
   }
 
   try {
-    const response = await fetch('/api/admin/equipment', {
+    const response = await fetch('/api/manage/equipment', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(formData),
@@ -148,7 +148,7 @@ async function submitForm(event) {
     if (result.success) {
       showToast('✅ Техника успешно добавлена!', 'success');
       setTimeout(() => {
-        window.location.href = '/admin';
+        window.location.href = '/manage';
       }, 1500);
     } else {
       showToast('❌ ' + result.error, 'error');
