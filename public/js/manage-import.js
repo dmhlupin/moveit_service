@@ -29,17 +29,22 @@ async function onFileSelected() {
 
     const file = fileInput.files[0];
     const encoding = document.getElementById('importEncoding').value;
-
+    const delimiter = getDelimiterValue();
     try {
         const csvText = await readFileAsText(file, encoding);
-        renderPreview(csvText);
+        renderPreview(csvText, delimiter);
     } catch (err) {
         console.error(err);
         showToast('❌ Ошибка чтения файла', 'error');
     }
 }
 
-function renderPreview(csvText) {
+function getDelimiterValue() {
+    const raw = document.getElementById('importDelimiter').value;
+    return raw === '\\t' ? '\t' : raw;
+}
+
+function renderPreview(csvText, delimiter = ';') {
     const card = document.getElementById('importPreviewCard');
     const table = document.getElementById('previewTable');
     const info = document.getElementById('previewInfo');
@@ -64,7 +69,7 @@ function renderPreview(csvText) {
     let dataLines;
 
     if (hasHeaders) {
-        headers = lines[0].split(';').map(h => h.trim());
+        headers = lines[0].split(delimiter).map(h => h.trim());
         dataLines = lines.slice(1);
     } else {
         headers = STANDARD_HEADERS;
@@ -78,7 +83,7 @@ function renderPreview(csvText) {
     html += '</tr></thead><tbody>';
 
     previewLines.forEach(line => {
-        const values = line.split(';').map(v => v.trim());
+        const values = line.split(delimiter).map(v => v.trim());
         html += '<tr>';
         headers.forEach((_, idx) => {
             html += `<td>${escapeHtml(values[idx] || '')}</td>`;
@@ -93,7 +98,7 @@ function renderPreview(csvText) {
     fetch('/api/manage/import/preview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ csvText }),
+        body: JSON.stringify({ csvText, delimiter }),
     })
     .then(r => r.json())
     .then(data => {
@@ -204,6 +209,7 @@ async function submitImport() {
     try {
         const csvText = await readFileAsText(file, encoding);
 
+        const delimiter = getDelimiterValue();
         const response = await fetch('/api/manage/import', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -211,6 +217,7 @@ async function submitImport() {
                 csvText,
                 molId: parseInt(molId, 10),
                 skipDuplicates,
+                delimiter,
             }),
         });
 

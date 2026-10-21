@@ -39,6 +39,15 @@
                     </select>
                     <p class="help-text">Если в импортированных данных «кракозябры» — смените кодировку.</p>
                 </div>
+                <div class="form-group">
+                    <label>Разделитель CSV</label>
+                    <select id="importDelimiter">
+                        <option value=";" selected>Точка с запятой ( ; ) — стандарт 1С</option>
+                        <option value=",">Запятая ( , ) — если в наименованиях есть ;</option>
+                        <option value="\t">Табуляция ( → ) — для сложных наименований</option>
+                    </select>
+                    <p class="help-text">Если в наименованиях есть <code>;</code>, выберите «Табуляция» или «Запятая».</p>
+                </div>
 
                 <div class="form-group">
                     <label class="checkbox-label">

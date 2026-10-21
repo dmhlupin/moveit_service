@@ -74,12 +74,88 @@ function escapeHtml(str) {
         .replace(/'/g, '&#039;');
 }
 
-function parseCSV(text) {
+/**
+ * Парсинг CSV с поддержкой кавычек (RFC 4180) и выбором разделителя.
+/** @param {string} text
+/** @param {string} delimiter — ';' | ',' | '\t'
+ */
+
+function parseCSV(text, delimiter = ';') {
     if (text.charCodeAt(0) === 0xFEFF) {
         text = text.slice(1);
     }
-    const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
-    if (lines.length === 0) return [];
+
+    // Пошаговый парсер (поддерживает кавычки)
+    const lines = [];
+    let currentLine = [];
+    let currentField = '';
+    let inQuotes = false;
+    let i = 0;
+
+    while (i < text.length) {
+        const ch = text[i];
+        const next = text[i + 1];
+
+        if (inQuotes) {
+            if (ch === '"') {
+                if (next === '"') {
+                    currentField += '"';
+                    i += 2;
+                    continue;
+                } else {
+                    inQuotes = false;
+                    i++;
+                    continue;
+                }
+            } else {
+                currentField += ch;
+                i++;
+                continue;
+            }
+        }
+
+        if (ch === '"') {
+            inQuotes = true;
+            i++;
+            continue;
+        }
+
+        if (ch === delimiter) {
+            currentLine.push(currentField);
+            currentField = '';
+            i++;
+            continue;
+        }
+
+        if (ch === '\r' && next === '\n') {
+            currentLine.push(currentField);
+            lines.push(currentLine);
+            currentLine = [];
+            currentField = '';
+            i += 2;
+            continue;
+        }
+
+        if (ch === '\n') {
+            currentLine.push(currentField);
+            lines.push(currentLine);
+            currentLine = [];
+            currentField = '';
+            i++;
+            continue;
+        }
+
+        currentField += ch;
+        i++;
+    }
+
+    if (currentField !== '' || currentLine.length > 0) {
+        currentLine.push(currentField);
+        lines.push(currentLine);
+    }
+
+    const nonEmptyLines = lines.filter(l => l.some(f => f.trim() !== ''));
+    if (nonEmptyLines.length === 0) return [];
 
     const STANDARD_HEADERS = [
         'Корпоративный ИД', 'Наименование', 'Производитель',
@@ -130,7 +206,7 @@ function parseCSV(text) {
         'примечание': 'Описание',
     };
 
-    const firstLineRaw = lines[0].split(';').map(h => h.trim());
+    const firstLineRaw = nonEmptyLines[0].map(h => h.trim());
     const firstLineNorm = firstLineRaw.map(h => h.toLowerCase());
     const knownCount = firstLineNorm.filter(h => HEADER_ALIASES[h]).length;
     const hasHeaders = knownCount >= 3;
@@ -147,16 +223,16 @@ function parseCSV(text) {
     }
 
     const rows = [];
-    for (let i = startIndex; i < lines.length; i++) {
-        const values = lines[i].split(';').map(v => v.trim());
+    for (let li = startIndex; li < nonEmptyLines.length; li++) {
+        const values = nonEmptyLines[li];
         const row = {};
         headers.forEach((h, idx) => {
-            row[h] = values[idx] || '';
+            row[h] = (values[idx] || '').trim();
         });
-        row._line = i + 1;
+        row._line = li + 1;
         rows.push(row);
     }
-    return rows;   // ← главное
+    return rows;
 }
 
 // ============================================================
@@ -176,7 +252,7 @@ async function importCSVAPI(req, res) {
     };
 
     try {
-        const { csvText, molId, skipDuplicates } = req.body;
+        const { csvText, molId, skipDuplicates, delimiter = ';' } = req.body;
 
         if (!csvText) return res.status(400).json({ error: 'Файл не загружен', report });
         if (!molId) return res.status(400).json({ error: 'Выберите МОЛа', report });
@@ -186,7 +262,7 @@ async function importCSVAPI(req, res) {
         const mol = users.find(u => u.id === molIdInt && u.role === 'mol' && u.is_active === 1);
         if (!mol) return res.status(400).json({ error: 'МОЛ не найден или неактивен', report });
 
-        const rows = parseCSV(csvText);
+        const rows = parseCSV(csvText, delimiter);
         if (rows.length === 0) return res.status(400).json({ error: 'Файл пуст', report });
 
         // ===== ВАЛИДАЦИЯ =====
@@ -318,16 +394,19 @@ async function importCSVAPI(req, res) {
                 }
 
                 // 4. Экземпляры
+                // Если quantity = 1 и нет номера — проверяем дубликат
+                // (только один раз, до создания)
+                if (quantity === 1 && !inventoryNumber && skipDuplicates) {
+                    const dup = await findEquipmentDuplicateByModelAndDescription(modelId, description);
+                    if (dup) {
+                        report.skipped_duplicates++;
+                        continue;   // пропускаем всю строку
+                    }
+                }
+
+                // Создаём quantity экземпляров
                 for (let i = 0; i < quantity; i++) {
                     const invNum = (quantity === 1) ? inventoryNumber : null;
-
-                    if (!invNum && skipDuplicates) {
-                        const dup = await findEquipmentDuplicateByModelAndDescription(modelId, description);
-                        if (dup) {
-                            report.skipped_duplicates++;
-                            continue;
-                        }
-                    }
 
                     await addEquipment({
                         model_id: modelId,
@@ -427,10 +506,10 @@ async function getImportHistoryAPI(req, res) {
 
 async function previewImportAPI(req, res) {
     try {
-        const { csvText } = req.body;
+        const { csvText, delimiter = ';' } = req.body;
         if (!csvText) return res.status(400).json({ error: 'Файл не загружен' });
 
-        const rows = parseCSV(csvText);
+        const rows = parseCSV(csvText, delimiter);
         if (rows.length === 0) return res.status(400).json({ error: 'Файл пуст' });
 
         const forecast = await checkImportPreview(rows);
