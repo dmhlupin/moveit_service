@@ -668,7 +668,7 @@ async function getCellEquipmentAPI(req, res) {
  */
 async function createCellAPI(req, res) {
   try {
-    const { rack_id, name, code, capacity, description, sort_order } = req.body;
+    const { rack_id, name, code, capacity, description, sort_order, is_full } = req.body;
 
     if (!rack_id) {
       return res.status(400).json({ error: 'Стеллаж обязателен' });
