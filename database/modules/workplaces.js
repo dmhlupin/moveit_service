@@ -1012,6 +1012,48 @@ module.exports = ({ db, run, get, all }) => ({
         resolve(result);
       });
     });
-  }
+  },
+
+    /**
+   * 🆕 5.0.2.1: Получить следующий номер рабочего места в кабинете.
+   * Возвращает { next_name, next_code, current_count }.
+   */
+  getNextWorkplaceNumber(roomId) {
+    return new Promise((resolve, reject) => {
+      // Получаем кабинет
+      db.get('SELECT id, name, office_id FROM rooms WHERE id = ?', [roomId], (err, room) => {
+        if (err) return reject(err);
+        if (!room) return reject(new Error('Кабинет не найден'));
+
+        // Считаем количество мест
+        db.get('SELECT COUNT(*) as count FROM workplaces WHERE room_id = ?', [roomId], (err, row) => {
+          if (err) return reject(err);
+
+          const nextNum = (row?.count || 0) + 1;
+          const nextName = `Место ${nextNum}`;
+
+          // Код из названия кабинета: "Кабинет 311" → "311", "Каб. 311А" → "311А"
+          let roomCode = '';
+          if (room.name) {
+            // Берём последний токен: "311", "311А", "101"
+            const parts = room.name.trim().split(/\s+/);
+            roomCode = parts.length > 1 ? parts[parts.length - 1] : parts[0];
+            // Убираем нецифровые символы в начале, если нужно (по желанию)
+            // roomCode = roomCode.replace(/^[^\dА-Яа-я]+/, '');
+          }
+
+          const nextCode = roomCode
+            ? `${roomCode}-${String(nextNum).padStart(2, '0')}`
+            : '';
+
+          resolve({
+            next_name: nextName,
+            next_code: nextCode,
+            current_count: row?.count || 0,
+          });
+        });
+      });
+    });
+  },
 
 });

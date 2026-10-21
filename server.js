@@ -147,6 +147,7 @@ const {
   getOfficeEquipmentAPI,
   getWorkplaceOccupancyAPI,
   exportOfficeInventoryCSV,
+  getNextWorkplaceNumberAPI,
 } = require('./routes/workplaces');
 
 // Роуты номенклатуры (модели ТМЦ)
@@ -470,17 +471,27 @@ app.put('/api/admin/offices/:id', requireMol, updateOfficeAPI);
 app.delete('/api/admin/offices/:id', requireMol, deleteOfficeAPI);
 app.post('/api/admin/offices/:id/set-default', requireAdmin, setDefaultOfficeAPI);
 
-// API статистики и сводки
+// ============================================================
+// API СТАТИСТИКИ И СВОДКИ (специфичные — ДО :id)
+// ============================================================
 app.get('/api/admin/workplaces/stats',   requireRole(['admin', 'supervisor', 'mol']), getWorkplaceStatsAPI);
 app.get('/api/admin/workplaces/summary', requireRole(['admin', 'supervisor', 'mol']), getWorkplaceSummaryAPI);
 
-// API кабинетов
+// ============================================================
+// API КАБИНЕТОВ
+// ============================================================
 app.post('/api/admin/rooms',       requireMol, createRoomAPI);
 app.put('/api/admin/rooms/:id',    requireMol, updateRoomAPI);
 app.delete('/api/admin/rooms/:id', requireMol, deleteRoomAPI);
+
+// 🆕 5.0.2.1: автозаполнение рабочего места — ДО /rooms/:id/workplaces
+app.get('/api/admin/rooms/:id/next-workplace', requireRole(['admin', 'supervisor', 'mol']), getNextWorkplaceNumberAPI);
+
 app.get('/api/admin/rooms/:id/workplaces', requireRole(['admin', 'supervisor', 'mol']), getWorkplacesAPI);
 
-// API рабочих мест
+// ============================================================
+// API РАБОЧИХ МЕСТ
+// ============================================================
 app.get('/api/admin/workplaces/:id/equipment',       requireRole(['admin', 'supervisor', 'mol']), getWorkplaceEquipmentAPI);
 app.post('/api/admin/workplaces/:id/move-equipment', requireMol, moveEquipmentToWorkplaceAPI);
 app.get('/api/admin/workplaces/:id',                 requireRole(['admin', 'supervisor', 'mol']), getWorkplaceAPI);

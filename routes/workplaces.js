@@ -24,6 +24,7 @@ const {
   createWorkplace,
   updateWorkplace,
   deleteWorkplace,
+  getNextWorkplaceNumber,  // 🆕
   // Дерево и техника
   getOfficeTree,
   getFullWorkplaceTree,
@@ -554,6 +555,25 @@ async function getWorkplacesAPI(req, res) {
 }
 
 /**
+ * 🆕 5.0.2.1: GET /api/admin/rooms/:id/next-workplace
+ * Возвращает { next_name, next_code, current_count } для автозаполнения.
+ */
+async function getNextWorkplaceNumberAPI(req, res) {
+  try {
+    const roomId = parseInt(req.params.id);
+    if (isNaN(roomId)) {
+      return res.status(400).json({ error: 'Неверный ID кабинета' });
+    }
+
+    const data = await getNextWorkplaceNumber(roomId);
+    res.json(data);
+  } catch (error) {
+    console.error('❌ Ошибка получения следующего номера места:', error);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+/**
  * GET /api/admin/workplaces/:id — одно рабочее место
  */
 async function getWorkplaceAPI(req, res) {
@@ -889,6 +909,7 @@ module.exports = {
   // API рабочих мест
   getWorkplacesAPI,
   getWorkplaceAPI,
+  getNextWorkplaceNumberAPI,  // 🆕
   createWorkplaceAPI,
   updateWorkplaceAPI,
   deleteWorkplaceAPI,

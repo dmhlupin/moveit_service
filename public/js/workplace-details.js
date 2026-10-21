@@ -369,10 +369,41 @@ function openWorkplaceModal(id = null, roomId = null) {
         document.getElementById('workplaceDescription').value = '';
         document.getElementById('workplaceIsActive').checked = true;
         activeGroup.style.display = 'none';
+
+        // 🆕 Автозаполнение
+        if (roomId) {
+            autoFillNextWorkplace(roomId);
+        }
     }
 
     modal.classList.add('active');
     setTimeout(() => document.getElementById('workplaceName').focus(), 100);
+}
+
+/**
+ * 🆕 5.0.2.1: Автозаполнение названия и кода рабочего места.
+ */
+async function autoFillNextWorkplace(roomId) {
+    try {
+        const response = await fetch(`/api/admin/rooms/${roomId}/next-workplace`);
+        if (!response.ok) {
+            console.warn('⚠️ Не удалось получить следующий номер места');
+            return;
+        }
+        const data = await response.json();
+
+        const nameInput = document.getElementById('workplaceName');
+        const codeInput = document.getElementById('workplaceCode');
+
+        if (nameInput && !nameInput.value) {
+            nameInput.value = data.next_name || '';
+        }
+        if (codeInput && !codeInput.value && data.next_code) {
+            codeInput.value = data.next_code;
+        }
+    } catch (err) {
+        console.error('❌ Ошибка автозаполнения места:', err);
+    }
 }
 
 function closeWorkplaceModal() {
