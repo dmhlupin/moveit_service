@@ -693,26 +693,43 @@ async function viewCell(cellId) {
                 </div>
             `;
         } else {
-            html += '<div class="equipment-cards">';
+            // 🆕 5.0.3: Таблица вместо карточек
+            html += `
+                <table class="cell-equipment-table">
+                    <thead>
+                        <tr>
+                            <th>Инв. №</th>
+                            <th>Наименование</th>
+                            <th>Corporate ID</th>
+                            <th>Статус</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
             equipment.forEach(eq => {
+                const statusLabels = {
+                    available: '✅ Доступна',
+                    placed: '🪑 На месте',
+                    assigned: '👤 Назначена',
+                    maintenance: '🔧 В ремонте',
+                    retired: '📦 Списана',
+                };
+                const statusLabel = statusLabels[eq.status] || eq.status;
+
                 html += `
-                    <div class="equipment-card">
-                        <div class="equipment-card-header">
-                            <span class="equipment-card-inv">${escapeHtml(eq.inventory_number)}</span>
-                            <span class="status-badge status-${eq.status}">${eq.status}</span>
-                        </div>
-                        <div class="equipment-card-body">
-                            <div class="equipment-card-name">${escapeHtml(eq.name)}</div>
-                            ${eq.model ? `<div class="equipment-card-model">${escapeHtml(eq.model)}</div>` : ''}
-                            ${eq.type_name ? `<div class="equipment-card-manufacturer">${eq.type_icon || '📦'} ${escapeHtml(eq.type_name)}</div>` : ''}
-                        </div>
-                    </div>
+                    <tr>
+                        <td><span class="eq-inv">${escapeHtml(eq.inventory_number || '—')}</span></td>
+                        <td>
+                            <div class="eq-name">${escapeHtml(eq.model_name || '—')}</div>
+                            ${eq.type_name ? `<div class="eq-type">${eq.type_icon || '📦'} ${escapeHtml(eq.type_name)}</div>` : ''}
+                        </td>
+                        <td><span class="eq-corporate">${escapeHtml(eq.model_corporate_id || '—')}</span></td>
+                        <td><span class="status-badge status-${eq.status}">${statusLabel}</span></td>
+                    </tr>
                 `;
             });
-            html += '</div>';
+            html += '</tbody></table>';
         }
-
-        html += '</div>';
 
         body.innerHTML = html;
     } catch (error) {
