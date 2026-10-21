@@ -205,6 +205,14 @@ async function renderAdmin(req, res) {
     // === СОРТИРУЕМЫЕ ЗАГОЛОВКИ ===
     const th = (col, label) => sortableTh(col, label, sort, order, q);
 
+    // === Плейсхолдер отрисовки чекбокса в таблице техники ===
+    const thCheckbox = (currentRole === 'admin' || currentRole === 'mol')
+      ? `<th style="width: 40px; text-align: center;">
+          <input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)">
+        </th>`
+      : '';
+    html = html.replace('{{th_checkbox}}', thCheckbox);
+
     html = html.replace('{{th_id}}',          th('id', 'ID'));
     html = html.replace('{{th_inventory}}',   th('inventory_number', 'Инв. №'));
     html = html.replace('{{th_model}}',       th('model_name', 'Модель'));
@@ -236,6 +244,7 @@ async function renderAdmin(req, res) {
       `;
     } else {
       equipment.forEach(item => {
+        const canBulkMove = (currentRole === 'admin' || currentRole === 'mol');  // может ли юзер видеть чекбксы группового перемещения
         const statusClass = `status-${item.status}`;
 
         const canEditThis = currentRole === 'admin'
@@ -313,6 +322,11 @@ async function renderAdmin(req, res) {
 
         equipmentRows += `
           <tr class="equipment-row-clickable" onclick="viewEquipment(${item.id})">
+            ${canBulkMove ? `
+              <td onclick="event.stopPropagation()" style="text-align: center;">
+                <input type="checkbox" class="row-checkbox" value="${item.id}" onclick="event.stopPropagation(); updateSelectedCount()">
+              </td>
+            ` : ''}
             <td>${item.id}</td>
             <td><strong>${item.inventory_number || '—'}</strong></td>
             <td>${item.model_name || '—'}</td>

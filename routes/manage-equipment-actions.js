@@ -8,6 +8,7 @@ const {
   assignEquipment,
   returnEquipmentByEquipmentId,
   checkCellAvailability,
+  moveEquipmentToCellDetailed,   // 🆕
 } = require('../database/db');
 
 const { canEditEquipment } = require('../utils/permissions');
@@ -343,6 +344,103 @@ async function moveToWorkplaceFromCardAPI(req, res) {
 }
 
 // ============================================================
+// API — ГРУППОВОЕ ПЕРЕМЕЩЕНИЕ (5.0.5)
+// ============================================================
+
+/**
+ * POST /api/manage/equipment/bulk-move
+ * Тело: { ids: [1,2,3], cell_id: 42 }
+ *
+ * Перемещает все указанные экземпляры в одну ячейку.
+ * Возвращает { success, moved, skipped, errors }.
+ */
+async function bulkMoveEquipmentAPI(req, res) {
+  try {
+    const { ids, cell_id } = req.body;
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: 'Не выбрана техника' });
+    }
+    if (!cell_id) {
+      return res.status(400).json({ error: 'Выберите ячейку' });
+    }
+
+    const targetCellId = parseInt(cell_id, 10);
+    if (isNaN(targetCellId)) {
+      return res.status(400).json({ error: 'Неверный ID ячейки' });
+    }
+
+    const userForPerm = { id: req.session.userId, role: req.session.role };
+
+    let moved = 0;
+    let skipped = 0;
+    const errors = [];
+    const movedIds = [];
+
+    for (const rawId of ids) {
+      const id = parseInt(rawId, 10);
+      if (isNaN(id)) { skipped++; continue; }
+
+      try {
+        // Проверка доступа
+        if (!(await canEditEquipment(userForPerm, id))) {
+          skipped++;
+          continue;
+        }
+
+        const equipment = await getEquipmentById(id);
+        if (!equipment) {
+          skipped++;
+          continue;
+        }
+
+        // Назначенную нельзя перемещать
+        if (equipment.status === 'assigned') {
+          skipped++;
+          errors.push({ id, error: 'Назначена пользователю' });
+          continue;
+        }
+
+        // Перемещаем
+        await moveEquipmentToCellDetailed(id, targetCellId, req.session.userId, req.session.username);
+        moved++;
+        movedIds.push(id);
+      } catch (err) {
+        skipped++;
+        errors.push({ id, error: err.message });
+      }
+    }
+
+    // Один общий лог
+    if (moved > 0) {
+      await logAction({
+        req,
+        action: 'equipment_move',
+        entityType: 'equipment',
+        entityId: null,
+        details: JSON.stringify({
+          bulk: true,
+          count: moved,
+          ids: movedIds,
+          to_cell_id: targetCellId,
+        }),
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `Перемещено: ${moved}. Пропущено: ${skipped}.`,
+      moved,
+      skipped,
+      errors,
+    });
+  } catch (error) {
+    console.error('❌ Ошибка группового перемещения:', error);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+// ============================================================
 // ЭКСПОРТ
 // ============================================================
 
@@ -351,4 +449,5 @@ module.exports = {
   assignEquipmentAPI,
   returnEquipmentAPI,
   moveToWorkplaceFromCardAPI,   // ← переименовали
+  bulkMoveEquipmentAPI,   // 🆕
 };

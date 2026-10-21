@@ -1453,6 +1453,46 @@
 }
 
 /* ============================================================
+   ГРУППОВОЕ ПЕРЕМЕЩЕНИЕ (5.0.5)
+   ============================================================ */
+
+.bulk-actions-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-sm) var(--space-lg);
+    background: var(--accent-bg);
+    border: 1px solid var(--accent-border);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-md);
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+}
+
+.bulk-actions-bar strong {
+    color: var(--accent);
+    font-weight: 700;
+}
+
+.bulk-actions-bar .btn {
+    flex-shrink: 0;
+}
+
+/* Чекбоксы в таблице */
+.row-checkbox,
+#selectAll {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: var(--accent);
+}
+
+.equipment-row-clickable td:first-child {
+    text-align: center;
+    padding: 8px 4px;
+}
+
+/* ============================================================
    АДАПТИВНОСТЬ
    ============================================================ */
 

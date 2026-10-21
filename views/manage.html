@@ -100,6 +100,20 @@
 </div>
 
 <!-- ============================================================ -->
+<!-- ПАНЕЛЬ ВЫБРАННОГО (5.0.5)                                     -->
+<!-- ============================================================ -->
+
+<div id="bulkActionsBar" class="bulk-actions-bar" style="display: none;">
+    <span>Выбрано: <strong id="selectedCount">0</strong></span>
+    <button type="button" class="btn btn-primary btn-sm" onclick="openBulkMoveModal()">
+        📦 Переместить на склад
+    </button>
+    <button type="button" class="btn btn-ghost btn-sm" onclick="clearSelection()">
+        ✕ Снять выделение
+    </button>
+</div>
+
+<!-- ============================================================ -->
 <!-- ТАБЛИЦА ТЕХНИКИ                                               -->
 <!-- ============================================================ -->
 
@@ -113,6 +127,7 @@
     <table>
         <thead>
             <tr>
+                {{th_checkbox}}
                 {{th_id}}
                 {{th_inventory}}
                 {{th_model}}
@@ -130,6 +145,11 @@
         </tbody>
     </table>
 </div>
+
+<!-- ============================================================ -->
+<!-- ПАГИНАЦИЯ                                                      -->
+<!-- ============================================================ -->
+{{pagination}}
 
 <!-- ============================================================ -->
 <!-- ПАГИНАЦИЯ                                                      -->
@@ -359,6 +379,52 @@
         <div class="modal-actions">
             <button onclick="closeReturnModal()" class="btn btn-ghost">Отмена</button>
             <button onclick="submitReturn()" class="btn btn-success" id="returnSubmitBtn">↩️ Вернуть</button>
+        </div>
+    </div>
+</div>
+
+<!-- 🆕 5.0.5: модалка группового перемещения -->
+<div class="modal-overlay" id="bulkMoveModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>📦 Групповое перемещение</h3>
+            <button onclick="closeBulkMoveModal()" class="modal-close">✕</button>
+        </div>
+        <div class="modal-body">
+            <p style="margin: 0 0 16px 0; color: var(--text-secondary); font-size: var(--text-sm);">
+                Выбрано единиц техники: <strong id="bulkMoveCount">0</strong>.
+                Выберите ячейку, в которую они будут перемещены.
+            </p>
+            <div class="form-group">
+                <label>Склад</label>
+                <select id="bulkMoveWarehouse" onchange="onBulkMoveWarehouseChange()">
+                    <option value="">— Выберите склад —</option>
+                </select>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Зона</label>
+                    <select id="bulkMoveZone" onchange="onBulkMoveZoneChange()" disabled>
+                        <option value="">— Сначала выберите склад —</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Стеллаж</label>
+                    <select id="bulkMoveRack" onchange="onBulkMoveRackChange()" disabled>
+                        <option value="">— Сначала выберите зону —</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Ячейка <span class="required">*</span></label>
+                <select id="bulkMoveCell" disabled>
+                    <option value="">— Сначала выберите стеллаж —</option>
+                </select>
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button onclick="closeBulkMoveModal()" class="btn btn-ghost">Отмена</button>
+            <button onclick="submitBulkMove()" class="btn btn-primary" id="bulkMoveSubmitBtn">📦 Переместить</button>
         </div>
     </div>
 </div>

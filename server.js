@@ -50,6 +50,7 @@ const {
   assignEquipmentAPI,
   returnEquipmentAPI,
   moveToWorkplaceFromCardAPI,
+  bulkMoveEquipmentAPI,   // 🆕
 } = require('./routes/manage-equipment-actions');
 
 // Роуты импорта данных
@@ -324,6 +325,8 @@ app.get('/api/manage/equipment',          requireRole(['admin', 'supervisor', 'm
 app.get('/api/manage/equipment/filtered', requireRole(['admin', 'supervisor', 'mol']), getFilteredEquipmentAPI);
 app.get('/api/manage/equipment/counts',   requireRole(['admin', 'supervisor', 'mol']), getEquipmentCountsAPI);
 
+app.post('/api/manage/equipment/:id/move-to-workplace', requireMol, moveToWorkplaceFromCardAPI);
+
 app.get('/api/manage/equipment/:id/details', requireRole(['admin', 'supervisor', 'mol']), getEquipmentDetailsAPI);
 app.get('/api/manage/equipment/:id/moves',   requireRole(['admin', 'supervisor', 'mol']), getEquipmentMovesAPI);
 app.get('/api/manage/equipment/:id',         requireRole(['admin', 'supervisor', 'mol']), getEquipmentByIdAPI);
@@ -334,7 +337,9 @@ app.post('/api/manage/equipment/:id/move', requireMol, moveEquipmentAPI);
 app.post('/api/manage/equipment/:id/status',            requireMol, changeEquipmentStatusAPI);
 app.post('/api/manage/equipment/:id/assign',            requireMol, assignEquipmentAPI);
 app.post('/api/manage/equipment/:id/return',            requireMol, returnEquipmentAPI);
-app.post('/api/manage/equipment/:id/move-to-workplace', requireMol, moveToWorkplaceFromCardAPI);
+
+// 🆕 5.0.5: групповое перемещение (до /:id, чтобы не конфликтовало)
+app.post('/api/manage/equipment/bulk-move', requireMol, bulkMoveEquipmentAPI);
 
 app.post('/api/manage/equipment',          requireMol, addEquipmentAPI);
 app.put('/api/manage/equipment/:id',       requireMol, updateEquipmentAPI);
