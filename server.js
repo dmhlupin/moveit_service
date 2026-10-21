@@ -107,6 +107,7 @@ const {
   getCellAPI,
   getCellEquipmentAPI,
   createCellAPI,
+  getNextCellNumberAPI,
   updateCellAPI,
   deleteCellAPI,
   renderInventory,
@@ -423,6 +424,7 @@ app.delete('/api/admin/racks/:id',    requireMol, deleteRackAPI);
 
 // API ячеек
 app.get('/api/admin/racks/:id/cells',     requireRole(['admin', 'supervisor', 'mol']), getCellsAPI);
+app.get('/api/admin/racks/:id/next-cell', requireRole(['admin', 'supervisor', 'mol']), getNextCellNumberAPI);
 app.get('/api/admin/cells/:id/equipment', requireRole(['admin', 'supervisor', 'mol']), getCellEquipmentAPI);
 app.get('/api/admin/cells/:id',           requireRole(['admin', 'supervisor', 'mol']), getCellAPI);
 app.post('/api/admin/cells',              requireMol, createCellAPI);

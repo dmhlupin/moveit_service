@@ -478,9 +478,40 @@ function openCellModal(id = null, rackId = null) {
         document.getElementById('cellDescription').value = '';
         document.getElementById('cellIsActive').checked = true;
         activeGroup.style.display = 'none';
+
+        // 🆕 Автозаполнение (если передан rackId)
+        if (rackId) {
+            autoFillNextCell(rackId);
+        }
     }
     modal.classList.add('active');
     setTimeout(() => document.getElementById('cellName').focus(), 100);
+}
+
+/**
+ * 🆕 Автозаполнение имени и кода ячейки при создании.
+ */
+async function autoFillNextCell(rackId) {
+    try {
+        const response = await fetch(`/api/admin/racks/${rackId}/next-cell`);
+        if (!response.ok) {
+            console.warn('⚠️ Не удалось получить следующий номер ячейки');
+            return;
+        }
+        const data = await response.json();
+
+        const nameInput = document.getElementById('cellName');
+        const codeInput = document.getElementById('cellCode');
+
+        if (nameInput && !nameInput.value) {
+            nameInput.value = data.next_name || '';
+        }
+        if (codeInput && !codeInput.value && data.next_code) {
+            codeInput.value = data.next_code;
+        }
+    } catch (err) {
+        console.error('❌ Ошибка автозаполнения:', err);
+    }
 }
 
 function closeCellModal() {

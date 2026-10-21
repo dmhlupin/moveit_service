@@ -706,6 +706,56 @@ async function createCellAPI(req, res) {
 }
 
 /**
+ * GET /api/admin/racks/:id/next-cell
+ * Возвращает { next_name, next_code } для автозаполнения.
+ */
+async function getNextCellNumberAPI(req, res) {
+    try {
+        const rackId = parseInt(req.params.id);
+        if (isNaN(rackId)) {
+            return res.status(400).json({ error: 'Неверный ID стеллажа' });
+        }
+
+        // Получаем стеллаж и его название
+        const rack = await getRackById(rackId);
+        if (!rack) {
+            return res.status(404).json({ error: 'Стеллаж не найден' });
+        }
+
+        // Получаем все ячейки стеллажа
+        const cells = await getCellsByRack(rackId);
+
+        // Следующий номер: N + 1, где N — максимальный существующий
+        const nextNum = cells.length + 1;
+
+        // Название: "Ячейка N"
+        const nextName = `Ячейка ${nextNum}`;
+
+        // Код: если стеллаж "Стеллаж А-04" или "Тумбочка А-04" → "А-04-01"
+        // Извлекаем часть после пробела (последний токен), например "А-04"
+        let rackCode = '';
+        if (rack.name) {
+            const parts = rack.name.trim().split(/\s+/);
+            rackCode = parts.length > 1 ? parts[parts.length - 1] : parts[0];
+        }
+
+        let nextCode = '';
+        if (rackCode) {
+            nextCode = `${rackCode}-${String(nextNum).padStart(2, '0')}`;
+        }
+
+        res.json({
+            next_name: nextName,
+            next_code: nextCode,
+            current_count: cells.length,
+        });
+    } catch (error) {
+        console.error('❌ Ошибка получения следующего номера:', error);
+        res.status(500).json({ error: error.message });
+    }
+}
+
+/**
  * PUT /api/admin/cells/:id — обновить ячейку
  */
 async function updateCellAPI(req, res) {
@@ -1047,6 +1097,7 @@ module.exports = {
   getCellAPI,
   getCellEquipmentAPI,
   createCellAPI,
+  getNextCellNumberAPI,   // 🆕
   updateCellAPI,
   deleteCellAPI,
 
