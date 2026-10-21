@@ -28,6 +28,7 @@ const {
   createRack,
   updateRack,
   deleteRack,
+  createRacksBatch,   // 🆕
   // Ячейки
   getCellsByRack,
   getCellById,
@@ -36,6 +37,7 @@ const {
   deleteCell,
   getCellFullPath,
   getEquipmentInCell,
+  createCellsBatch,   // 🆕
   // Инвентаризация
   getInventorySummary,
   getWarehouseInventory,
@@ -508,7 +510,9 @@ async function getRacksAPI(req, res) {
  */
 async function createRackAPI(req, res) {
   try {
-    const { zone_id, name, description, sort_order } = req.body;
+    const { zone_id, name, description, sort_order, quantity, cells_count } = req.body;
+    const qty = parseInt(quantity) || 1;
+    const cellsCount = parseInt(cells_count) || 0;
 
     if (!zone_id) {
       return res.status(400).json({ error: 'Зона обязательна' });
@@ -517,22 +521,52 @@ async function createRackAPI(req, res) {
       return res.status(400).json({ error: 'Название стеллажа обязательно' });
     }
 
-    const result = await createRack({
-      zone_id: parseInt(zone_id),
-      name: name.trim(),
-      description: (description || '').trim(),
-      sort_order: parseInt(sort_order) || 0,
-    });
+    let result;
+
+    if (qty > 1) {
+      // 🆕 Массовое создание
+      const created = await createRacksBatch(
+        parseInt(zone_id),
+        name.trim(),
+        (description || '').trim(),
+        qty
+      );
+      result = { message: `Создано ${created.length} стеллажей`, data: created };
+    } else {
+      // Одиночное создание
+      const created = await createRack({
+        zone_id: parseInt(zone_id),
+        name: name.trim(),
+        description: (description || '').trim(),
+        sort_order: parseInt(sort_order) || 0,
+      });
+      result = { message: 'Стеллаж создан', data: [created] };
+    }
+
+    // 🆕 Автоматическое создание ячеек
+    if (cellsCount > 0) {
+      let totalCells = 0;
+      for (const rack of result.data) {
+        const cells = await createCellsBatch(rack.id, rack.name, cellsCount, null);
+        totalCells += cells.length;
+      }
+      result.message += `. Создано ${totalCells} ячеек.`;
+    }
 
     await logAction({
       req,
       action: 'rack_create',
       entityType: 'rack',
-      entityId: result.id,
-      details: JSON.stringify({ name: name.trim(), zone_id }),
+      entityId: result.data[0]?.id || null,
+      details: JSON.stringify({
+        name: name.trim(),
+        zone_id,
+        quantity: qty,
+        cells_count: cellsCount,
+      }),
     });
 
-    res.json({ success: true, message: 'Стеллаж создан', data: result });
+    res.json({ success: true, message: result.message, data: result.data });
   } catch (error) {
     if (error.message.includes('UNIQUE constraint failed')) {
       res.status(400).json({ error: 'Стеллаж с таким названием уже существует' });

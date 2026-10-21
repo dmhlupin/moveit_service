@@ -354,6 +354,10 @@ function openRackModal(id = null, zoneId = null) {
     const title = document.getElementById('rackModalTitle');
     const form = document.getElementById('rackForm');
     const activeGroup = document.getElementById('rackActiveGroup');
+    
+    // 🆕 Группы для создания (скрываем при редактировании)
+    const quantityGroup = document.getElementById('rackQuantityGroup');
+    const cellsGroup = document.getElementById('rackCellsGroup');
 
     form.reset();
 
@@ -369,6 +373,10 @@ function openRackModal(id = null, zoneId = null) {
         document.getElementById('rackDescription').value = rack.description || '';
         document.getElementById('rackIsActive').checked = rack.is_active !== 0;
         activeGroup.style.display = 'block';
+
+        // 🆕 При редактировании — скрываем массовые поля
+        if (quantityGroup) quantityGroup.style.display = 'none';
+        if (cellsGroup) cellsGroup.style.display = 'none';
     } else {
         // Создание
         title.textContent = '➕ Добавить стеллаж';
@@ -378,6 +386,16 @@ function openRackModal(id = null, zoneId = null) {
         document.getElementById('rackDescription').value = '';
         document.getElementById('rackIsActive').checked = true;
         activeGroup.style.display = 'none';
+
+        // 🆕 При создании — показываем массовые поля
+        if (quantityGroup) quantityGroup.style.display = 'block';
+        if (cellsGroup) cellsGroup.style.display = 'block';
+
+        // 🆕 Сбрасываем значения по умолчанию
+        const qtyInput = document.getElementById('rackQuantity');
+        const cellsInput = document.getElementById('rackCellsCount');
+        if (qtyInput) qtyInput.value = 1;
+        if (cellsInput) cellsInput.value = 0;
     }
 
     modal.classList.add('active');
@@ -402,6 +420,19 @@ async function saveRack(event) {
         description: document.getElementById('rackDescription').value.trim(),
         is_active: document.getElementById('rackIsActive').checked,
     };
+
+    // 🆕 Массовое создание (только при создании)
+    if (!isEdit) {
+        const qty = parseInt(document.getElementById('rackQuantity')?.value) || 1;
+        const cellsCount = parseInt(document.getElementById('rackCellsCount')?.value) || 0;
+        data.quantity = qty;
+        data.cells_count = cellsCount;
+    }
+
+    if (!data.name) {
+        showToast('❌ Введите название стеллажа', 'error');
+        return;
+    }
 
     if (!data.name) {
         showToast('❌ Введите название стеллажа', 'error');
