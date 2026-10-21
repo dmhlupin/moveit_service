@@ -174,6 +174,7 @@ function renderWorkplace(wp) {
             <div class="tree-workplace-info">
                 <div class="tree-workplace-name">${escapeHtml(wp.name)}</div>
                 ${wp.code ? `<div class="tree-workplace-code">${escapeHtml(wp.code)}</div>` : ''}
+                ${wp.description ? `<span class="tree-description">${escapeHtml(wp.description)}</span>` : ''}
             </div>
             <div class="tree-workplace-meta">
                 <span class="tree-workplace-count ${countClass}">${countText}</span>

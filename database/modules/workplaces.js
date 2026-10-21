@@ -609,6 +609,7 @@ module.exports = ({ db, run, get, all }) => ({
           w.id as workplace_id,
           w.name as workplace_name,
           w.code as workplace_code,
+          w.description as workplace_description,   -- 🆕
           w.sort_order as workplace_sort,
           (SELECT COUNT(*) FROM equipment WHERE workplace_id = w.id) as equipment_count
         FROM offices o
@@ -653,6 +654,7 @@ module.exports = ({ db, run, get, all }) => ({
                 id: row.workplace_id,
                 name: row.workplace_name,
                 code: row.workplace_code,
+                description: row.workplace_description,   // 🆕
                 sort_order: row.workplace_sort,
                 equipment_count: row.equipment_count
               });
@@ -688,6 +690,7 @@ module.exports = ({ db, run, get, all }) => ({
           w.id as workplace_id,
           w.name as workplace_name,
           w.code as workplace_code,
+          w.description as workplace_description,   -- 🆕
           w.sort_order as workplace_sort,
           (SELECT COUNT(*) FROM equipment WHERE workplace_id = w.id) as equipment_count
         FROM offices o
@@ -729,6 +732,7 @@ module.exports = ({ db, run, get, all }) => ({
                 id: row.workplace_id,
                 name: row.workplace_name,
                 code: row.workplace_code,
+                description: row.workplace_description,   // 🆕
                 equipment_count: row.equipment_count
               });
             }

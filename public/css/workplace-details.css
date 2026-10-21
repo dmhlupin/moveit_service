@@ -476,6 +476,14 @@
     opacity: 0.5;
 }
 
+.tree-description {
+    display: block;
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    margin-top: 2px;
+    font-style: italic;
+}
+
 /* ============================================================
    АДАПТИВНОСТЬ
    ============================================================ */
