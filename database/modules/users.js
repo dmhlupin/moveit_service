@@ -248,6 +248,23 @@ module.exports = ({ db, run, get, all }) => ({
         );
       });
     });
-  }
+  },
   
+    /**
+   * 🆕 5.0.4.1: Получить список активных МОЛов для селекта фильтра.
+   */
+  getMolsForFilter() {
+    return new Promise((resolve, reject) => {
+      db.all(
+        `SELECT id, full_name, username, department
+         FROM users
+         WHERE role = 'mol' AND is_active = 1
+         ORDER BY full_name`,
+        (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows || []);
+        }
+      );
+    });
+  },
 });

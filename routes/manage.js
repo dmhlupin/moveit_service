@@ -26,6 +26,10 @@ const {
   deleteUserWithEquipmentReturn,
   updateUserPassword,
   setUserActive,
+  getMolsForFilter,   // 🆕
+    // Catalog
+  getAllCategories,     // 🆕
+  getAllTypes,          // 🆕
   // Logs
   getActivityLogs,
   getActivityLogsCount,
@@ -74,23 +78,68 @@ async function renderAdmin(req, res) {
   try {
     const scope = { userId: req.session.userId, role: req.session.role };
     const currentRole = req.session.role;
-    const stats = await getStats(scope);   // было getStats()
-    const equipment = await getEquipmentWithLocation({}, scope);
+    const q = req.query || {};
+
+    // === ПАГИНАЦИЯ ===
+    const ALLOWED_PAGE_SIZES = [10, 20, 50, 100];
+    const DEFAULT_PAGE_SIZE = 10;
+    const requestedLimit = parseInt(q.limit, 10);
+    const pageSize = ALLOWED_PAGE_SIZES.includes(requestedLimit) ? requestedLimit : DEFAULT_PAGE_SIZE;
+    const page = Math.max(1, parseInt(q.page, 10) || 1);
+    const offset = (page - 1) * pageSize;
+
+    // === СОРТИРОВКА ===
+    const ALLOWED_SORTS = [
+      'id', 'inventory_number', 'model_name', 'corporate_id',
+      'category', 'type', 'status', 'responsible', 'location',
+      'created_at', 'purchase_date',
+    ];
+    const sort = ALLOWED_SORTS.includes(q.sort) ? q.sort : 'id';
+    const order = (String(q.order).toLowerCase() === 'desc') ? 'desc' : 'asc';
+
+    // === ФИЛЬТРЫ ===
+    const filters = {
+      category_id:  q.category_id  ? parseInt(q.category_id, 10)  : null,
+      type_id:      q.type_id      ? parseInt(q.type_id, 10)      : null,
+      status:       q.status       || null,
+      mol_id:       q.mol_id       ? parseInt(q.mol_id, 10)       : null,
+      corporate_id: (q.corporate_id || '').trim() || null,
+      model_name:   (q.model_name   || '').trim() || null,
+      search:       (q.search       || '').trim() || null,
+      sort,
+      order,
+      limit: pageSize,
+      offset,
+      include_total: true,
+    };
+
+    // === ДАННЫЕ ===
+    const [stats, result, categories, types, mols] = await Promise.all([
+      getStats(scope),
+      getEquipmentWithLocation(filters, scope),
+      getAllCategories(),
+      getAllTypes(),
+      currentRole === 'admin' ? getMolsForFilter() : Promise.resolve([]),
+    ]);
+
+    const equipment = result.items || [];
+    const totalFiltered = result.total || 0;
+    const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
 
     const htmlPath = path.join(__dirname, '..', 'views', 'manage.html');
     let html = fs.readFileSync(htmlPath, 'utf8');
 
-    // Статистика
+    // === СТАТИСТИКА ===
     html = html.replace(/\{\{total_equipment\}\}/g, stats.total_equipment || 0);
     html = html.replace(/\{\{available_equipment\}\}/g, stats.available_equipment || 0);
     html = html.replace(/\{\{assigned_equipment\}\}/g, stats.assigned_equipment || 0);
     html = html.replace(/\{\{total_users\}\}/g, stats.total_users || 0);
 
-    // 🆕 Текущая роль — для клиентского JS
+    // === РОЛЬ ===
     html = html.replace(/\{\{current_role\}\}/g, currentRole || 'user');
     html = html.replace(/\{\{current_user_id\}\}/g, req.session.userId || 0);
 
-    // 🆕 Ссылки в шапке — по ролям
+    // === PAGE ACTIONS ===
     let pageActions = '';
     if (currentRole === 'admin' || currentRole === 'supervisor') {
       pageActions += `<a href="/admin/catalog" class="btn btn-ghost btn-sm" title="Управление категориями и типами">📚 Справочник</a>`;
@@ -99,126 +148,199 @@ async function renderAdmin(req, res) {
     }
     if (currentRole === 'admin') {
       pageActions += `<a href="/manage/import" class="btn btn-success btn-sm">📥 Импорт</a>`;
-    }
-    if (currentRole === 'admin') {
       pageActions += `<a href="/admin/logs" class="btn btn-ghost btn-sm">📈 Логи</a>`;
     }
     html = html.replace('{{page_actions}}', pageActions);
 
-    // 🆕 Колонка «Ответственный МОЛ» — только для admin / supervisor
+    // === КОЛОНКА «Ответственный МОЛ» ===
     const responsibleTh = (currentRole === 'admin' || currentRole === 'supervisor')
       ? '<th style="width: 150px;">Ответственный МОЛ</th>'
       : '';
     html = html.replace('{{responsible_th}}', responsibleTh);
 
-    // Таблица техники
+    // === ФИЛЬТРЫ ===
+    // Категории
+    let categoryOptions = '<option value="">Все категории</option>';
+    categories.forEach(c => {
+      const sel = String(c.id) === String(filters.category_id) ? 'selected' : '';
+      categoryOptions += `<option value="${c.id}" ${sel}>${c.icon || '📁'} ${escapeHtml(c.name)}</option>`;
+    });
+    html = html.replace('{{filter_category_options}}', categoryOptions);
+
+    // Типы (по выбранной категории)
+    let typeOptions = '<option value="">Все типы</option>';
+    const filteredTypes = filters.category_id
+      ? types.filter(t => Number(t.category_id) === filters.category_id)
+      : types;
+    filteredTypes.forEach(t => {
+      const sel = String(t.id) === String(filters.type_id) ? 'selected' : '';
+      typeOptions += `<option value="${t.id}" ${sel}>${t.icon || '📦'} ${escapeHtml(t.name)}</option>`;
+    });
+    html = html.replace('{{filter_type_options}}', typeOptions);
+
+    // МОЛы (только admin)
+    let molOptions = '';
+    if (currentRole === 'admin') {
+      molOptions = '<option value="">Все МОЛы</option>';
+      mols.forEach(m => {
+        const sel = String(m.id) === String(filters.mol_id) ? 'selected' : '';
+        molOptions += `<option value="${m.id}" ${sel}>${escapeHtml(m.full_name || m.username)}</option>`;
+      });
+    }
+    html = html.replace('{{filter_mol_options}}', molOptions);
+
+    // Значения текстовых полей
+    html = html.replace(/\{\{filter_corporate_id\}\}/g, escapeHtml(filters.corporate_id || ''));
+    html = html.replace(/\{\{filter_model_name\}\}/g, escapeHtml(filters.model_name || ''));
+    html = html.replace(/\{\{filter_search\}\}/g, escapeHtml(filters.search || ''));
+
+    // Селект размера страницы
+    let pageSizeOptions = '';
+    ALLOWED_PAGE_SIZES.forEach(size => {
+      const sel = size === pageSize ? 'selected' : '';
+      pageSizeOptions += `<option value="${size}" ${sel}>${size}</option>`;
+    });
+    html = html.replace('{{page_size_options}}', pageSizeOptions);
+
+    // === СОРТИРУЕМЫЕ ЗАГОЛОВКИ ===
+    const th = (col, label) => sortableTh(col, label, sort, order, q);
+
+    html = html.replace('{{th_id}}',          th('id', 'ID'));
+    html = html.replace('{{th_inventory}}',   th('inventory_number', 'Инв. №'));
+    html = html.replace('{{th_model}}',       th('model_name', 'Модель'));
+    html = html.replace('{{th_corporate}}',   th('corporate_id', 'Корп. ИД'));
+    html = html.replace('{{th_category}}',    th('category', 'Категория'));
+    html = html.replace('{{th_type}}',        th('type', 'Тип'));
+    html = html.replace('{{th_location}}',    th('location', 'Место хранения'));
+    html = html.replace('{{th_status}}',      th('status', 'Статус'));
+    html = html.replace('{{th_assigned}}',    '<th style="width: 170px;">Назначена</th>');
+    html = html.replace('{{th_responsible}}',
+      (currentRole === 'admin' || currentRole === 'supervisor')
+      ? th('responsible', 'Ответственный МОЛ')
+      : ''
+    );
+
+    // === СТРОКИ ТАБЛИЦЫ ===
     let equipmentRows = '';
 
-    equipment.forEach(item => {
-      const statusClass = `status-${item.status}`;
-
-      // 🆕 Может ли текущий пользователь редактировать этот экземпляр
-      const canEditThis = currentRole === 'admin'
-        || (currentRole === 'mol' && Number(item.responsible_user_id) === Number(req.session.userId));
-
-
-      // Информация о назначении
-      let assignedInfo = '—';
-      if (item.status === 'assigned' && item.user_name) {
-        const initials = getInitials(item.user_name);
-        assignedInfo = `
-          <div class="assigned-cell">
-            <span class="assigned-avatar">${initials}</span>
-            <div class="assigned-info">
-              <div class="assigned-name">${item.user_name}</div>
-              ${item.user_department ? `<div class="assigned-dept">${item.user_department}</div>` : ''}
-            </div>
-          </div>
-        `;
-      } else if (item.status === 'assigned') {
-        assignedInfo = '<span style="color: #a0aec0; font-size: 12px;">не найдено</span>';
-      }
-
-      const categoryCell = item.category_name
-        ? `<span class="catalog-badge">${item.category_icon || '📁'} ${item.category_name}</span>`
-        : '<span style="color: #cbd5e0;">—</span>';
-
-      const typeCell = item.type_name
-        ? `<span class="catalog-badge type">${item.type_icon || '📦'} ${item.type_name}</span>`
-        : '<span style="color: #cbd5e0;">—</span>';
-
-      let cellInfo = '<span style="color: #cbd5e0;">—</span>';
-      if (item.cell_id) {
-        cellInfo = `<div class="location-cell" title="${item.warehouse_name} → ${item.zone_name} → ${item.rack_name} → ${item.cell_name}">
-            <div class="location-cell-code">${item.cell_code || item.cell_name}</div>
-            <div class="location-path" style="font-size: 10px;">${item.warehouse_name}</div>
-          </div>`;
-      } else if (item.workplace_id) {
-        const wpLabel = `${item.workplace_name || 'Место'}${item.workplace_code ? ` [${item.workplace_code}]` : ''}`;
-        const officeLabel = item.office_name || '';
-        const link = item.office_id
-          ? `/admin/workplaces/${item.office_id}?highlightWorkplace=${item.workplace_id}`
-          : '#';
-        cellInfo = `<div class="location-cell">
-            <a href="${link}" class="location-cell-code" style="background: var(--purple-bg); color: var(--purple); text-decoration: none;" title="Открыть в дереве офиса">🪑 ${wpLabel}</a>
-            <div class="location-path" style="font-size: 10px;">${officeLabel}</div>
-          </div>`;
-      }
-
-      const statusLabels = {
-        'available':   '✅ Доступна',
-        'placed':      '🪑 На рабочем месте',
-        'assigned':    '👤 Назначена',
-        'maintenance': '🔧 В ремонте',
-        'retired':     '❌ Списана',
-      };
-      const statusLabel = statusLabels[item.status] || item.status;
-
-      // 🆕 Ответственный МОЛ — ячейка (для admin / supervisor)
-      let responsibleCell = '';
-      if (currentRole === 'admin' || currentRole === 'supervisor') {
-        if (item.responsible_user_name) {
-          const initials = getInitials(item.responsible_user_name);
-          responsibleCell = `<td>
-            <div class="assigned-cell">
-              <span class="assigned-avatar" style="background: linear-gradient(135deg, var(--purple) 0%, var(--accent) 100%);">${initials}</span>
-              <div class="assigned-info">
-                <div class="assigned-name">${item.responsible_user_name}</div>
-              </div>
-            </div>
-          </td>`;
-        } else {
-          responsibleCell = `<td><span style="color: #cbd5e0;">—</span></td>`;
-        }
-      }
-
-      equipmentRows += `
-        <tr class="equipment-row-clickable" onclick="viewEquipment(${item.id})">
-          <td>${item.id}</td>
-          <td><strong>${item.inventory_number || '—'}</strong></td>
-          <td>${item.model_name || '—'}</td>
-          <td>${item.model_corporate_id || '—'}</td>
-          <td>${categoryCell}</td>
-          <td>${typeCell}</td>
-          <td>${cellInfo}</td>
-          <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
-          <td>${assignedInfo}</td>
-          ${responsibleCell}
+    if (equipment.length === 0) {
+      const colspan = (currentRole === 'admin' || currentRole === 'supervisor') ? 10 : 9;
+      equipmentRows = `
+        <tr>
+          <td colspan="${colspan}" style="text-align: center; padding: 40px; color: var(--text-muted);">
+            <div style="font-size: 40px; margin-bottom: 10px;">🔍</div>
+            <div>Ничего не найдено</div>
+            <div style="font-size: 12px; margin-top: 5px;">Попробуйте изменить фильтры</div>
+          </td>
         </tr>
       `;
-    });
+    } else {
+      equipment.forEach(item => {
+        const statusClass = `status-${item.status}`;
 
+        const canEditThis = currentRole === 'admin'
+          || (currentRole === 'mol' && Number(item.responsible_user_id) === Number(req.session.userId));
+
+        // Информация о назначении
+        let assignedInfo = '—';
+        if (item.status === 'assigned' && item.user_name) {
+          const initials = getInitials(item.user_name);
+          assignedInfo = `
+            <div class="assigned-cell">
+              <span class="assigned-avatar">${initials}</span>
+              <div class="assigned-info">
+                <div class="assigned-name">${item.user_name}</div>
+                ${item.user_department ? `<div class="assigned-dept">${item.user_department}</div>` : ''}
+              </div>
+            </div>
+          `;
+        } else if (item.status === 'assigned') {
+          assignedInfo = '<span style="color: #a0aec0; font-size: 12px;">не найдено</span>';
+        }
+
+        const categoryCell = item.category_name
+          ? `<span class="catalog-badge">${item.category_icon || '📁'} ${item.category_name}</span>`
+          : '<span style="color: #cbd5e0;">—</span>';
+
+        const typeCell = item.type_name
+          ? `<span class="catalog-badge type">${item.type_icon || '📦'} ${item.type_name}</span>`
+          : '<span style="color: #cbd5e0;">—</span>';
+
+        let cellInfo = '<span style="color: #cbd5e0;">—</span>';
+        if (item.cell_id) {
+          cellInfo = `<div class="location-cell" title="${item.warehouse_name} → ${item.zone_name} → ${item.rack_name} → ${item.cell_name}">
+              <div class="location-cell-code">${item.cell_code || item.cell_name}</div>
+              <div class="location-path" style="font-size: 10px;">${item.warehouse_name}</div>
+            </div>`;
+        } else if (item.workplace_id) {
+          const wpLabel = `${item.workplace_name || 'Место'}${item.workplace_code ? ` [${item.workplace_code}]` : ''}`;
+          const officeLabel = item.office_name || '';
+          const link = item.office_id
+            ? `/admin/workplaces/${item.office_id}?highlightWorkplace=${item.workplace_id}`
+            : '#';
+          cellInfo = `<div class="location-cell">
+              <a href="${link}" class="location-cell-code" style="background: var(--purple-bg); color: var(--purple); text-decoration: none;" title="Открыть в дереве офиса">🪑 ${wpLabel}</a>
+              <div class="location-path" style="font-size: 10px;">${officeLabel}</div>
+            </div>`;
+        }
+
+        const statusLabels = {
+          'available':   '✅ Доступна',
+          'placed':      '🪑 На рабочем месте',
+          'assigned':    '👤 Назначена',
+          'maintenance': '🔧 В ремонте',
+          'retired':     '❌ Списана',
+        };
+        const statusLabel = statusLabels[item.status] || item.status;
+
+        // Ответственный МОЛ — ячейка (admin / supervisor)
+        let responsibleCell = '';
+        if (currentRole === 'admin' || currentRole === 'supervisor') {
+          if (item.responsible_user_name) {
+            const initials = getInitials(item.responsible_user_name);
+            responsibleCell = `<td>
+              <div class="assigned-cell">
+                <span class="assigned-avatar" style="background: linear-gradient(135deg, var(--purple) 0%, var(--accent) 100%);">${initials}</span>
+                <div class="assigned-info">
+                  <div class="assigned-name">${item.responsible_user_name}</div>
+                </div>
+              </div>
+            </td>`;
+          } else {
+            responsibleCell = `<td><span style="color: #cbd5e0;">—</span></td>`;
+          }
+        }
+
+        equipmentRows += `
+          <tr class="equipment-row-clickable" onclick="viewEquipment(${item.id})">
+            <td>${item.id}</td>
+            <td><strong>${item.inventory_number || '—'}</strong></td>
+            <td>${item.model_name || '—'}</td>
+            <td>${item.model_corporate_id || '—'}</td>
+            <td>${categoryCell}</td>
+            <td>${typeCell}</td>
+            <td>${cellInfo}</td>
+            <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
+            <td>${assignedInfo}</td>
+            ${responsibleCell}
+          </tr>
+        `;
+      });
+    }
     html = html.replace('{{equipment_rows}}', equipmentRows);
 
-    const fullHtml = renderPage({
-        title: 'Учёт ТМЦ – MoveIT service',
-        content: html,
-        pageCss: '/css/manage.css',
-        pageJs: '/js/manage.js',
-      user: { id: req.session.userId, role: req.session.role, username: req.session.username, fullName: req.session.fullName },
-    });
+    // === ПАГИНАЦИЯ ===
+    html = html.replace('{{pagination}}', renderManagePagination({
+      page, totalPages, totalFiltered, query: q,
+    }));
 
-    res.send(fullHtml);
+    // === РЕНДЕР (через renderPageFor) ===
+    renderPageFor(req, res, {
+      title: 'Учёт ТМЦ – MoveIT service',
+      content: html,
+      pageCss: '/css/manage.css',
+      pageJs: '/js/manage.js',
+    });
   } catch (error) {
     console.error('❌ Ошибка загрузки страницы учёта ТМЦ:', error);
     res.status(500).send('Ошибка при загрузке страницы учёта ТМЦ');
@@ -1893,6 +2015,53 @@ function escapeHtml(text) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+/**
+ * 🆕 5.0.4: Сортируемый заголовок таблицы.
+ */
+function sortableTh(column, label, currentSort, currentOrder, query) {
+  const isActive = currentSort === column;
+  const nextOrder = isActive && currentOrder === 'asc' ? 'desc' : 'asc';
+  const arrow = isActive ? (currentOrder === 'asc' ? ' ▲' : ' ▼') : '';
+
+  const params = new URLSearchParams();
+  for (const [k, v] of Object.entries(query || {})) {
+    if (k !== 'sort' && k !== 'order' && k !== 'page' && v) {
+      params.set(k, v);
+    }
+  }
+  params.set('sort', column);
+  params.set('order', nextOrder);
+
+  const cls = isActive ? 'sortable-header active' : 'sortable-header';
+  return `<th class="${cls}">
+    <a href="/manage?${params.toString()}">${label}${arrow}</a>
+  </th>`;
+}
+
+/**
+ * 🆕 5.0.4: Пагинация для /manage.
+ */
+function renderManagePagination({ page, totalPages, totalFiltered, query }) {
+  if (totalPages <= 1) {
+    return `<div class="pagination"><span class="pagination-info">Всего: ${totalFiltered}</span></div>`;
+  }
+  const buildUrl = (p) => {
+    const params = new URLSearchParams();
+    Object.entries(query || {}).forEach(([k, v]) => {
+      if (k !== 'page' && v) params.set(k, v);
+    });
+    params.set('page', p);
+    return '/manage?' + params.toString();
+  };
+  let html = '<div class="pagination">';
+  html += `<span class="pagination-info">Страница ${page} из ${totalPages} (всего: ${totalFiltered})</span>`;
+  html += '<div class="pagination-buttons">';
+  if (page > 1) html += `<a href="${buildUrl(page - 1)}" class="pagination-btn">← Назад</a>`;
+  if (page < totalPages) html += `<a href="${buildUrl(page + 1)}" class="pagination-btn">Вперёд →</a>`;
+  html += '</div></div>';
+  return html;
 }
 
 function escapeAttr(str) {

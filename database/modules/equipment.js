@@ -299,43 +299,39 @@ module.exports = ({ db, run, get, all }) => {
         search       = null,
         warehouse_id = null,
         workplace_id = null,
+        mol_id       = null,       // 🆕
+        corporate_id = null,       // 🆕
+        model_name   = null,       // 🆕
         unplaced     = false,
+        sort         = 'id',       // 🆕
+        order        = 'asc',      // 🆕
         limit        = null,
         offset       = 0,
         include_total = false,
       } = filters;
 
-      // Общие условия WHERE
+      // --- WHERE ---
       const where = ['1=1'];
       const whereParams = [];
-      if (s.clause) {
-        where.push(s.clause);
-        whereParams.push(...s.params);
+      if (s.clause) { where.push(s.clause); whereParams.push(...s.params); }
+
+      if (category_id) { where.push('m.category_id = ?'); whereParams.push(category_id); }
+      if (type_id)     { where.push('m.type_id = ?');     whereParams.push(type_id); }
+      if (status)      { where.push('e.status = ?');      whereParams.push(status); }
+      if (warehouse_id){ where.push('wh.id = ?');         whereParams.push(warehouse_id); }
+      if (workplace_id){ where.push('e.workplace_id = ?');whereParams.push(workplace_id); }
+      if (mol_id)      { where.push('e.responsible_user_id = ?'); whereParams.push(mol_id); }
+      if (unplaced)    { where.push(`(e.status = 'available' AND e.cell_id IS NULL AND e.workplace_id IS NULL)`); }
+
+      if (corporate_id) {
+        where.push('m.corporate_id LIKE ?');
+        whereParams.push(`%${corporate_id}%`);
+      }
+      if (model_name) {
+        where.push('m.name LIKE ?');
+        whereParams.push(`%${model_name}%`);
       }
 
-      if (category_id) {
-        where.push('m.category_id = ?');
-        whereParams.push(category_id);
-      }
-      if (type_id) {
-        where.push('m.type_id = ?');
-        whereParams.push(type_id);
-      }
-      if (status) {
-        where.push('e.status = ?');
-        whereParams.push(status);
-      }
-      if (warehouse_id) {
-        where.push('wh.id = ?');
-        whereParams.push(warehouse_id);
-      }
-      if (workplace_id) {
-        where.push('e.workplace_id = ?');
-        whereParams.push(workplace_id);
-      }
-      if (unplaced) {
-        where.push(`(e.status = 'available' AND e.cell_id IS NULL AND e.workplace_id IS NULL)`);
-      }
       if (search) {
         where.push(`(
           e.inventory_number LIKE ? OR
@@ -354,6 +350,23 @@ module.exports = ({ db, run, get, all }) => {
       }
 
       const whereSql = `WHERE ${where.join(' AND ')}`;
+
+      // --- Сортировка (белый список) ---
+      const SORT_MAP = {
+        id:               'e.id',
+        inventory_number: 'e.inventory_number',
+        model_name:       'm.name',
+        corporate_id:     'm.corporate_id',
+        category:         'c.name',
+        type:             't.name',
+        status:           'e.status',
+        responsible:      'ru.full_name',
+        location:         `COALESCE(cell.code, wp.name)`,
+        created_at:       'e.created_at',
+        purchase_date:    'e.purchase_date',
+      };
+      const sortSql = SORT_MAP[sort] || 'e.id';
+      const orderSql = (String(order).toLowerCase() === 'desc') ? 'DESC' : 'ASC';
 
       const baseSelect = `
         SELECT
@@ -418,7 +431,7 @@ module.exports = ({ db, run, get, all }) => {
         LEFT JOIN offices    o    ON r.office_id = o.id
       `;
 
-      let itemsSql = `${baseSelect} ${whereSql} ORDER BY e.inventory_number ASC`;
+      let itemsSql = `${baseSelect} ${whereSql} ORDER BY ${sortSql} ${orderSql}, e.id ASC`;
       const itemsParams = [...whereParams];
 
       if (limit) {

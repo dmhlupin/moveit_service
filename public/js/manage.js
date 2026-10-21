@@ -54,6 +54,73 @@ function getCurrentRole() {
 }
 
 // ============================================================
+// ФИЛЬТРЫ (шаг 5.0.4)
+// ============================================================
+
+function applyFilters() {
+    const params = new URLSearchParams();
+
+    const search = document.getElementById('filterSearch')?.value.trim();
+    const corporateId = document.getElementById('filterCorporateId')?.value.trim();
+    const modelName = document.getElementById('filterModelName')?.value.trim();
+    const categoryId = document.getElementById('filterCategory')?.value;
+    const typeId = document.getElementById('filterType')?.value;
+    const molId = document.getElementById('filterMol')?.value;
+    const pageSize = document.getElementById('filterPageSize')?.value;
+
+    if (search) params.set('search', search);
+    if (corporateId) params.set('corporate_id', corporateId);
+    if (modelName) params.set('model_name', modelName);
+    if (categoryId) params.set('category_id', categoryId);
+    if (typeId) params.set('type_id', typeId);
+    if (molId) params.set('mol_id', molId);
+    if (pageSize) params.set('limit', pageSize);
+
+    // сохраняем сортировку, если была
+    const url = new URL(window.location.href);
+    const sort = url.searchParams.get('sort');
+    const order = url.searchParams.get('order');
+    if (sort) params.set('sort', sort);
+    if (order) params.set('order', order);
+
+    window.location.href = '/manage?' + params.toString();
+}
+
+function resetFilters() {
+    window.location.href = '/manage';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // скрыть фильтр МОЛа для не-admin
+    if (getCurrentRole() !== 'admin') {
+        const molGroup = document.getElementById('filterMolGroup');
+        if (molGroup) molGroup.style.display = 'none';
+    }
+
+    // Enter в текстовых полях → применить фильтр
+    ['filterSearch', 'filterCorporateId', 'filterModelName'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('keydown', e => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    applyFilters();
+                }
+            });
+        }
+    });
+
+    // Enter в селектах — не нужно, но для pageSize пусть применяется сразу
+    const pageSize = document.getElementById('filterPageSize');
+    if (pageSize) {
+        pageSize.addEventListener('change', applyFilters);
+    }
+
+    // 🆕 подтягиваем типы по выбранной категории — оставим на потом (это уже сделано на сервере при рендере;
+    // но если пользователь меняет категорию — хочется перерисовать типы. Пока просто применяем фильтр.)
+});
+
+// ============================================================
 // ПЕРЕМЕННЫЕ
 // ============================================================
 
@@ -1220,6 +1287,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // 🆕 ID текущего пользователя — для проверки прав в карточке
     window.currentUserId = parseInt(document.getElementById('currentUserId')?.value || '0');
     console.log('🔍 currentUserId из DOM:', window.currentUserId);
+
+    // 🆕 5.0.4: скрыть фильтр МОЛа для не-admin
+    if (getCurrentRole() !== 'admin') {
+        const molGroup = document.getElementById('filterMolGroup');
+        if (molGroup) molGroup.style.display = 'none';
+    }
 
     document.querySelectorAll('.modal-overlay').forEach(modal => {
         modal.addEventListener('click', function(e) {

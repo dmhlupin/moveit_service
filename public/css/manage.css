@@ -1352,6 +1352,107 @@
 }
 
 /* ============================================================
+   СОРТИРУЕМЫЕ ЗАГОЛОВКИ (шаг 5.0.4)
+   ============================================================ */
+
+.sortable-header a {
+    color: inherit;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    transition: color var(--transition-fast);
+}
+
+.sortable-header a:hover {
+    color: var(--accent);
+}
+
+.sortable-header.active a {
+    color: var(--accent);
+    font-weight: 700;
+}
+
+/* ============================================================
+   ПАНЕЛЬ ФИЛЬТРОВ (шаг 5.0.4)
+   ============================================================ */
+
+.filters-panel {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-md);
+    align-items: flex-end;
+    padding: var(--space-lg);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    margin-bottom: var(--space-lg);
+}
+
+.filters-panel .filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 160px;
+    flex: 1 1 160px;
+}
+
+.filters-panel .filter-group--search {
+    flex: 2 1 240px;
+}
+
+.filters-panel .filter-group--narrow {
+    flex: 0 0 120px;
+    min-width: 100px;
+}
+
+.filters-panel .filter-group label {
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+}
+
+.filters-panel input,
+.filters-panel select {
+    width: 100%;
+    padding: 8px 12px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-size: var(--text-sm);
+    font-family: inherit;
+}
+
+.filters-panel input:focus,
+.filters-panel select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-bg);
+}
+
+.filters-panel .filter-actions {
+    display: flex;
+    gap: var(--space-xs);
+    align-items: flex-end;
+}
+
+@media (max-width: 768px) {
+    .filters-panel {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .filters-panel .filter-group,
+    .filters-panel .filter-group--search,
+    .filters-panel .filter-group--narrow {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+}
+
+/* ============================================================
    АДАПТИВНОСТЬ
    ============================================================ */
 

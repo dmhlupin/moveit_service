@@ -1,6 +1,6 @@
-<!-- views/admin.html — контент-шаблон «Учёт ТМЦ» -->
+<!-- views/manage.html — контент-шаблон «Учёт ТМЦ» (шаг 5.0.4) -->
 
-<!-- 🆕 Текущая роль — для клиентского JS -->
+<!-- Текущая роль / ID — для клиентского JS -->
 <input type="hidden" id="currentRole" value="{{current_role}}">
 <input type="hidden" id="currentUserId" value="{{current_user_id}}">
 
@@ -46,6 +46,60 @@
 </div>
 
 <!-- ============================================================ -->
+<!-- ФИЛЬТРЫ (шаг 5.0.4)                                           -->
+<!-- ============================================================ -->
+
+<div class="filters-panel">
+    <div class="filter-group filter-group--search">
+        <label>Поиск</label>
+        <div class="search-wrapper">
+            <span class="search-icon">🔍</span>
+            <input type="search"
+                id="filterSearch"
+                placeholder="Инв. №, серийный, ФИО..."
+                autocomplete="off"
+                value="{{filter_search}}">
+        </div>
+    </div>
+    <div class="filter-group">
+        <label>Корпоративный ИД</label>
+        <input type="text" id="filterCorporateId" placeholder="Например: MOD-0001" value="{{filter_corporate_id}}">
+    </div>
+    <div class="filter-group">
+        <label>Наименование</label>
+        <input type="text" id="filterModelName" placeholder="Например: Ноутбук" value="{{filter_model_name}}">
+    </div>
+    <div class="filter-group">
+        <label>Категория</label>
+        <select id="filterCategory">
+            {{filter_category_options}}
+        </select>
+    </div>
+    <div class="filter-group">
+        <label>Тип</label>
+        <select id="filterType">
+            {{filter_type_options}}
+        </select>
+    </div>
+    <div class="filter-group" id="filterMolGroup">
+        <label>Ответственный МОЛ</label>
+        <select id="filterMol">
+            {{filter_mol_options}}
+        </select>
+    </div>
+    <div class="filter-group filter-group--narrow">
+        <label>Показывать по</label>
+        <select id="filterPageSize">
+            {{page_size_options}}
+        </select>
+    </div>
+    <div class="filter-actions">
+        <button type="button" class="btn btn-primary" onclick="applyFilters()">✔ Применить</button>
+        <button type="button" class="btn btn-ghost" onclick="resetFilters()">✕ Сбросить</button>
+    </div>
+</div>
+
+<!-- ============================================================ -->
 <!-- ТАБЛИЦА ТЕХНИКИ                                               -->
 <!-- ============================================================ -->
 
@@ -54,22 +108,21 @@
         <h2>📋 Список техники</h2>
         <div class="table-search">
             <a href="/manage/add" class="btn btn-success btn-sm">➕ Добавить технику</a>
-            <input type="text" id="searchEquipment" placeholder="🔍 Поиск..." onkeyup="searchTable('equipment')">
         </div>
     </div>
     <table>
         <thead>
             <tr>
-                <th style="width: 40px;">ID</th>
-                <th style="width: 100px;">Инв. №</th>
-                <th style="width: 160px;">Модель</th>
-                <th style="width: 110px;">Корпоративный ИД</th>
-                <th style="width: 150px;">Категория</th>
-                <th style="width: 120px;">Тип</th>
-                <th style="width: 180px;">Место хранения</th>
-                <th style="width: 90px;">Статус</th>
-                <th style="width: 170px;">Назначена</th>
-                {{responsible_th}}
+                {{th_id}}
+                {{th_inventory}}
+                {{th_model}}
+                {{th_corporate}}
+                {{th_category}}
+                {{th_type}}
+                {{th_location}}
+                {{th_status}}
+                {{th_assigned}}
+                {{th_responsible}}
             </tr>
         </thead>
         <tbody id="equipmentTableBody">
@@ -77,6 +130,11 @@
         </tbody>
     </table>
 </div>
+
+<!-- ============================================================ -->
+<!-- ПАГИНАЦИЯ                                                      -->
+<!-- ============================================================ -->
+{{pagination}}
 
 <!-- ============================================================ -->
 <!-- МОДАЛКА: УДАЛЕНИЕ ТЕХНИКИ                                     -->
