@@ -1,8 +1,9 @@
 <!-- views/partials/equipment-card.html -->
 <!-- Самодостаточный партиал карточки техники + модалок действий.
      Подключается на страницах, где нужна карточка техники:
-       - /manage (через include или fetch)
-       - /admin/users, /admin/warehouses, /admin/workplaces (через fetch при первом вызове)
+       - /manage (через include в renderManage)
+       - /admin/users, /admin/warehouses, /admin/workplaces
+         (через fetch при первом вызове EquipmentCard.open)
      Не включает bulkMoveModal — это специфика страницы /manage. -->
 
 <!-- ============================================================ -->
@@ -16,8 +17,8 @@
         </div>
         <p id="deleteUserText">Вы уверены, что хотите удалить этот элемент? Это действие нельзя отменить.</p>
         <div class="modal-actions">
-            <button onclick="EquipmentCard.closeDeleteModal()" class="btn btn-ghost">Отмена</button>
-            <button onclick="EquipmentCard.confirmDelete()" class="btn btn-danger">Удалить</button>
+            <button onclick="EquipmentCardModals.closeDelete()" class="btn btn-ghost">Отмена</button>
+            <button onclick="EquipmentCardModals.confirmDelete()" class="btn btn-danger">Удалить</button>
         </div>
     </div>
 </div>
@@ -46,20 +47,20 @@
     <div class="modal move-modal">
         <div class="modal-header">
             <h3>🔄 Перемещение техники</h3>
-            <button onclick="EquipmentCard.closeMoveModal()" class="modal-close">✕</button>
+            <button onclick="EquipmentCardModals.closeMove()" class="modal-close">✕</button>
         </div>
 
         <div class="move-equipment-info" id="moveEquipmentInfo"></div>
         <div class="move-current-location" id="moveCurrentLocation"></div>
 
-        <form id="moveEquipmentForm" onsubmit="EquipmentCard.submitMove(event)">
+        <form id="moveEquipmentForm" onsubmit="EquipmentCardModals.submitMove(event)">
             <input type="hidden" id="moveEquipmentId">
 
             <h4 class="move-section-title">📍 Новое место хранения</h4>
 
             <div class="form-group">
                 <label>Склад</label>
-                <select id="moveWarehouse" onchange="EquipmentCard.onMoveWarehouseChange()">
+                <select id="moveWarehouse" onchange="EquipmentCardModals.onMoveWarehouseChange()">
                     <option value="">— Убрать из ячейки —</option>
                 </select>
             </div>
@@ -67,14 +68,14 @@
             <div class="form-row">
                 <div class="form-group">
                     <label>Зона</label>
-                    <select id="moveZone" onchange="EquipmentCard.onMoveZoneChange()" disabled>
+                    <select id="moveZone" onchange="EquipmentCardModals.onMoveZoneChange()" disabled>
                         <option value="">— Сначала выберите склад —</option>
                     </select>
                 </div>
 
                 <div class="form-group">
                     <label>Стеллаж</label>
-                    <select id="moveRack" onchange="EquipmentCard.onMoveRackChange()" disabled>
+                    <select id="moveRack" onchange="EquipmentCardModals.onMoveRackChange()" disabled>
                         <option value="">— Сначала выберите зону —</option>
                     </select>
                 </div>
@@ -101,7 +102,7 @@
                 <button type="submit" class="btn btn-primary" id="moveSubmitBtn">
                     🔄 Переместить
                 </button>
-                <button type="button" class="btn btn-ghost" onclick="EquipmentCard.closeMoveModal()">
+                <button type="button" class="btn btn-ghost" onclick="EquipmentCardModals.closeMove()">
                     Отмена
                 </button>
             </div>
@@ -117,7 +118,7 @@
     <div class="modal">
         <div class="modal-header">
             <h3>👤 Назначить пользователю</h3>
-            <button onclick="EquipmentCard.closeAssignModal()" class="modal-close">✕</button>
+            <button onclick="EquipmentCardModals.closeAssign()" class="modal-close">✕</button>
         </div>
         <div class="modal-body">
             <input type="hidden" id="assignEquipmentId">
@@ -133,8 +134,8 @@
             </div>
         </div>
         <div class="modal-actions">
-            <button onclick="EquipmentCard.closeAssignModal()" class="btn btn-ghost">Отмена</button>
-            <button onclick="EquipmentCard.submitAssign()" class="btn btn-success" id="assignSubmitBtn">👤 Назначить</button>
+            <button onclick="EquipmentCardModals.closeAssign()" class="btn btn-ghost">Отмена</button>
+            <button onclick="EquipmentCardModals.submitAssign()" class="btn btn-success" id="assignSubmitBtn">👤 Назначить</button>
         </div>
     </div>
 </div>
@@ -147,7 +148,7 @@
     <div class="modal">
         <div class="modal-header">
             <h3 id="statusChangeTitle">Смена статуса</h3>
-            <button onclick="EquipmentCard.closeStatusChangeModal()" class="modal-close">✕</button>
+            <button onclick="EquipmentCardModals.closeStatusChange()" class="modal-close">✕</button>
         </div>
         <div class="modal-body">
             <input type="hidden" id="statusChangeEquipmentId">
@@ -155,8 +156,8 @@
             <p id="statusChangeText" style="margin: 0; color: var(--text-secondary);"></p>
         </div>
         <div class="modal-actions">
-            <button onclick="EquipmentCard.closeStatusChangeModal()" class="btn btn-ghost">Отмена</button>
-            <button onclick="EquipmentCard.submitStatusChange()" class="btn btn-primary" id="statusChangeSubmitBtn">Подтвердить</button>
+            <button onclick="EquipmentCardModals.closeStatusChange()" class="btn btn-ghost">Отмена</button>
+            <button onclick="EquipmentCardModals.submitStatusChange()" class="btn btn-primary" id="statusChangeSubmitBtn">Подтвердить</button>
         </div>
     </div>
 </div>
@@ -169,7 +170,7 @@
     <div class="modal">
         <div class="modal-header">
             <h3>🪑 Переместить на рабочее место</h3>
-            <button onclick="EquipmentCard.closeMoveToWorkplaceModal()" class="modal-close">✕</button>
+            <button onclick="EquipmentCardModals.closeMoveToWorkplace()" class="modal-close">✕</button>
         </div>
         <div class="modal-body">
             <input type="hidden" id="moveToWorkplaceEquipmentId">
@@ -181,8 +182,8 @@
             </div>
         </div>
         <div class="modal-actions">
-            <button onclick="EquipmentCard.closeMoveToWorkplaceModal()" class="btn btn-ghost">Отмена</button>
-            <button onclick="EquipmentCard.submitMoveToWorkplace()" class="btn btn-primary" id="moveToWorkplaceSubmitBtn">🪑 Переместить</button>
+            <button onclick="EquipmentCardModals.closeMoveToWorkplace()" class="btn btn-ghost">Отмена</button>
+            <button onclick="EquipmentCardModals.submitMoveToWorkplace()" class="btn btn-primary" id="moveToWorkplaceSubmitBtn">🪑 Переместить</button>
         </div>
     </div>
 </div>
@@ -195,7 +196,7 @@
     <div class="modal">
         <div class="modal-header">
             <h3>↩️ Вернуть на склад</h3>
-            <button onclick="EquipmentCard.closeReturnModal()" class="modal-close">✕</button>
+            <button onclick="EquipmentCardModals.closeReturn()" class="modal-close">✕</button>
         </div>
         <div class="modal-body">
             <input type="hidden" id="returnEquipmentId">
@@ -204,20 +205,20 @@
             </p>
             <div class="form-group">
                 <label>Склад</label>
-                <select id="returnWarehouse" onchange="EquipmentCard.onReturnWarehouseChange()">
+                <select id="returnWarehouse" onchange="EquipmentCardModals.onReturnWarehouseChange()">
                     <option value="">— Выберите склад —</option>
                 </select>
             </div>
             <div class="form-row">
                 <div class="form-group">
                     <label>Зона</label>
-                    <select id="returnZone" onchange="EquipmentCard.onReturnZoneChange()" disabled>
+                    <select id="returnZone" onchange="EquipmentCardModals.onReturnZoneChange()" disabled>
                         <option value="">— Сначала выберите склад —</option>
                     </select>
                 </div>
                 <div class="form-group">
                     <label>Стеллаж</label>
-                    <select id="returnRack" onchange="EquipmentCard.onReturnRackChange()" disabled>
+                    <select id="returnRack" onchange="EquipmentCardModals.onReturnRackChange()" disabled>
                         <option value="">— Сначала выберите зону —</option>
                     </select>
                 </div>
@@ -230,8 +231,8 @@
             </div>
         </div>
         <div class="modal-actions">
-            <button onclick="EquipmentCard.closeReturnModal()" class="btn btn-ghost">Отмена</button>
-            <button onclick="EquipmentCard.submitReturn()" class="btn btn-success" id="returnSubmitBtn">↩️ Вернуть</button>
+            <button onclick="EquipmentCardModals.closeReturn()" class="btn btn-ghost">Отмена</button>
+            <button onclick="EquipmentCardModals.submitReturn()" class="btn btn-success" id="returnSubmitBtn">↩️ Вернуть</button>
         </div>
     </div>
 </div>

@@ -1,13 +1,8 @@
 // public/js/manage/helpers.js
 // Общие хелперы для модулей /manage.
-
-function getInitials(name) {
-    if (!name) return '?';
-    const parts = String(name).trim().split(/\s+/).filter(p => p);
-    if (parts.length === 0) return '?';
-    if (parts.length === 1) return parts[0][0].toUpperCase();
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
+// getInitials убран (5.8.1.7): дублировал public/js/layout.js.
+// deleteId / deleteType убраны (5.8.1.7): модалка удаления переехала
+// в equipment-card/modals.js со своим pendingDeleteId.
 
 function formatDate(dateString) {
     if (!dateString) return '—';
@@ -54,7 +49,3 @@ function getCurrentRole() {
 function searchTable() {
     // no-op: серверный поиск через applyFilters()
 }
-
-// Глобальные переменные для модалки удаления
-let deleteId = null;
-let deleteType = null;

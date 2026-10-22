@@ -2,13 +2,9 @@
 // Публичный API карточки техники.
 // Единственная точка входа: EquipmentCard.open({ id, role, currentUserId, onClose }).
 //
-// ВАЖНО (переходный момент, 5.8.1.2):
-//   Прокси-методы в конце файла (EquipmentCard.closeMoveModal и т.д.)
-//   нужны, потому что партиал views/partials/equipment-card.html
-//   (5.8.1.1) написан с onclick="EquipmentCard.<method>()".
-//   После 5.8.1.4/5.8.1.5 (когда /manage переключится на модуль и старые
-//   глобальные функции будут удалены) — переписать партиал начисто
-//   на EquipmentCardModals.*, а прокси-методы удалить.
+// После 5.8.1.7 прокси-методы удалены: партиал использует
+// EquipmentCardModals.* напрямую, а сам EquipmentCard.close() —
+// только для закрытия карточки.
 
 (function () {
     'use strict';
@@ -173,35 +169,6 @@
             return Object.assign({}, state);
         },
     };
-
-    // ------------------------------------------------------------
-    // ПРОКСИ-МЕТОДЫ (переходный момент, 5.8.1.2)
-    // Нужны, потому что партиал 5.8.1.1 написан с onclick="EquipmentCard.*".
-    // После 5.8.1.4/5.8.1.5 — переписать партиал начисто и удалить этот блок.
-    // ------------------------------------------------------------
-    EquipmentCard.closeDeleteModal         = () => window.EquipmentCardModals.closeDelete();
-    EquipmentCard.confirmDelete            = () => window.EquipmentCardModals.confirmDelete();
-
-    EquipmentCard.closeMoveModal           = () => window.EquipmentCardModals.closeMove();
-    EquipmentCard.onMoveWarehouseChange    = () => window.EquipmentCardModals.onMoveWarehouseChange();
-    EquipmentCard.onMoveZoneChange         = () => window.EquipmentCardModals.onMoveZoneChange();
-    EquipmentCard.onMoveRackChange         = () => window.EquipmentCardModals.onMoveRackChange();
-    EquipmentCard.submitMove               = (e) => window.EquipmentCardModals.submitMove(e);
-
-    EquipmentCard.closeAssignModal         = () => window.EquipmentCardModals.closeAssign();
-    EquipmentCard.submitAssign             = () => window.EquipmentCardModals.submitAssign();
-
-    EquipmentCard.closeStatusChangeModal   = () => window.EquipmentCardModals.closeStatusChange();
-    EquipmentCard.submitStatusChange       = () => window.EquipmentCardModals.submitStatusChange();
-
-    EquipmentCard.closeMoveToWorkplaceModal = () => window.EquipmentCardModals.closeMoveToWorkplace();
-    EquipmentCard.submitMoveToWorkplace    = () => window.EquipmentCardModals.submitMoveToWorkplace();
-
-    EquipmentCard.closeReturnModal         = () => window.EquipmentCardModals.closeReturn();
-    EquipmentCard.onReturnWarehouseChange  = () => window.EquipmentCardModals.onReturnWarehouseChange();
-    EquipmentCard.onReturnZoneChange       = () => window.EquipmentCardModals.onReturnZoneChange();
-    EquipmentCard.onReturnRackChange       = () => window.EquipmentCardModals.onReturnRackChange();
-    EquipmentCard.submitReturn             = () => window.EquipmentCardModals.submitReturn();
 
     window.EquipmentCard = EquipmentCard;
 })();
