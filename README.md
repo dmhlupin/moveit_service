@@ -272,7 +272,7 @@
 ```bash
 # 1. Клонировать репозиторий
 git clone https://github.com/dmhlupin/moveit_service.git
-cd myapp1
+cd moveit_service
 
 # 2. Установить зависимости
 npm install
@@ -615,7 +615,7 @@ Read-only ко всему, кроме логов. Директор / бухга�
 ## 📁 Структура проекта
 
 ```
-myapp1/
+moveit_service/
 │
 ├── data/ # База данных (не в Git)
 │ ├── database.db
@@ -1138,8 +1138,8 @@ SOFTWARE.
 
 ## 📞 Поддержка
 
-- 🐛 **Нашли баг?** [Создайте issue](https://github.com/dmhlupin/myapp1/issues)
-- 💡 **Есть идея?** [Откройте discussion](https://github.com/dmhlupin/myapp1/discussions)
+- 🐛 **Нашли баг?** [Создайте issue](https://github.com/dmhlupin/moveit_service/issues)
+- 💡 **Есть идея?** [Откройте discussion](https://github.com/dmhlupin/moveit_service/discussions)
 - 📧 **Email:** dmhlupin@gmail.com
 
 ---
