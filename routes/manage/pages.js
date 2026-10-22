@@ -278,7 +278,13 @@ async function renderManage(req, res) {
     renderPageFor(req, res, {
       title: 'Учёт ТМЦ – MoveIT service',
       content: html,
-      pageCss: '/css/manage.css',
+      pageCss: [                      // стало
+        '/css/manage/table.css',
+        '/css/manage/card.css',
+        '/css/manage/actions.css',
+        '/css/manage/modals.css',
+        '/css/manage/responsive.css',
+      ],
       pageJs: [
         '/js/manage/helpers.js',
         '/js/manage/equipment-card.js',

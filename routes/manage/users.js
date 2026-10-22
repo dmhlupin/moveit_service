@@ -92,7 +92,12 @@ async function renderAdminUsers(req, res) {
     renderPageFor(req, res, {
       title: 'Управление доступом – MoveIT service',
       content: html,
-      pageCss: '/css/admin.css',
+      pageCss: [
+        '/css/manage/table.css',
+        '/css/manage/card.css',
+        '/css/manage/modals.css',
+        '/css/manage/responsive.css',
+      ],
       pageJs: '/js/admin-users.js',
     });
   } catch (error) {
