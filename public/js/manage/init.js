@@ -54,5 +54,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const pageSize = document.getElementById('filterPageSize');
     if (pageSize) {
         pageSize.addEventListener('change', applyFilters);
+    };
+
+        // 🆕 5.6.3: селект «Показать: все/свои» → сразу применить
+    const onlyMine = document.getElementById('filterOnlyMine');
+    if (onlyMine) {
+        onlyMine.addEventListener('change', applyFilters);
     }
 });

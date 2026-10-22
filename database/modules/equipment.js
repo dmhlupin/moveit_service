@@ -308,6 +308,7 @@ module.exports = ({ db, run, get, all }) => {
         limit        = null,
         offset       = 0,
         include_total = false,
+        only_mine    = false,   // 🆕 5.6.3
       } = filters;
 
       // --- WHERE ---
@@ -321,6 +322,11 @@ module.exports = ({ db, run, get, all }) => {
       if (warehouse_id){ where.push('wh.id = ?');         whereParams.push(warehouse_id); }
       if (workplace_id){ where.push('e.workplace_id = ?');whereParams.push(workplace_id); }
       if (mol_id)      { where.push('e.responsible_user_id = ?'); whereParams.push(mol_id); }
+            // 🆕 5.6.3: только «свои» экземпляры (для МОЛа)
+      if (only_mine && scope.userId && scope.role === 'mol') {
+        where.push('e.responsible_user_id = ?');
+        whereParams.push(scope.userId);
+      }
       if (unplaced)    { where.push(`(e.status = 'available' AND e.cell_id IS NULL AND e.workplace_id IS NULL)`); }
 
       if (corporate_id) {

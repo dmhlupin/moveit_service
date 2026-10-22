@@ -56,6 +56,7 @@ async function renderManage(req, res) {
       corporate_id: (q.corporate_id || '').trim() || null,
       model_name:   (q.model_name   || '').trim() || null,
       search:       (q.search       || '').trim() || null,
+      only_mine:    q.only_mine === '1',   // 🆕 5.6.3
       sort, order,
       limit: pageSize, offset, include_total: true,
     };
@@ -126,6 +127,24 @@ async function renderManage(req, res) {
       });
     }
     html = html.replace('{{filter_mol_options}}', molOptions);
+
+    // 🆕 5.6.3: селект «Показать: все / свои» — только для МОЛа
+    let onlyMineBlock = '';
+    if (currentRole === 'mol') {
+      const onlyMineOptions = `
+        <option value="">Все ТМЦ</option>
+        <option value="1" ${filters.only_mine ? 'selected' : ''}>Только мои</option>
+      `;
+      onlyMineBlock = `
+        <div class="filter-group">
+          <label>Показать</label>
+          <select id="filterOnlyMine">
+            ${onlyMineOptions}
+          </select>
+        </div>
+      `;
+    }
+    html = html.replace('{{filter_only_mine_block}}', onlyMineBlock);
 
     html = html.replace(/\{\{filter_corporate_id\}\}/g, escapeHtml(filters.corporate_id || ''));
     html = html.replace(/\{\{filter_model_name\}\}/g, escapeHtml(filters.model_name || ''));

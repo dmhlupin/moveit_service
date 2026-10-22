@@ -18,6 +18,10 @@ function applyFilters() {
     if (categoryId) params.set('category_id', categoryId);
     if (typeId) params.set('type_id', typeId);
     if (molId) params.set('mol_id', molId);
+    
+    const onlyMine = document.getElementById('filterOnlyMine')?.value;
+    if (onlyMine) params.set('only_mine', onlyMine);
+    
     if (pageSize) params.set('limit', pageSize);
 
     const url = new URL(window.location.href);
