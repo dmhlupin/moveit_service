@@ -1,5 +1,395 @@
 # История изменений
 
+## [5.7.2] - 2026-10-22
+
+**🎉 Этап 5.7 завершён: ссылки на карточку техники из модалок**
+
+Клик по строке техники в модалках ячейки / рабочего места / пользователя
+открывает карточку на `/manage`.
+
+### Added
+
+- **`public/js/equipment-view.js`** — `viewEquipmentFromExternal(id)`:
+  редирект на `/manage?open_equipment=ID`.
+- **`/manage?open_equipment=ID`** — автоматически открывает карточку техники
+  (через `#openEquipmentId` + `DOMContentLoaded` в `manage/init.js`).
+- **Кликабельные строки** в таблицах техники:
+  - карточка ячейки (`warehouse-details.js → viewCell`);
+  - карточка рабочего места (`workplace-details.js → viewWorkplace`);
+  - карточка пользователя (`admin-users.js → viewUser`, активная техника).
+- **CSS** `.equipment-row-link` (cursor: pointer, hover).
+
+### Changed
+
+- `routes/warehouses.js → renderWarehouseDetails` — `pageJs: ['/js/equipment-view.js', '/js/warehouse-details.js']`.
+- `routes/workplaces.js → renderWorkplaceDetails` — `pageJs: ['/js/equipment-view.js', '/js/workplace-details.js']`.
+- `routes/manage/users.js → renderAdminUsers` — `pageJs: ['/js/equipment-view.js', '/js/admin-users.js']`.
+- `views/manage.html` — `<input id="openEquipmentId" value="{{open_equipment_id}}">`.
+- `routes/manage/pages.js → renderManage` — чтение `q.open_equipment` + замена `{{open_equipment_id}}`.
+
+### Fixed
+
+- **Курсор `pointer`** на кликабельных строках в `/admin/warehouses`,
+  `/admin/workplaces` — `cursor` на `<tr>` и `<td>` (Safari).
+
+### Файлы
+
+**Новые:**
+- `public/js/equipment-view.js`
+
+**Изменены:**
+- `routes/manage/pages.js`
+- `routes/warehouses.js`
+- `routes/workplaces.js`
+- `routes/manage/users.js`
+- `public/js/manage/init.js`
+- `public/js/warehouse-details.js`
+- `public/js/workplace-details.js`
+- `public/js/admin-users.js`
+- `public/css/manage/card.css`
+- `public/css/warehouse-details.css`
+- `public/css/workplace-details.css`
+- `views/manage.html`
+- `package.json`
+- `CHANGELOG.md`
+- `README.md`
+
+### Теги
+
+- v5.7.1 — ссылки на карточку техники (переход на /manage)
+- **v5.7.2 — кликабельная строка + cursor (этот)**
+
+---
+
+## [5.7.0] - 2026-10-22
+
+**🎉 Этап 5.7.0: пометка чужих МОЛу + disabled-чекбоксы + фильтр «все / свои»**
+
+Закрыт пункт techdebt: МОЛ видел технику чужого МОЛа, но не понимал,
+может ли ей оперировать.
+
+### Added
+
+- **Пометка «чужой» техники** для МОЛа (`/manage`):
+  * `isLocked = (mol && !canEditThis)`;
+  * строка: серый фон, `opacity: 0.65`, 🔒 перед инв. номером;
+  * tooltip: «Техника закреплена за другим МОЛом — только просмотр».
+- **Disabled-чекбоксы** для чужих экземпляров:
+  * нельзя выбрать в групповое перемещение;
+  * «Выбрать всё» учитывает только доступные.
+- **Селект «Показать: Все ТМЦ / Только мои»** — только для МОЛа.
+
+### Changed
+
+- `database/modules/equipment.js → getEquipmentWithLocation` —
+  фильтр `only_mine` (только для `scope.role === 'mol'`).
+- `public/js/manage/bulk-actions.js`:
+  * `getSelectedIds` → `:not(:disabled)`;
+  * `toggleSelectAll` → только `:not(:disabled)`;
+  * `updateSelectedCount` → «выбрать всё» только для доступных.
+
+### Файлы
+
+**Изменены:**
+- `routes/manage/pages.js`
+- `database/modules/equipment.js`
+- `public/js/manage/bulk-actions.js`
+- `public/js/manage/filters.js`
+- `public/js/manage/init.js`
+- `public/css/manage/table.css`
+- `views/manage.html`
+- `package.json`
+- `CHANGELOG.md`
+
+### Теги
+
+- v5.6.0 — H.3: серверный поиск + пагинация на `/admin/users`
+- v5.6.2 — disabled-чекбоксы
+- **v5.7.0 — пометка + disabled + фильтр «все/свои» (этот)**
+
+---
+
+## [5.6.0] - 2026-10-22
+
+**🎉 Этап 5.6.0: серверный поиск + фильтры + пагинация на `/admin/users`**
+
+### Added
+
+- **Серверный поиск и фильтры на `/admin/users`** (по аналогии с `/manage`):
+  * поиск по ФИО, логину, email, отделу;
+  * фильтр по роли (`admin`, `supervisor`, `mol`, `user`);
+  * фильтр по статусу (`active`, `blocked`);
+  * селект «Показывать по» (10 / 20 / 50 / 100);
+  * кнопки «Применить» / «Сбросить».
+- **Пагинация** с сохранением фильтров в URL.
+
+### Changed
+
+- `database/modules/users.js → getAllUsersWithDetails(filters)`:
+  * фильтры `search`, `role`, `status`;
+  * пагинация `limit` / `offset`;
+  * `include_total` → `{ items, total, limit, offset }`.
+- `routes/manage/users.js → renderAdminUsers`:
+  * читает `req.query`;
+  * рендерит `{{filter_role_options}}`, `{{filter_status_options}}`,
+    `{{search_value}}`, `{{page_size_options}}`, `{{pagination}}`.
+- `views/admin-users.html` — панель фильтров + пагинация.
+- `public/js/admin-users.js` — `applyFilters`, `resetFilters`,
+  `applyPageSize` (удалён `searchTable`).
+
+### Файлы
+
+**Изменены:**
+- `database/modules/users.js`
+- `routes/manage/users.js`
+- `views/admin-users.html`
+- `public/js/admin-users.js`
+- `package.json`
+- `CHANGELOG.md`
+
+### Теги
+
+- **v5.6.0 — H.3: серверный поиск + пагинация (этот)**
+
+---
+
+## [5.5.4] - 2026-10-22
+
+**История получений в карточке пользователя — сворачиваемая**
+
+### Changed
+
+- `public/js/admin-users.js → viewUser`: `historyHtml` теперь
+  в `<details class="history-accordion">` с заголовком в `<summary>`.
+- По умолчанию свёрнута.
+- Использует существующие стили `.history-accordion` (card.css).
+- Убран дублирующий `<h4>` над блоком — заголовок теперь в `summary`.
+
+---
+
+## [5.5.3] - 2026-10-22
+
+**Активная техника в карточке пользователя — таблица вместо карточек**
+
+### Changed
+
+- `public/js/admin-users.js → viewUser`: `activeEquipmentHtml`
+  теперь рендерит `<table class="history-table">` с колонками:
+  Инв. №, Модель, Corporate ID, Производитель, Выдано, Состояние.
+- Использует существующие стили `.history-table` (card.css).
+- Новый CSS не требуется.
+
+---
+
+## [5.5.2] - 2026-10-22
+
+**Карточка пользователя — шире + таблицы на всю ширину**
+
+### Changed
+
+- `.view-user-modal`: max-width **800px → 1200px** (в 1.5 раза).
+- `viewUser`: блоки «Активная техника» и «История получений»
+  вынесены за пределы `user-detail-layout` — теперь на всю ширину карточки.
+- Правая колонка (действия) осталась sticky.
+
+---
+
+## [5.5.1] - 2026-10-22
+
+**Карточка пользователя — двухколоночный layout (H.2)**
+
+### Added
+
+- `viewUser` → двухколоночная карточка:
+  * левая: шапка, статистика, контакты, техника, история;
+  * правая: блок «Действия» (sticky).
+- Обёртки: `editUserFromCard`, `resetUserPasswordFromCard`,
+  `blockUserFromCard`, `unblockUserFromCard`, `deleteUserFromCard`.
+- `escapeAttr` — для передачи `username` в `onclick`.
+- `window.currentUserId` — из `#currentUserId` (скрытый input).
+- `views/admin-users.html` — `<input id="currentUserId">`.
+- `routes/manage/users.js → renderAdminUsers` — подстановка `{{current_user_id}}`.
+- `.user-actions-divider` в `card.css`.
+
+Действия из карточки: Редактировать, Сбросить пароль, Заблокировать /
+Разблокировать, Удалить. Себя удалить / заблокировать нельзя.
+
+---
+
+## [5.5.0] - 2026-10-22
+
+**Карточка пользователя — подготовка (H.1)**
+
+### Changed
+
+- `views/admin-users.html` — убран `<th>Действия</th>` из таблицы.
+- `routes/manage/users.js → renderAdminUsers`:
+  * убран `<td>` с кнопками;
+  * `class="user-row-clickable"` + `onclick="viewUser(id)"` на `<tr>`;
+  * пустое состояние с `colspan="8"`;
+  * `escapeHtml` для всех пользовательских данных;
+  * `pageCss` массивом.
+- `public/css/manage/table.css` — `.user-row-clickable`.
+- `public/css/manage/card.css` — `.user-detail-layout`, `.user-detail-side`,
+  `.user-actions-card`, `.user-actions-list`, `.user-actions-divider` + media-query.
+- `public/js/admin-user-add.js` — `finishCreate()` → `/admin/users` (было `/admin`).
+- `views/admin-user-add.html` — кнопка «Понятно, перейти к списку» → `finishCreate()`.
+
+### Fixed
+
+- Редирект после создания пользователя вёл на устаревший `/admin`.
+
+---
+
+## [5.4.0] - 2026-10-22
+
+**Переиспользование `moveEquipmentToWorkplace`**
+
+### Changed
+
+- `routes/workplaces.js → moveEquipmentToWorkplaceAPI` теперь использует
+  `moveEquipmentToWorkplace` из БД (вместо `updateEquipment` напрямую).
+- `routes/manage-equipment-actions.js → moveToWorkplaceFromCardAPI` — то же.
+- Оба API пишут одинаковый лог `equipment_move` с полями
+  `from_workplace_id` / `to_workplace_id` / `from_cell_id`.
+- `database/modules/workplaces.js → moveEquipmentToWorkplace`
+  возвращает `inventory_number` (для лога).
+
+### Added
+
+- Проверки `canEditEquipment` и `canMoveEquipmentTo` в `moveEquipmentToWorkplaceAPI`
+  (раньше их не было).
+
+---
+
+## [5.3.0] - 2026-10-22
+
+**Разбиение `public/css/manage.css` на модули**
+
+### Changed
+
+- `public/css/manage/table.css` — таблица, ячейки, бейджи, статусы, кнопки-иконки.
+- `public/css/manage/card.css` — карточка техники, текущий владелец, пустое
+  состояние, карточка пользователя, история, действия.
+- `public/css/manage/actions.css` — сортируемые заголовки, фильтры, групповое.
+- `public/css/manage/modals.css` — модалки удаления, перемещения, `btn-move-inline`.
+- `public/css/manage/responsive.css` — все `@media`.
+- `routes/manage/pages.js` — `pageCss` массивом для `/manage` (5 файлов).
+- `routes/manage/users.js` — `pageCss` массивом для `/admin/users` (4 файла).
+- Удалён `public/css/manage.css` (~1000 строк).
+
+### Fixed
+
+- Потерянные при переносе стили `.current-user-*` и `.empty-equipment`
+  (ошибочно указаны как «в components.css», перенесены в `card.css`).
+
+---
+
+## [5.2.0] - 2026-10-22
+
+**Разбиение `database/modules/warehouses.js` на модули**
+
+### Changed
+
+- `database/modules/warehouses/index.js` — сборка.
+- `database/modules/warehouses/scope.js` — `buildWarehouseScope`.
+- `database/modules/warehouses/crud.js` — CRUD складов, зон, стеллажей, ячеек.
+- `database/modules/warehouses/tree.js` — `getWarehouseTree`.
+- `database/modules/warehouses/stats.js` — `getWarehouseStats`.
+- `database/modules/warehouses/inventory.js` — инвентаризация.
+- `database/modules/warehouses/batch.js` — `createRacksBatch`, `createCellsBatch`.
+- `database/modules/warehouses/equipment-in-cell.js` — `getEquipmentInCell`.
+- Удалён `database/modules/warehouses.js` (~1000 строк).
+- Убрано дублирование `createRacksBatch` (было 2 копии).
+- `database/db.js` — без изменений (`require('./modules/warehouses')` → `index.js`).
+
+---
+
+## [5.1.1] - 2026-10-22
+
+**Разбиение `public/js/manage.js` на модули**
+
+### Changed
+
+- `public/js/manage/helpers.js` — `getInitials`, `formatDate`, `escapeHtml`, `getCurrentRole`.
+- `public/js/manage/equipment-card.js` — `viewEquipment` + действия из карточки.
+- `public/js/manage/equipment-actions.js` — модалки: перемещение, назначение,
+  статус, возврат, на рабочее место.
+- `public/js/manage/bulk-actions.js` — групповое перемещение (5.0.5).
+- `public/js/manage/filters.js` — `applyFilters`, `resetFilters`.
+- `public/js/manage/init.js` — `DOMContentLoaded`.
+- `utils/layout.js` — `pageCss` / `pageJs` принимают массив (и строку).
+- `routes/manage/pages.js` — `pageJs` передан массивом.
+- Удалён `public/js/manage.js` (~800 строк).
+
+---
+
+## [5.1.0] - 2026-10-22
+
+**Разбиение `routes/manage.js` на модули**
+
+### Changed
+
+- `routes/manage/index.js` — сборка роутов.
+- `routes/manage/pages.js` — `renderManage`, `renderAddEquipment`, `renderEditEquipment`.
+- `routes/manage/equipment.js` — CRUD техники + детали + перемещение.
+- `routes/manage/users.js` — CRUD пользователей + страницы управления доступом.
+- `routes/manage/logs.js` — логи (рендер + API).
+- `routes/manage/helpers.js` — `escapeHtml`, `getInitials`, `formatDate`,
+  `sortableTh`, `renderManagePagination`.
+- Удалён `routes/manage.js` (~1300 строк).
+- `server.js` — импорт из `routes/manage/index.js`.
+
+---
+
+## [5.0.0] - 2026-10-22
+
+**🎉 Этап 5.0 завершён: закрытие техдолга из тестовой эксплуатации**
+
+Серия улучшений и фиксов, закрывающих все замечания из `techdebt.md`.
+Плюс две важные функции: серверные фильтры / сортировка / пагинация
+на `/manage` и групповое перемещение техники.
+
+### Added
+
+- 5.0.1.2 — массовое создание стеллажей (`/admin/warehouses/:id`).
+- 5.0.1.3 — автосоздание ячеек при создании стеллажа.
+- 5.0.2.1 — автозаполнение рабочих мест (`/admin/workplaces/:id`).
+- 5.0.3 — таблица техники в карточке ячейки (вместо бейджей).
+- 5.0.4 — серверные фильтры, сортировка, пагинация на `/manage`.
+- 5.0.5 — групповое перемещение техники.
+- 5.0.6 — проверка доступности склада / офиса для МОЛа.
+- 5.0.7 — запрет несовместимых смен МОЛ + место.
+
+### Changed
+
+- 5.0.1.1 — описание стеллажа в дереве склада.
+- 5.0.2.2 — описание рабочего места в дереве офиса.
+- 5.0.6 — описание места в селекте «Переместить на рабочее место».
+- 5.0.7 — таблица техники в карточке рабочего места (как в ячейке).
+
+### Fixed
+
+- 5.0.1.2 — `canBulkMove` определён до цикла (был `ReferenceError`).
+- 5.0.4 — `getAllCategories` / `getAllTypes` добавлены в импорт `routes/manage.js`.
+- 5.0.5 — `bulk-move` вынесен до `/:id` в `server.js`.
+- 5.0.5 — чекбоксы и панель группового перемещения скрыты для supervisor.
+- 5.0.7 — дыра: admin мог одновременно сменить МОЛа и переместить технику
+  на чужой склад.
+
+### Теги
+
+- v5.0.1 — массовое создание стеллажей + автосоздание ячеек
+- v5.0.2 — автозаполнение рабочих мест
+- v5.0.3 — таблица техники в карточке ячейки
+- v5.0.4 — фильтры, сортировка, пагинация на `/manage`
+- v5.0.5 — групповое перемещение техники
+- v5.0.6 — проверка доступности склада / офиса для МОЛа
+- v5.0.7 — запрет несовместимых смен МОЛ + место
+- **v5.0.0 — этап 5.0 завершён (этот)**
+
+---
+
 ## [5.0.0] - 2026-10-22
 
 **🎉 Этап 5.0 завершён: закрытие техдолга из тестовой эксплуатации**
