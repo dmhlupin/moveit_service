@@ -796,6 +796,7 @@ module.exports = ({ db, run, get, all }) => ({
       db.get(`
         SELECT
           e.id,
+          e.inventory_number,
           m.name AS model_name,
           e.cell_id,
           e.workplace_id
@@ -850,6 +851,7 @@ module.exports = ({ db, run, get, all }) => ({
               new_workplace_id: workplaceId,
               old_cell_id: eq.cell_id,
               model_name: eq.model_name,
+              inventory_number: eq.inventory_number,   // 🆕
             });
           });
         });

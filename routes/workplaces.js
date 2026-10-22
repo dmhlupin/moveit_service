@@ -24,18 +24,25 @@ const {
   createWorkplace,
   updateWorkplace,
   deleteWorkplace,
-  getNextWorkplaceNumber,  // 🆕
+  getNextWorkplaceNumber,
   // Дерево и техника
   getOfficeTree,
   getFullWorkplaceTree,
   getWorkplaceEquipment,
   moveEquipmentToWorkplace,
+  getEquipmentById,            // 🆕
   // Статистика и сводка
   getWorkplaceStats,
   getWorkplaceSummary,
   getOfficeEquipment,
   getWorkplaceOccupancy,
 } = require('../database/db');
+
+const {
+  canEditEquipment,            // 🆕
+  canMoveEquipmentTo,          // 🆕
+} = require('../utils/permissions');
+
 const { logAction } = require('../utils/logger');
 const { renderPageFor } = require('../utils/layout');
 
@@ -726,8 +733,10 @@ async function getWorkplaceEquipmentAPI(req, res) {
 }
 
 /**
- * POST /api/admin/workplaces/:id/move-equipment — переместить технику на место
- * Body: { equipment_id }
+ * POST /api/admin/workplaces/:id/move-equipment
+ * Тело: { equipment_id }
+ *
+ * Перемещает технику на рабочее место. Единая логика с /api/manage/equipment/:id/move-to-workplace.
  */
 async function moveEquipmentToWorkplaceAPI(req, res) {
   try {
@@ -740,23 +749,58 @@ async function moveEquipmentToWorkplaceAPI(req, res) {
     if (!equipment_id) {
       return res.status(400).json({ error: 'equipment_id обязателен' });
     }
+    const equipmentId = parseInt(equipment_id, 10);
 
-    const result = await moveEquipmentToWorkplace(parseInt(equipment_id), workplaceId);
+    const equipment = await getEquipmentById(equipmentId);
+    if (!equipment) {
+      return res.status(404).json({ error: 'Техника не найдена' });
+    }
+
+    const userForPerm = { id: req.session.userId, role: req.session.role };
+    if (!(await canEditEquipment(userForPerm, equipmentId))) {
+      return res.status(404).json({ error: 'Техника не найдена' });
+    }
+
+    if (equipment.status === 'assigned') {
+      return res.status(400).json({
+        error: 'Нельзя переместить назначенную технику. Сначала верните её.',
+      });
+    }
+
+    // 5.0.6: проверка доступности целевого офиса для МОЛа
+    const targetCheck = await canMoveEquipmentTo(
+      userForPerm,
+      equipment,
+      { type: 'workplace', id: workplaceId }
+    );
+    if (!targetCheck.ok) {
+      return res.status(400).json({ error: targetCheck.reason });
+    }
+
+    const result = await moveEquipmentToWorkplace(equipmentId, workplaceId);
 
     await logAction({
       req,
-      action: 'equipment_move_to_workplace',
+      action: 'equipment_move',
       entityType: 'equipment',
-      entityId: parseInt(equipment_id),
+      entityId: equipmentId,
       details: JSON.stringify({
-        workplace_id: workplaceId,
-        equipment_name: result.equipment_name,
+        inventory_number: result.inventory_number || equipment.inventory_number,
+        model_name: result.model_name || equipment.model_name,
+        from_workplace_id: result.old_workplace_id,
+        to_workplace_id: result.new_workplace_id,
+        from_cell_id: result.old_cell_id,
       }),
     });
 
-    res.json({ success: true, message: 'Техника перемещена', data: result });
+    res.json({
+      success: true,
+      message: '✅ Техника перемещена на рабочее место',
+      data: result,
+    });
   } catch (error) {
-    if (error.message.includes('не найдена')) {
+    console.error('❌ Ошибка перемещения на место:', error);
+    if (error.message.includes('не найдено') || error.message.includes('не найдена')) {
       res.status(400).json({ error: error.message });
     } else {
       res.status(500).json({ error: error.message });

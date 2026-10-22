@@ -8,7 +8,8 @@ const {
   assignEquipment,
   returnEquipmentByEquipmentId,
   checkCellAvailability,
-  moveEquipmentToCellDetailed,   // 🆕
+  moveEquipmentToCellDetailed,
+  moveEquipmentToWorkplace,   // 🆕
 } = require('../database/db');
 
 const { 
@@ -290,10 +291,12 @@ async function returnEquipmentAPI(req, res) {
   }
 }
 
-// ============================================================
-// API — ПЕРЕМЕЩЕНИЕ НА РАБОЧЕЕ МЕСТО
-// ============================================================
-
+/**
+ * POST /api/manage/equipment/:id/move-to-workplace
+ * Тело: { workplace_id }
+ *
+ * Перемещает технику на рабочее место. Единая логика с /api/admin/workplaces/:id/move-equipment.
+ */
 async function moveToWorkplaceFromCardAPI(req, res) {
   try {
     const id = parseInt(req.params.id);
@@ -305,6 +308,7 @@ async function moveToWorkplaceFromCardAPI(req, res) {
     if (!workplace_id) {
       return res.status(400).json({ error: 'Выберите рабочее место' });
     }
+    const targetWorkplaceId = parseInt(workplace_id, 10);
 
     const equipment = await getEquipmentById(id);
     if (!equipment) {
@@ -322,28 +326,18 @@ async function moveToWorkplaceFromCardAPI(req, res) {
       });
     }
 
-    // 🆕 5.0.6: проверка доступности целевого офиса для МОЛа
+    // 5.0.6: проверка доступности целевого офиса для МОЛа
     const targetCheck = await canMoveEquipmentTo(
       userForPerm,
       equipment,
-      { type: 'workplace', id: parseInt(workplace_id, 10) }
+      { type: 'workplace', id: targetWorkplaceId }
     );
     if (!targetCheck.ok) {
       return res.status(400).json({ error: targetCheck.reason });
     }
 
-    await updateEquipment(id, {
-      model_id: equipment.model_id,
-      inventory_number: equipment.inventory_number,
-      serial_number: equipment.serial_number,
-      status: 'placed',
-      description: equipment.description,
-      purchase_date: equipment.purchase_date,
-      warranty_until: equipment.warranty_until,
-      cell_id: null,
-      workplace_id: parseInt(workplace_id, 10),
-      responsible_user_id: undefined,
-    });
+    // 🆕 5.4.0: единая логика — moveEquipmentToWorkplace из БД
+    const result = await moveEquipmentToWorkplace(id, targetWorkplaceId);
 
     await logAction({
       req,
@@ -351,19 +345,26 @@ async function moveToWorkplaceFromCardAPI(req, res) {
       entityType: 'equipment',
       entityId: id,
       details: JSON.stringify({
-        inventory_number: equipment.inventory_number,
-        to_workplace_id: parseInt(workplace_id, 10),
+        inventory_number: result.inventory_number || equipment.inventory_number,
+        model_name: result.model_name || equipment.model_name,
+        from_workplace_id: result.old_workplace_id,
+        to_workplace_id: result.new_workplace_id,
+        from_cell_id: result.old_cell_id,
       }),
     });
 
     res.json({
       success: true,
       message: '✅ Техника перемещена на рабочее место',
-      data: { id, workplace_id: parseInt(workplace_id, 10) },
+      data: { id, workplace_id: targetWorkplaceId },
     });
   } catch (error) {
     console.error('❌ Ошибка перемещения на место:', error);
-    res.status(500).json({ error: error.message });
+    if (error.message.includes('не найдено') || error.message.includes('не найдена')) {
+      res.status(400).json({ error: error.message });
+    } else {
+      res.status(500).json({ error: error.message });
+    }
   }
 }
 
