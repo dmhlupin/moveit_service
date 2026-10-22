@@ -18,19 +18,23 @@
     // CSS: подгружаем <link>, если ещё нет
     // ------------------------------------------------------------
     function ensureCss() {
+        const promises = [];
         CSS_FILES.forEach(href => {
-            const exists = Array.from(document.styleSheets).some(s => {
-                try { return s.href && s.href.endsWith(href); }
-                catch { return false; }
-            });
-            if (exists) return;
-
-            const link = document.createElement('link');
-            link.rel = 'stylesheet';
-            link.href = href;
-            link.dataset.equipmentCard = '1';
-            document.head.appendChild(link);
+            if (document.querySelector(`link[href="${href}"]`)) return;
+            promises.push(new Promise((resolve) => {
+                const link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = href;
+                link.dataset.equipmentCard = '1';
+                link.onload = () => resolve();
+                link.onerror = () => {
+                    console.warn(`[EquipmentCard] не удалось загрузить ${href}`);
+                    resolve(); // не блокируем карточку из-за CSS
+                };
+                document.head.appendChild(link);
+            }));
         });
+        return Promise.all(promises);
     }
 
     // ------------------------------------------------------------

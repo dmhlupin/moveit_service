@@ -105,8 +105,10 @@
             state.isOpen = true;
 
             try {
-                EquipmentCardLoader.ensureCss();
-                await EquipmentCardLoader.ensurePartial();
+                await Promise.all([
+                    EquipmentCardLoader.ensureCss(),
+                    EquipmentCardLoader.ensurePartial(),
+                ]);
             } catch (err) {
                 console.error('[EquipmentCard] не удалось загрузить партиал:', err);
                 showToast('❌ Не удалось загрузить карточку техники', 'error');
