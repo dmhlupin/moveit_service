@@ -263,6 +263,11 @@ db.get('SELECT 1 as ok', (err) => {
   console.log('✅ База данных подключена');
 });
 
+// 🆕 5.8.1.2: партиалы (для ленивой подгрузки на клиенте)
+app.get('/partials/equipment-card.html', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'partials', 'equipment-card.html'));
+});
+
 // ============================================
 // РОУТЫ АВТОРИЗАЦИИ (публичные)
 // ============================================
