@@ -16,12 +16,19 @@ document.addEventListener('DOMContentLoaded', function() {
         if (molGroup) molGroup.style.display = 'none';
     }
 
+    // 🆕 5.8.1.4: закрытие модалок — делегируем EquipmentCard / EquipmentCardModals
     document.querySelectorAll('.modal-overlay').forEach(modal => {
         modal.addEventListener('click', function(e) {
             if (e.target === this) {
-                if (this.id === 'deleteModal') closeModal();
-                if (this.id === 'viewEquipmentModal') closeViewEquipmentModal();
-                if (this.id === 'moveEquipmentModal') closeMoveEquipmentModal();
+                if (this.id === 'deleteModal') {
+                    if (typeof EquipmentCardModals !== 'undefined') EquipmentCardModals.closeDelete();
+                }
+                if (this.id === 'viewEquipmentModal') {
+                    if (typeof EquipmentCard !== 'undefined') EquipmentCard.close();
+                }
+                if (this.id === 'moveEquipmentModal') {
+                    if (typeof EquipmentCardModals !== 'undefined') EquipmentCardModals.closeMove();
+                }
             }
         });
     });
@@ -31,9 +38,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
-            closeModal();
-            closeViewEquipmentModal();
-            closeMoveEquipmentModal();
+            if (typeof EquipmentCardModals !== 'undefined') {
+                EquipmentCardModals.closeDelete();
+                EquipmentCardModals.closeMove();
+            }
+            if (typeof EquipmentCard !== 'undefined') {
+                EquipmentCard.close();
+            }
         }
     });
 
@@ -54,21 +65,27 @@ document.addEventListener('DOMContentLoaded', function() {
     const pageSize = document.getElementById('filterPageSize');
     if (pageSize) {
         pageSize.addEventListener('change', applyFilters);
-    };
+    }
 
-        // 🆕 5.6.3: селект «Показать: все/свои» → сразу применить
+    // 🆕 5.6.3: селект «Показать: все/свои» → сразу применить
     const onlyMine = document.getElementById('filterOnlyMine');
     if (onlyMine) {
         onlyMine.addEventListener('change', applyFilters);
     }
 
-        // 🆕 5.7.1: если в URL был ?open_equipment=ID — открыть карточку
+    // 🆕 5.7.1 / 5.8.1.4: если в URL был ?open_equipment=ID — открыть карточку
     const openEquipmentId = document.getElementById('openEquipmentId')?.value;
     if (openEquipmentId && !isNaN(parseInt(openEquipmentId, 10))) {
-        // Небольшая задержка, чтобы DOM точно отрисовался
         setTimeout(() => {
-            if (typeof viewEquipment === 'function') {
-                viewEquipment(parseInt(openEquipmentId, 10));
+            if (typeof EquipmentCard !== 'undefined' && EquipmentCard.open) {
+                EquipmentCard.open({
+                    id: parseInt(openEquipmentId, 10),
+                    onClose: (result) => {
+                        if (result && result.changed) {
+                            location.reload();
+                        }
+                    },
+                });
                 // Очистить URL, чтобы при F5 не открывалось снова
                 const url = new URL(window.location.href);
                 url.searchParams.delete('open_equipment');
@@ -77,3 +94,20 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 100);
     }
 });
+
+// 🆕 5.8.1.4: обёртка для onclick в таблице.
+// В pages.js строки таблицы рендерятся как onclick="openEquipmentCard(ID)".
+window.openEquipmentCard = function (id) {
+    if (typeof EquipmentCard === 'undefined' || !EquipmentCard.open) {
+        console.error('[manage] EquipmentCard не загружен');
+        return;
+    }
+    EquipmentCard.open({
+        id: parseInt(id, 10),
+        onClose: (result) => {
+            if (result && result.changed) {
+                location.reload();
+            }
+        },
+    });
+};

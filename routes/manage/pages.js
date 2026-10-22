@@ -76,6 +76,10 @@ async function renderManage(req, res) {
     const htmlPath = path.join(__dirname, '..', '..', 'views', 'manage.html');
     let html = fs.readFileSync(htmlPath, 'utf8');
 
+    // 🆕 5.8.1.4: партиал карточки техники (вынесен из manage.html)
+    const partialPath = path.join(__dirname, '..', '..', 'views', 'partials', 'equipment-card.html');
+    const equipmentCardPartial = fs.readFileSync(partialPath, 'utf8');
+
     html = html.replace(/\{\{total_equipment\}\}/g, stats.total_equipment || 0);
     html = html.replace(/\{\{available_equipment\}\}/g, stats.available_equipment || 0);
     html = html.replace(/\{\{assigned_equipment\}\}/g, stats.assigned_equipment || 0);
@@ -279,7 +283,7 @@ async function renderManage(req, res) {
         }
 
         equipmentRows += `
-          <tr class="${rowClass}" onclick="viewEquipment(${item.id})">
+          <tr class="${rowClass}" onclick="openEquipmentCard(${item.id})">
             ${canBulkMove ? `
               <td onclick="event.stopPropagation()" style="text-align: center;">
                 ${isLocked
@@ -311,6 +315,9 @@ async function renderManage(req, res) {
         // 🆕 5.7.1: если перешли с ?open_equipment=ID — открыть карточку
     html = html.replace('{{open_equipment_id}}', q.open_equipment ? parseInt(q.open_equipment, 10) || '' : '');
 
+    // 🆕 5.8.1.4: подставляем партиал карточки техники
+    html = html.replace('{{equipment_card_partial}}', equipmentCardPartial);
+
     renderPageFor(req, res, {
       title: 'Учёт ТМЦ – MoveIT service',
       content: html,
@@ -323,8 +330,11 @@ async function renderManage(req, res) {
       ],
       pageJs: [
         '/js/manage/helpers.js',
-        '/js/manage/equipment-card.js',
-        '/js/manage/equipment-actions.js',
+        '/js/equipment-card/loader.js',
+        '/js/equipment-card/render.js',
+        '/js/equipment-card/actions.js',
+        '/js/equipment-card/modals.js',
+        '/js/equipment-card/index.js',
         '/js/manage/bulk-actions.js',
         '/js/manage/filters.js',
         '/js/manage/init.js',
