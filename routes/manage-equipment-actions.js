@@ -11,7 +11,11 @@ const {
   moveEquipmentToCellDetailed,   // 🆕
 } = require('../database/db');
 
-const { canEditEquipment } = require('../utils/permissions');
+const { 
+  canEditEquipment, 
+  canMoveEquipmentTo, 
+} = require('../utils/permissions');
+
 const { logAction } = require('../utils/logger');
 
 // ============================================================
@@ -223,6 +227,16 @@ async function returnEquipmentAPI(req, res) {
       });
     }
 
+    // 🆕 5.0.6: проверка доступности целевого склада для МОЛа
+    const targetCheck = await canMoveEquipmentTo(
+      userForPerm,
+      equipment,
+      { type: 'cell', id: parseInt(cell_id, 10) }
+    );
+    if (!targetCheck.ok) {
+      return res.status(400).json({ error: targetCheck.reason });
+    }
+
     const check = await checkCellAvailability(parseInt(cell_id, 10), id);
     if (!check.ok) {
       if (check.reason === 'cell_not_found') {
@@ -306,6 +320,16 @@ async function moveToWorkplaceFromCardAPI(req, res) {
       return res.status(400).json({
         error: 'Нельзя переместить назначенную технику. Сначала верните её.',
       });
+    }
+
+    // 🆕 5.0.6: проверка доступности целевого офиса для МОЛа
+    const targetCheck = await canMoveEquipmentTo(
+      userForPerm,
+      equipment,
+      { type: 'workplace', id: parseInt(workplace_id, 10) }
+    );
+    if (!targetCheck.ok) {
+      return res.status(400).json({ error: targetCheck.reason });
     }
 
     await updateEquipment(id, {
@@ -398,6 +422,18 @@ async function bulkMoveEquipmentAPI(req, res) {
         if (equipment.status === 'assigned') {
           skipped++;
           errors.push({ id, error: 'Назначена пользователю' });
+          continue;
+        }
+
+        // 🆕 5.0.6: проверка доступности целевого склада для МОЛа
+        const targetCheck = await canMoveEquipmentTo(
+          userForPerm,
+          equipment,
+          { type: 'cell', id: targetCellId }
+        );
+        if (!targetCheck.ok) {
+          skipped++;
+          errors.push({ id, error: targetCheck.reason });
           continue;
         }
 

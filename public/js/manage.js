@@ -1424,7 +1424,8 @@ async function moveToWorkplaceFromCard(id) {
                 let groupHtml = '';
                 workplaces.forEach(wp => {
                     const code = wp.code ? ` [${wp.code}]` : '';
-                    groupHtml += `<option value="${wp.id}">🪑 ${escapeHtml(wp.name)}${code}</option>`;
+                    const desc = wp.description ? ` — ${wp.description}` : '';
+                    groupHtml += `<option value="${wp.id}">🪑 ${escapeHtml(wp.name)}${code}${escapeHtml(desc)}</option>`;
                 });
                 html += `<optgroup label="${escapeHtml(groupLabel)}">${groupHtml}</optgroup>`;
             });

@@ -1448,6 +1448,82 @@ tr:last-child td {
 }
 
 /* ============================================================
+   ТАБЛИЦА ТЕХНИКИ В КАРТОЧКЕ ЯЧЕЙКИ (5.0.3)
+   ============================================================ */
+
+.cell-equipment-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-sm);
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+}
+
+.cell-equipment-table thead {
+    background: var(--bg-tertiary);
+    border-bottom: 2px solid var(--border);
+}
+
+.cell-equipment-table th {
+    text-align: left;
+    padding: 10px 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+.cell-equipment-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-primary);
+    vertical-align: middle;
+}
+
+.cell-equipment-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.cell-equipment-table tbody tr:hover {
+    background: var(--bg-hover);
+}
+
+.cell-equipment-table .eq-inv {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--accent-bg);
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    white-space: nowrap;
+}
+
+.cell-equipment-table .eq-name {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.cell-equipment-table .eq-type {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+.cell-equipment-table .eq-corporate {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-secondary);
+    background: var(--bg-tertiary);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    white-space: nowrap;
+}
+
+/* ============================================================
    АДАПТИВНОСТЬ
    ============================================================ */
 @media (max-width: 1200px) {

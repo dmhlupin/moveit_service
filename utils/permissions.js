@@ -180,6 +180,101 @@ async function canEditEquipment(user, equipmentId) {
   return false;
 }
 
+// ============================================================
+// 🆕 5.0.6: Проверка доступности целевого склада / офиса для МОЛа
+// ============================================================
+
+/**
+ * Может ли пользователь переместить технику в целевой склад / офис.
+ *
+ * Правила:
+ *   - Если у техники нет responsible_user_id — ограничений нет.
+ *   - Если перемещает mol — целевой склад / офис должен быть его.
+ *   - Если перемещает admin — целевой склад / офис должен быть
+ *     из зоны ответственности МОЛа техники (чтобы МОЛ не потерял технику).
+ *   - supervisor / user — не могут перемещать (защищено middleware).
+ *
+ /** @param {Object} user        — { id, role }
+ /** @param {Object} equipment   — экземпляр (нужен responsible_user_id)
+ /** @param {Object} target      — { type: 'cell' | 'workplace', id: number }
+ /** @returns {Promise<{ ok: boolean, reason?: string }>}
+ */
+async function canMoveEquipmentTo(user, equipment, target) {
+  if (!user || !equipment || !target || !target.id) {
+    return { ok: true };
+  }
+
+  // Если техника без МОЛа — ограничений нет
+  if (!equipment.responsible_user_id) {
+    return { ok: true };
+  }
+
+  const targetId = parseInt(target.id, 10);
+  if (isNaN(targetId)) return { ok: true };
+
+  // Куда смотрим: cell → склад, workplace → офис
+  if (target.type === 'cell') {
+    const row = await db.get(
+      `SELECT z.warehouse_id
+       FROM cells c
+       JOIN racks r ON r.id = c.rack_id
+       JOIN zones z ON z.id = r.zone_id
+       WHERE c.id = ?`,
+      [targetId]
+    );
+    if (!row) return { ok: true };   // ячейка не найдена — пропускаем (другие проверки сработают)
+
+    if (user.role === 'mol') {
+      if (row.warehouse_id === null) return { ok: true };
+      const ok = await isWarehouseResponsible(user.id, row.warehouse_id);
+      if (!ok) return { ok: false, reason: 'Склад недоступен для вас' };
+    }
+
+    if (user.role === 'admin') {
+      const molId = equipment.responsible_user_id;
+      const ok = await isWarehouseResponsible(molId, row.warehouse_id);
+      if (!ok) {
+        return {
+          ok: false,
+          reason: 'Целевой склад не входит в зону ответственности МОЛа техники',
+        };
+      }
+    }
+    return { ok: true };
+  }
+
+  if (target.type === 'workplace') {
+    const row = await db.get(
+      `SELECT r.office_id
+       FROM workplaces w
+       JOIN rooms r ON r.id = w.room_id
+       WHERE w.id = ?`,
+      [targetId]
+    );
+    if (!row) return { ok: true };
+
+    if (user.role === 'mol') {
+      if (row.office_id === null) return { ok: true };
+      const ok = await isOfficeResponsible(user.id, row.office_id);
+      if (!ok) return { ok: false, reason: 'Офис недоступен для вас' };
+    }
+
+    if (user.role === 'admin') {
+      const molId = equipment.responsible_user_id;
+      const ok = await isOfficeResponsible(molId, row.office_id);
+      if (!ok) {
+        return {
+          ok: false,
+          reason: 'Целевой офис не входит в зону ответственности МОЛа техники',
+        };
+      }
+    }
+    return { ok: true };
+  }
+
+  return { ok: true };
+}
+
 module.exports = {
   canAccessWarehouse,
   canEditWarehouse,
@@ -187,6 +282,7 @@ module.exports = {
   canEditOffice,
   canAccessEquipment,
   canEditEquipment,
+  canMoveEquipmentTo,   // 🆕
 
   // низкоуровневые — на случай прямого использования в роутах
   isWarehouseResponsible,

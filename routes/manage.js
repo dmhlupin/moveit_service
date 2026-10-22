@@ -63,6 +63,7 @@ const {
   canEditEquipment,
   canEditWarehouse,
   canEditOffice,
+  canMoveEquipmentTo,   // 🆕
 } = require('../utils/permissions');
 
 // ============================================================
@@ -659,6 +660,44 @@ async function updateEquipmentAPI(req, res) {
         return res.status(400).json({
           error: `Ячейка недоступна (${result.reason})`,
         });
+      }
+    }
+
+    // 🆕 5.0.7: проверка доступности склада / офиса для МОЛа
+    // Смотрим на ИТОГОВОЕ состояние: кто ответственный + где лежит.
+    const finalMolId = (finalResponsibleId !== undefined)
+      ? finalResponsibleId
+      : existing.responsible_user_id;
+
+    const molChanged  = (finalResponsibleId !== undefined) && (finalResponsibleId !== existing.responsible_user_id);
+    const cellChanged = finalCellId !== existing.cell_id;
+    const wpChanged   = finalWorkplaceId !== existing.workplace_id;
+
+    // Проверяем, только если реально меняется МОЛ / место
+    if (finalMolId && (molChanged || cellChanged || wpChanged)) {
+      if (finalCellId) {
+        const targetCheck = await canMoveEquipmentTo(
+          { id: req.session.userId, role: req.session.role },
+          { responsible_user_id: finalMolId },
+          { type: 'cell', id: finalCellId }
+        );
+        if (!targetCheck.ok) {
+          return res.status(400).json({
+            error: targetCheck.reason || 'Склад недоступен для выбранного МОЛа',
+          });
+        }
+      }
+      if (finalWorkplaceId) {
+        const targetCheck = await canMoveEquipmentTo(
+          { id: req.session.userId, role: req.session.role },
+          { responsible_user_id: finalMolId },
+          { type: 'workplace', id: finalWorkplaceId }
+        );
+        if (!targetCheck.ok) {
+          return res.status(400).json({
+            error: targetCheck.reason || 'Офис недоступен для выбранного МОЛа',
+          });
+        }
       }
     }
 
@@ -2108,6 +2147,19 @@ async function moveEquipmentAPI(req, res) {
       return res.status(400).json({ 
         error: 'Нельзя переместить назначенную технику. Сначала верните её.' 
       });
+    }
+
+    // 🆕 5.0.6: проверка доступности целевого склада для МОЛа
+    const userForPerm = { id: req.session.userId, role: req.session.role };
+    if (cell_id) {
+      const targetCheck = await canMoveEquipmentTo(
+        userForPerm,
+        equipment,
+        { type: 'cell', id: parseInt(cell_id, 10) }
+      );
+      if (!targetCheck.ok) {
+        return res.status(400).json({ error: targetCheck.reason });
+      }
     }
     
     const result = await moveEquipmentToCellDetailed(
