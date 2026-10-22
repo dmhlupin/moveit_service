@@ -16,33 +16,40 @@ const { renderPdfList, renderPdfFile } = require('./routes/pdf');
 const renderEquipmentDashboard = require('./routes/equipment');
 
 const {
-  renderManage, // переименовываем функцию для ясности
+  // Страницы
+  renderManage,
   renderAdminUsers,
   renderLogs,
+  renderAddEquipment,
+  renderEditEquipment,
+  renderAddUser,
+  renderEditUser,
+
+  // API техники
   getEquipmentAPI,
   getEquipmentByIdAPI,
   getEquipmentDetailsAPI,
   addEquipmentAPI,
   updateEquipmentAPI,
   deleteEquipmentAPI,
-  renderAddEquipment,
-  renderEditEquipment,
+  moveEquipmentAPI,
+  getEquipmentMovesAPI,
+
+  // API пользователей
   getUsersAPI,
   getUserByIdAPI,
+  getUserDetailsAPI,
   addUserAPI,
   updateUserAPI,
   deleteUserAPI,
   resetUserPasswordAPI,
   blockUserAPI,
   unblockUserAPI,
-  getUserDetailsAPI,
-  renderAddUser,
-  renderEditUser,
+
+  // Логи
   getLogsAPI,
   getLogsStatsAPI,
   cleanLogsAPI,
-  moveEquipmentAPI,
-  getEquipmentMovesAPI,
 } = require('./routes/manage');
 
 const {
