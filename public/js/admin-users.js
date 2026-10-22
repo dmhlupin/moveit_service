@@ -287,29 +287,35 @@ async function viewUser(id) {
                 </div>
             `;
         } else {
-            activeEquipmentHtml = '<div class="equipment-cards">';
+            // 🆕 5.5.3: таблица вместо карточек
+            activeEquipmentHtml = `
+                <table class="history-table">
+                    <thead>
+                        <tr>
+                            <th>Инв. №</th>
+                            <th>Модель</th>
+                            <th>Corporate ID</th>
+                            <th>Производитель</th>
+                            <th>Выдано</th>
+                            <th>Состояние</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
             activeEquipment.forEach(eq => {
                 const assignedDate = new Date(eq.assigned_date).toLocaleDateString('ru-RU');
                 activeEquipmentHtml += `
-                    <div class="equipment-card">
-                        <div class="equipment-card-header">
-                            <span class="equipment-card-inv">${escapeHtml(eq.inventory_number || '—')}</span>
-                            <span class="equipment-card-date">${assignedDate}</span>
-                        </div>
-                        <div class="equipment-card-body">
-                            <div class="equipment-card-name">${escapeHtml(eq.model_name || '—')}</div>
-                            ${eq.model_corporate_id ? `<div class="equipment-card-model">${escapeHtml(eq.model_corporate_id)}</div>` : ''}
-                            ${eq.model_manufacturer ? `<div class="equipment-card-manufacturer">${escapeHtml(eq.model_manufacturer)}</div>` : ''}
-                        </div>
-                        ${eq.condition_on_assign ? `
-                            <div class="equipment-card-footer">
-                                Состояние: ${escapeHtml(eq.condition_on_assign)}
-                            </div>
-                        ` : ''}
-                    </div>
+                    <tr>
+                        <td><strong>${escapeHtml(eq.inventory_number || '—')}</strong></td>
+                        <td>${escapeHtml(eq.model_name || '—')}</td>
+                        <td>${escapeHtml(eq.model_corporate_id || '—')}</td>
+                        <td>${escapeHtml(eq.model_manufacturer || '—')}</td>
+                        <td>${assignedDate}</td>
+                        <td>${escapeHtml(eq.condition_on_assign || '—')}</td>
+                    </tr>
                 `;
             });
-            activeEquipmentHtml += '</div>';
+            activeEquipmentHtml += '</tbody></table>';
         }
 
         let historyHtml = '';
