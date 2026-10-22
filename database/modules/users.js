@@ -55,32 +55,91 @@ module.exports = ({ db, run, get, all }) => ({
   },
   
   /**
-   * Получить всех пользователей с расширенной информацией
-   * (включая количество техники)
+   * Получить пользователей с фильтрами + пагинацией.
+  /** @param {Object} filters — { search, role, status, limit, offset, include_total }
+  /** @returns {Promise<Array|Object>} — массив или { items, total, limit, offset }
    */
-  getAllUsersWithDetails() {
+  getAllUsersWithDetails(filters = {}) {
+    const {
+      search = null,
+      role = null,
+      status = null,   // 'active' | 'blocked' | null
+      limit = null,
+      offset = 0,
+      include_total = false,
+    } = filters;
+
+    const where = ['1=1'];
+    const whereParams = [];
+
+    if (search) {
+      where.push(`(u.full_name LIKE ? OR u.username LIKE ? OR u.email LIKE ? OR u.department LIKE ?)`);
+      const term = `%${search}%`;
+      for (let i = 0; i < 4; i++) whereParams.push(term);
+    }
+    if (role) {
+      where.push('u.role = ?');
+      whereParams.push(role);
+    }
+    if (status === 'active') {
+      where.push('u.is_active = 1');
+    } else if (status === 'blocked') {
+      where.push('u.is_active = 0');
+    }
+
+    const whereSql = `WHERE ${where.join(' AND ')}`;
+
+    const baseSelect = `
+      SELECT 
+        u.id,
+        u.username,
+        u.email,
+        u.full_name,
+        u.department,
+        u.phone,
+        u.role,
+        u.is_active,
+        u.must_change_password,
+        u.last_login,
+        u.created_at,
+        (SELECT COUNT(*) FROM user_equipment WHERE user_id = u.id AND returned_date IS NULL) as active_equipment_count,
+        (SELECT COUNT(*) FROM user_equipment WHERE user_id = u.id) as total_equipment_count
+      FROM users u
+      ${whereSql}
+      ORDER BY u.is_active DESC, u.full_name ASC
+    `;
+
     return new Promise((resolve, reject) => {
-      db.all(`
-        SELECT 
-          u.id,
-          u.username,
-          u.email,
-          u.full_name,
-          u.department,
-          u.phone,
-          u.role,
-          u.is_active,
-          u.must_change_password,
-          u.last_login,
-          u.created_at,
-          (SELECT COUNT(*) FROM user_equipment WHERE user_id = u.id AND returned_date IS NULL) as active_equipment_count,
-          (SELECT COUNT(*) FROM user_equipment WHERE user_id = u.id) as total_equipment_count
-        FROM users u
-        ORDER BY u.is_active DESC, u.full_name ASC
-      `, (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows || []);
-      });
+      let itemsSql = baseSelect;
+      const itemsParams = [...whereParams];
+
+      if (limit) {
+        itemsSql += ' LIMIT ? OFFSET ?';
+        itemsParams.push(limit, offset);
+      }
+
+      if (!include_total) {
+        db.all(itemsSql, itemsParams, (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows || []);
+        });
+        return;
+      }
+
+      db.get(`SELECT COUNT(*) AS total FROM users u ${whereSql}`,
+        whereParams,
+        (err, countRow) => {
+          if (err) return reject(err);
+          db.all(itemsSql, itemsParams, (err, rows) => {
+            if (err) return reject(err);
+            resolve({
+              items: rows || [],
+              total: countRow ? countRow.total : 0,
+              limit,
+              offset,
+            });
+          });
+        });
     });
   },
   

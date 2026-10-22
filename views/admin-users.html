@@ -13,12 +13,50 @@
     </div>
 </div>
 
+
+<!-- Фильтры -->
+<div class="filters-panel">
+    <div class="filter-group filter-group--search">
+        <label>Поиск</label>
+        <div class="search-wrapper">
+            <span class="search-icon">🔍</span>
+            <input type="search"
+                id="filterSearch"
+                placeholder="ФИО, логин, email, отдел..."
+                autocomplete="off"
+                value="{{search_value}}">
+        </div>
+    </div>
+    <div class="filter-group">
+        <label>Роль</label>
+        <select id="filterRole">
+            {{filter_role_options}}
+        </select>
+    </div>
+    <div class="filter-group">
+        <label>Статус</label>
+        <select id="filterStatus">
+            {{filter_status_options}}
+        </select>
+    </div>
+    <div class="filter-group filter-group--narrow">
+        <label>Показывать по</label>
+        <select id="filterPageSize">
+            {{page_size_options}}
+        </select>
+    </div>
+    <div class="filter-actions">
+        <button type="button" class="btn btn-primary" onclick="applyFilters()">✔ Применить</button>
+        <button type="button" class="btn btn-ghost" onclick="resetFilters()">✕ Сбросить</button>
+    </div>
+</div>
+
+<!-- Таблица -->
 <div class="table-container">
     <div class="table-header">
         <h2>📋 Список пользователей</h2>
         <div class="table-search">
             <a href="/admin/user/add" class="btn btn-success btn-sm">➕ Добавить пользователя</a>
-            <input type="text" id="searchUsers" placeholder="🔍 Поиск..." onkeyup="searchTable('users')">
         </div>
     </div>
     <table class="users-table">
@@ -39,6 +77,9 @@
         </tbody>
     </table>
 </div>
+
+<!-- Пагинация -->
+{{pagination}}
 
 <!-- ============================================================ -->
 <!-- МОДАЛКА: УДАЛЕНИЕ ПОЛЬЗОВАТЕЛЯ                                -->

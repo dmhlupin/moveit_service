@@ -40,32 +40,6 @@ let deleteUserName = '';
 let deleteEquipmentCount = 0;
 let currentTempPassword = '';
 
-// ============================================================
-// ПОИСК
-// ============================================================
-
-function searchTable(type) {
-    const input = document.getElementById(type === 'equipment' ? 'searchEquipment' : 'searchUsers');
-    if (!input) return;
-    const filter = input.value.toLowerCase();
-    const table = document.getElementById(type === 'equipment' ? 'equipmentTableBody' : 'usersTableBody');
-    if (!table) return;
-
-    const rows = table.getElementsByTagName('tr');
-
-    for (let i = 0; i < rows.length; i++) {
-        const cells = rows[i].getElementsByTagName('td');
-        let found = false;
-        for (let j = 0; j < cells.length; j++) {
-            const text = cells[j].textContent || cells[j].innerText;
-            if (text.toLowerCase().indexOf(filter) > -1) {
-                found = true;
-                break;
-            }
-        }
-        rows[i].style.display = found ? '' : 'none';
-    }
-}
 
 // ============================================================
 // ПОЛЬЗОВАТЕЛИ
@@ -488,11 +462,40 @@ function closeViewUserModal() {
 }
 
 // ============================================================
+// ФИЛЬТРЫ (H.3)
+// ============================================================
+
+function applyFilters() {
+    const params = new URLSearchParams();
+
+    const search = document.getElementById('filterSearch')?.value.trim();
+    const role = document.getElementById('filterRole')?.value;
+    const status = document.getElementById('filterStatus')?.value;
+    const pageSize = document.getElementById('filterPageSize')?.value;
+
+    if (search) params.set('search', search);
+    if (role) params.set('role', role);
+    if (status) params.set('status', status);
+    if (pageSize) params.set('limit', pageSize);
+
+    window.location.href = '/admin/users?' + params.toString();
+}
+
+function resetFilters() {
+    window.location.href = '/admin/users';
+}
+
+function applyPageSize() {
+    applyFilters();
+}
+
+
+// ============================================================
 // ИНИЦИАЛИЗАЦИЯ
 // ============================================================
 
 document.addEventListener('DOMContentLoaded', function() {
-    // 🆕 5.5: ID текущего пользователя — для проверки прав в карточке
+    // 🆕 H.3: currentUserId для проверки прав в карточке
     window.currentUserId = parseInt(document.getElementById('currentUserId')?.value || '0', 10);
     // Закрытие модалок по клику на оверлей
     document.querySelectorAll('.modal-overlay').forEach(modal => {
@@ -515,4 +518,20 @@ document.addEventListener('DOMContentLoaded', function() {
             closeViewUserModal();
         }
     });
+        // 🆕 H.3: Enter в поиске → применить
+    const searchEl = document.getElementById('filterSearch');
+    if (searchEl) {
+        searchEl.addEventListener('keydown', e => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                applyFilters();
+            }
+        });
+    }
+
+    // 🆕 H.3: смена размера страницы → сразу применить
+    const pageSizeEl = document.getElementById('filterPageSize');
+    if (pageSizeEl) {
+        pageSizeEl.addEventListener('change', applyFilters);
+    }
 });

@@ -27,18 +27,44 @@ const { escapeHtml, escapeAttr, getInitials, formatDate } = require('./helpers')
 
 async function renderAdminUsers(req, res) {
   try {
-    const users = await getAllUsersWithDetails();
+    const q = req.query || {};
+
+    // === ПАГИНАЦИЯ ===
+    const ALLOWED_PAGE_SIZES = [10, 20, 50, 100];
+    const DEFAULT_PAGE_SIZE = 20;
+    const requestedLimit = parseInt(q.limit, 10);
+    const pageSize = ALLOWED_PAGE_SIZES.includes(requestedLimit) ? requestedLimit : DEFAULT_PAGE_SIZE;
+    const page = Math.max(1, parseInt(q.page, 10) || 1);
+    const offset = (page - 1) * pageSize;
+
+    // === ФИЛЬТРЫ ===
+    const ALLOWED_ROLES = ['admin', 'supervisor', 'mol', 'user'];
+    const ALLOWED_STATUSES = ['active', 'blocked'];
+
+    const filters = {
+      search: (q.search || '').trim() || null,
+      role:   ALLOWED_ROLES.includes(q.role) ? q.role : null,
+      status: ALLOWED_STATUSES.includes(q.status) ? q.status : null,
+      limit: pageSize,
+      offset,
+      include_total: true,
+    };
+
+    const result = await getAllUsersWithDetails(filters);
+    const users = result.items || [];
+    const totalFiltered = result.total || 0;
+    const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
 
     const htmlPath = path.join(__dirname, '..', '..', 'views', 'admin-users.html');
     let html = fs.readFileSync(htmlPath, 'utf8');
 
+    // === ДАННЫЕ ===
     let userRows = '';
     users.forEach(user => {
       const equipmentCount = user.active_equipment_count || 0;
       const hasEquipment = equipmentCount > 0;
       const isActive = user.is_active === 1;
 
-      // Роль — 4 варианта
       const roleLabels = {
         admin:      { label: '👑 Админ',       cls: 'role-admin' },
         supervisor: { label: '👁️ Супервизор', cls: 'role-supervisor' },
@@ -78,21 +104,65 @@ async function renderAdminUsers(req, res) {
       `;
     });
 
-    // Пустое состояние
     if (users.length === 0) {
       userRows = `
         <tr>
           <td colspan="8" style="text-align: center; padding: 40px; color: var(--text-muted);">
             <div style="font-size: 40px; margin-bottom: 10px;">🔍</div>
             <div>Пользователи не найдены</div>
+            <div style="font-size: 12px; margin-top: 5px;">Попробуйте изменить фильтры</div>
           </td>
         </tr>
       `;
     }
+    html = html.replace('{{user_rows}}', userRows);
 
+    // === СКРЫТЫЕ ===
     html = html.replace(/\{\{current_user_id\}\}/g, req.session.userId || 0);
 
-    html = html.replace('{{user_rows}}', userRows);
+    // === ФИЛЬТРЫ: роли ===
+    const roleOptions = [
+      { value: '', label: 'Все роли' },
+      { value: 'admin', label: '👑 Админ' },
+      { value: 'supervisor', label: '👁️ Супервизор' },
+      { value: 'mol', label: '🧑‍💼 МОЛ' },
+      { value: 'user', label: '👤 Пользователь' },
+    ];
+    let roleOpts = '';
+    roleOptions.forEach(opt => {
+      const sel = opt.value === (filters.role || '') ? 'selected' : '';
+      roleOpts += `<option value="${opt.value}" ${sel}>${opt.label}</option>`;
+    });
+    html = html.replace('{{filter_role_options}}', roleOpts);
+
+    // === ФИЛЬТРЫ: статус ===
+    const statusOptions = [
+      { value: '', label: 'Все статусы' },
+      { value: 'active', label: '✅ Активен' },
+      { value: 'blocked', label: '🚫 Заблокирован' },
+    ];
+    let statusOpts = '';
+    statusOptions.forEach(opt => {
+      const sel = opt.value === (filters.status || '') ? 'selected' : '';
+      statusOpts += `<option value="${opt.value}" ${sel}>${opt.label}</option>`;
+    });
+    html = html.replace('{{filter_status_options}}', statusOpts);
+
+    // === ФИЛЬТРЫ: поиск ===
+    html = html.replace(/\{\{search_value\}\}/g, escapeHtml(filters.search || ''));
+
+    // === РАЗМЕР СТРАНИЦЫ ===
+    let pageSizeOptions = '';
+    ALLOWED_PAGE_SIZES.forEach(size => {
+      const sel = size === pageSize ? 'selected' : '';
+      pageSizeOptions += `<option value="${size}" ${sel}>${size}</option>`;
+    });
+    html = html.replace('{{page_size_options}}', pageSizeOptions);
+
+    // === ПАГИНАЦИЯ ===
+    html = html.replace('{{pagination}}', renderUsersPagination({
+      page, totalPages, totalFiltered, query: q,
+    }));
 
     renderPageFor(req, res, {
       title: 'Управление доступом – MoveIT service',
@@ -100,6 +170,7 @@ async function renderAdminUsers(req, res) {
       pageCss: [
         '/css/manage/table.css',
         '/css/manage/card.css',
+        '/css/manage/actions.css',
         '/css/manage/modals.css',
         '/css/manage/responsive.css',
       ],
@@ -560,6 +631,29 @@ async function unblockUserAPI(req, res) {
     console.error('❌ Ошибка разблокировки:', error);
     res.status(500).json({ error: error.message });
   }
+}
+
+// Пагинация страницы с таблицей пользователей
+
+function renderUsersPagination({ page, totalPages, totalFiltered, query }) {
+  if (totalPages <= 1) {
+    return `<div class="pagination"><span class="pagination-info">Всего: ${totalFiltered}</span></div>`;
+  }
+  const buildUrl = (p) => {
+    const params = new URLSearchParams();
+    Object.entries(query || {}).forEach(([k, v]) => {
+      if (k !== 'page' && v) params.set(k, v);
+    });
+    params.set('page', p);
+    return '/admin/users?' + params.toString();
+  };
+  let html = '<div class="pagination">';
+  html += `<span class="pagination-info">Страница ${page} из ${totalPages} (всего: ${totalFiltered})</span>`;
+  html += '<div class="pagination-buttons">';
+  if (page > 1) html += `<a href="${buildUrl(page - 1)}" class="pagination-btn">← Назад</a>`;
+  if (page < totalPages) html += `<a href="${buildUrl(page + 1)}" class="pagination-btn">Вперёд →</a>`;
+  html += '</div></div>';
+  return html;
 }
 
 module.exports = {
