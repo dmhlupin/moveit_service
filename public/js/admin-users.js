@@ -22,6 +22,14 @@ function escapeHtml(str) {
         .replace(/'/g, '&#039;');
 }
 
+function escapeAttr(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'")
+        .replace(/"/g, '&quot;');
+}
+
 // ============================================================
 // ПЕРЕМЕННЫЕ
 // ============================================================
@@ -67,21 +75,12 @@ function editUser(id) {
     window.location.href = `/admin/user/edit/${id}`;
 }
 
-function deleteUser(id, name) {
+function deleteUserFromCard(id, name, equipmentCount) {
+    closeViewUserModal();
     deleteId = id;
     deleteType = 'user';
     deleteUserName = name || 'пользователя';
-    deleteEquipmentCount = 0;
-
-    const rows = document.querySelectorAll('#usersTableBody tr');
-    rows.forEach(row => {
-        const cells = row.getElementsByTagName('td');
-        if (cells[0] && parseInt(cells[0].textContent) === id) {
-            // Ищем бейдж с количеством ТМЦ (класс badge-count)
-            const badge = cells[5]?.querySelector('.badge-count');
-            deleteEquipmentCount = badge ? parseInt(badge.textContent) : 0;
-        }
-    });
+    deleteEquipmentCount = equipmentCount || 0;
 
     document.getElementById('deleteUserText').innerHTML =
         `Вы уверены, что хотите удалить пользователя <strong>"${escapeHtml(deleteUserName)}"</strong>?`;
@@ -125,6 +124,28 @@ async function confirmDelete() {
     }
 
     closeModal();
+}
+
+function editUserFromCard(id) {
+    closeViewUserModal();
+    editUser(id);
+}
+
+function resetUserPasswordFromCard(id) {
+    closeViewUserModal();
+    const usernameEl = document.querySelector('#viewUserBody .user-header-username');
+    const username = usernameEl ? usernameEl.textContent.replace('@', '').trim() : '';
+    resetUserPassword(id, username);
+}
+
+function blockUserFromCard(id) {
+    closeViewUserModal();
+    blockUser(id);
+}
+
+function unblockUserFromCard(id) {
+    closeViewUserModal();
+    unblockUser(id);
 }
 
 // ============================================================
@@ -227,6 +248,9 @@ async function viewUser(id) {
 
         const { user, stats, activeEquipment, history } = data;
 
+        // Запоминаем ID текущего пользователя в модалке — для проверки прав
+        document.getElementById('viewUserModal').dataset.userId = id;
+
         const lastLogin = user.last_login
             ? new Date(user.last_login).toLocaleString('ru-RU', {
                 day: '2-digit', month: '2-digit', year: 'numeric',
@@ -243,7 +267,6 @@ async function viewUser(id) {
             ? '<span class="status-badge status-available">✅ Активен</span>'
             : '<span class="status-badge status-retired">🚫 Заблокирован</span>';
 
-        // Роль — теперь 4 варианта
         const roleLabels = {
             admin:      '👑 Администратор',
             supervisor: '👁️ Супервизор',
@@ -251,7 +274,7 @@ async function viewUser(id) {
             user:       '👤 Пользователь',
         };
         const roleClass = `role-badge role-${user.role || 'user'}`;
-        const roleBadge = `<span class="${roleClass}">${roleLabels[user.role] || user.role}</span>`;
+        const roleBadge = `<span class="${roleClass}">${roleLabels[user.role] || escapeHtml(user.role)}</span>`;
 
         const initials = getInitials(user.full_name || user.username);
 
@@ -270,7 +293,7 @@ async function viewUser(id) {
                 activeEquipmentHtml += `
                     <div class="equipment-card">
                         <div class="equipment-card-header">
-                            <span class="equipment-card-inv">${eq.inventory_number}</span>
+                            <span class="equipment-card-inv">${escapeHtml(eq.inventory_number || '—')}</span>
                             <span class="equipment-card-date">${assignedDate}</span>
                         </div>
                         <div class="equipment-card-body">
@@ -280,7 +303,7 @@ async function viewUser(id) {
                         </div>
                         ${eq.condition_on_assign ? `
                             <div class="equipment-card-footer">
-                                Состояние: ${eq.condition_on_assign}
+                                Состояние: ${escapeHtml(eq.condition_on_assign)}
                             </div>
                         ` : ''}
                     </div>
@@ -291,7 +314,7 @@ async function viewUser(id) {
 
         let historyHtml = '';
         if (history.length === 0) {
-            historyHtml = '<p style="color: #a0aec0; text-align: center; padding: 15px;">История пуста</p>';
+            historyHtml = '<p style="color: var(--text-muted); text-align: center; padding: 15px;">История пуста</p>';
         } else {
             historyHtml = `
                 <table class="history-table">
@@ -313,7 +336,7 @@ async function viewUser(id) {
                 const returnedDate = h.returned_date
                     ? new Date(h.returned_date).toLocaleDateString('ru-RU')
                     : '—';
-                const statusBadge = h.status === 'active'
+                const histStatus = h.status === 'active'
                     ? '<span class="status-badge status-assigned">Активна</span>'
                     : '<span class="status-badge status-available">Возвращена</span>';
 
@@ -323,11 +346,38 @@ async function viewUser(id) {
                         <td>${escapeHtml(h.model_name || '—')}</td>
                         <td>${assignedDate}</td>
                         <td>${returnedDate}</td>
-                        <td>${statusBadge}</td>
+                        <td>${histStatus}</td>
                     </tr>
                 `;
             });
             historyHtml += '</tbody></table>';
+        }
+
+        // === ДЕЙСТВИЯ В ПРАВОЙ КОЛОНКЕ ===
+        const currentUserId = Number(window.currentUserId || 0);
+        const isSelf = Number(user.id) === currentUserId;
+
+        let actionButtons = '';
+
+        // Редактировать — всегда, кроме самого себя? Нет, себя тоже можно.
+        actionButtons += `<button type="button" class="btn btn-ghost" onclick="editUserFromCard(${user.id})">✏️ Редактировать</button>`;
+
+        // Сбросить пароль — всегда
+        actionButtons += `<button type="button" class="btn btn-warning" onclick="resetUserPasswordFromCard(${user.id}, '${escapeAttr(user.username)}')">🔑 Сбросить пароль</button>`;
+
+        // Заблокировать / Разблокировать — только не себя
+        if (!isSelf) {
+            if (isActive) {
+                actionButtons += `<button type="button" class="btn btn-warning" onclick="blockUserFromCard(${user.id})">🚫 Заблокировать</button>`;
+            } else {
+                actionButtons += `<button type="button" class="btn btn-success" onclick="unblockUserFromCard(${user.id})">✅ Разблокировать</button>`;
+            }
+        }
+
+        // Удалить — только не себя
+        if (!isSelf) {
+            actionButtons += `<div class="user-actions-divider"></div>`;
+            actionButtons += `<button type="button" class="btn btn-danger" onclick="deleteUserFromCard(${user.id}, '${escapeAttr(user.full_name || user.username)}', ${stats.active})">🗑️ Удалить</button>`;
         }
 
         const body = document.getElementById('viewUserBody');
@@ -344,51 +394,66 @@ async function viewUser(id) {
                 </div>
             </div>
 
-            <div class="user-stats">
-                <div class="user-stat">
-                    <div class="user-stat-number active">${stats.active}</div>
-                    <div class="user-stat-label">Активной техники</div>
+            <div class="user-detail-layout">
+                <!-- ЛЕВАЯ КОЛОНКА -->
+                <div class="user-detail-main">
+                    <div class="user-stats">
+                        <div class="user-stat">
+                            <div class="user-stat-number active">${stats.active}</div>
+                            <div class="user-stat-label">Активной техники</div>
+                        </div>
+                        <div class="user-stat">
+                            <div class="user-stat-number total">${stats.total}</div>
+                            <div class="user-stat-label">Всего получал</div>
+                        </div>
+                        <div class="user-stat">
+                            <div class="user-stat-number returned">${stats.returned}</div>
+                            <div class="user-stat-label">Возвращено</div>
+                        </div>
+                    </div>
+
+                    <div class="user-detail-section">
+                        <h4>📋 Контактная информация</h4>
+                        <div class="detail-grid">
+                            <div class="detail-item">
+                                <label>Email</label>
+                                <div class="value">${escapeHtml(user.email || '—')}</div>
+                            </div>
+                            <div class="detail-item">
+                                <label>Телефон</label>
+                                <div class="value">${escapeHtml(user.phone || '—')}</div>
+                            </div>
+                            <div class="detail-item">
+                                <label>Отдел</label>
+                                <div class="value">${escapeHtml(user.department || '—')}</div>
+                            </div>
+                            <div class="detail-item">
+                                <label>Последний вход</label>
+                                <div class="value">${lastLogin}</div>
+                            </div>
+                            <div class="detail-item">
+                                <label>Дата создания</label>
+                                <div class="value">${createdAt}</div>
+                            </div>
+                            <div class="detail-item">
+                                <label>ID пользователя</label>
+                                <div class="value">#${user.id}</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="user-stat">
-                    <div class="user-stat-number total">${stats.total}</div>
-                    <div class="user-stat-label">Всего получал</div>
-                </div>
-                <div class="user-stat">
-                    <div class="user-stat-number returned">${stats.returned}</div>
-                    <div class="user-stat-label">Возвращено</div>
+
+                <!-- ПРАВАЯ КОЛОНКА -->
+                <div class="user-detail-side">
+                    <div class="user-actions-card">
+                        <h4>⚡ Действия</h4>
+                        <div class="user-actions-list">
+                            ${actionButtons}
+                        </div>
+                    </div>
                 </div>
             </div>
-
-            <div class="user-detail-section">
-                <h4>📋 Контактная информация</h4>
-                <div class="detail-grid">
-                    <div class="detail-item">
-                        <label>Email</label>
-                        <div class="value">${escapeHtml(user.email || '—')}</div>
-                    </div>
-                    <div class="detail-item">
-                        <label>Телефон</label>
-                        <div class="value">${escapeHtml(user.phone || '—')}</div>
-                    </div>
-                    <div class="detail-item">
-                        <label>Отдел</label>
-                        <div class="value">${escapeHtml(user.department || '—')}</div>
-                    </div>
-                    <div class="detail-item">
-                        <label>Последний вход</label>
-                        <div class="value">${lastLogin}</div>
-                    </div>
-                    <div class="detail-item">
-                        <label>Дата создания</label>
-                        <div class="value">${createdAt}</div>
-                    </div>
-                    <div class="detail-item">
-                        <label>ID пользователя</label>
-                        <div class="value">#${user.id}</div>
-                    </div>
-                </div>
-            </div>
-
+                <!-- 🆕 ПОЛНАЯ ШИРИНА -->
             <div class="user-detail-section">
                 <h4>📦 Активная техника (${stats.active})</h4>
                 ${activeEquipmentHtml}
@@ -416,6 +481,8 @@ function closeViewUserModal() {
 // ============================================================
 
 document.addEventListener('DOMContentLoaded', function() {
+    // 🆕 5.5: ID текущего пользователя — для проверки прав в карточке
+    window.currentUserId = parseInt(document.getElementById('currentUserId')?.value || '0', 10);
     // Закрытие модалок по клику на оверлей
     document.querySelectorAll('.modal-overlay').forEach(modal => {
         modal.addEventListener('click', function(e) {

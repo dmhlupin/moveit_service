@@ -90,6 +90,8 @@ async function renderAdminUsers(req, res) {
       `;
     }
 
+    html = html.replace(/\{\{current_user_id\}\}/g, req.session.userId || 0);
+
     html = html.replace('{{user_rows}}', userRows);
 
     renderPageFor(req, res, {
