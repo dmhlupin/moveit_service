@@ -271,7 +271,7 @@
 
 ```bash
 # 1. Клонировать репозиторий
-git clone https://github.com/dmhlupin/myapp1.git
+git clone https://github.com/dmhlupin/moveit_service.git
 cd myapp1
 
 # 2. Установить зависимости
