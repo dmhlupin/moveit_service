@@ -14,7 +14,7 @@ function loadEquipmentCardModule() {
             '/js/equipment-card/render.js',
             '/js/equipment-card/actions.js',
             '/js/equipment-card/modals.js',
-            '/js/equipment-card/index.js',   // последним — определяет EquipmentCard
+            '/js/equipment-card/index.js',
         ];
         let loaded = 0;
         let failed = false;
@@ -50,11 +50,28 @@ async function viewEquipmentFromExternal(id) {
         if (typeof EquipmentCard === 'undefined') {
             await loadEquipmentCardModule();
         }
+
+        // 🆕 5.8.1.5-fix: контекст для карточки на внешних страницах.
+        // #currentRole / #currentUserId есть только на /manage.
+        // На остальных страницах берём из LayoutJS.currentUser() (layout.js).
+        const user = (typeof window.LayoutJS !== 'undefined' && window.LayoutJS.currentUser)
+            ? window.LayoutJS.currentUser()
+            : null;
+        const role = user?.role
+            || document.getElementById('currentRole')?.value
+            || 'user';
+        const currentUserId = Number(
+            user?.id
+            ?? document.getElementById('currentUserId')?.value
+            ?? 0
+        );
+
         EquipmentCard.open({
             id: parsedId,
+            role,
+            currentUserId,
             onClose: (result) => {
                 if (result && result.changed) {
-                    // Перезагружаем текущую страницу, если что-то изменилось
                     location.reload();
                 }
             },
