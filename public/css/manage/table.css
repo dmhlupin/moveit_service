@@ -298,3 +298,15 @@
     cursor: pointer;
     accent-color: var(--accent);
 }
+
+/* ============================================================
+   КЛИКАБЕЛЬНАЯ СТРОКА ПОЛЬЗОВАТЕЛЯ
+   ============================================================ */
+
+.user-row-clickable {
+    cursor: pointer;
+}
+
+.user-row-clickable:hover td {
+    background: var(--bg-hover);
+}

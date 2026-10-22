@@ -82,3 +82,18 @@
 класс не «потерялся». Для этого — скрипт `scripts/check-css-classes.js` (в будущем).
 **Приоритет:** высокий (для будущих рефакторингов)
 
+H: /admin/users — перевести searchTable на серверный (URL-query, как /manage).
+H: deleteUser — брать equipmentCount из API или data-*, а не из DOM.
+H: admin-users.js — переименовать deleteUser → openDeleteUserModal (соответствие имени и действия).
+H: /admin/users — убрать кнопки из таблицы, действия — в правой колонке карточки (как /manage).
+
+## 2026-10-22 Управление доступом
+**Что делал:** рефакторинг /admin/users (H)
+**Что неудобно:** 
+- `searchTable` в admin-users.js — клиентский поиск (у /manage — серверный).
+- `deleteUser` берёт `equipmentCount` из DOM (хрупко).
+- `deleteUser` не удаляет, а открывает модалку — плохое имя.
+- Кнопки действий в таблице — убрать, действия в карточке (как /manage).
+**Идея:** привести /admin/users к виду /manage.
+**Приоритет:** средний (UX).
+

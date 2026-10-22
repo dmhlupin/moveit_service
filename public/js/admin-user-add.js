@@ -68,5 +68,5 @@ function finishCreate() {
     window.location.href = `/admin/user/edit/${createdUserId}`;
     return;
   }
-  window.location.href = '/admin';
+  window.location.href = '/admin/users';
 }

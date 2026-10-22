@@ -558,3 +558,73 @@
     font-size: 10px;
     flex-shrink: 0;
 }
+
+/* ============================================================
+   КАРТОЧКА ПОЛЬЗОВАТЕЛЯ — ДВУХКОЛОНОЧНЫЙ LAYOUT (H.1)
+   ============================================================ */
+
+.view-user-modal .user-detail-layout {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: var(--space-lg);
+    align-items: start;
+}
+
+.view-user-modal .user-detail-main {
+    min-width: 0;
+}
+
+.view-user-modal .user-detail-side {
+    position: sticky;
+    top: 80px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+}
+
+/* Блок действий в правой колонке */
+.user-actions-card {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+}
+
+.user-actions-card h4 {
+    color: var(--text-primary);
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0 0 var(--space-sm) 0;
+    padding-bottom: var(--space-xs);
+    border-bottom: 1px solid var(--border);
+}
+
+.user-actions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.user-actions-list .btn {
+    width: 100%;
+    justify-content: flex-start;
+    padding: 8px 12px;
+    font-size: var(--text-sm);
+}
+
+.user-actions-divider {
+    height: 1px;
+    background: var(--border);
+    margin: var(--space-xs) 0;
+}
+
+/* Адаптивность: на узких экранах — одна колонка */
+@media (max-width: 900px) {
+    .view-user-modal .user-detail-layout {
+        grid-template-columns: 1fr;
+    }
+    .view-user-modal .user-detail-side {
+        position: static;
+    }
+}

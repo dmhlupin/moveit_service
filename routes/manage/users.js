@@ -38,55 +38,58 @@ async function renderAdminUsers(req, res) {
       const hasEquipment = equipmentCount > 0;
       const isActive = user.is_active === 1;
 
+      // Роль — 4 варианта
       const roleLabels = {
-        admin:      { label: '👑 Админ',        cls: 'role-admin' },
-        supervisor: { label: '👁️ Супервизор',  cls: 'role-supervisor' },
-        mol:        { label: '🧑‍💼 МОЛ',         cls: 'role-mol' },
+        admin:      { label: '👑 Админ',       cls: 'role-admin' },
+        supervisor: { label: '👁️ Супервизор', cls: 'role-supervisor' },
+        mol:        { label: '🧑‍💼 МОЛ',        cls: 'role-mol' },
         user:       { label: '👤 Пользователь', cls: 'role-user' },
       };
       const roleInfo = roleLabels[user.role] || { label: user.role, cls: 'role-user' };
-      const roleBadge = `<span class="role-badge ${roleInfo.cls}">${roleInfo.label}</span>`;
+      const roleBadge = `<span class="role-badge ${roleInfo.cls}">${escapeHtml(roleInfo.label)}</span>`;
 
       const statusBadge = isActive
         ? '<span class="status-badge status-available">Активен</span>'
         : '<span class="status-badge status-retired">Заблокирован</span>';
 
-      const lastLogin = user.last_login ? formatDate(user.last_login) : '<span style="color: #a0aec0;">никогда</span>';
-
-      const blockButton = isActive
-        ? `<button onclick="blockUser(${user.id})" class="btn-icon btn-warning" title="Заблокировать">🚫</button>`
-        : `<button onclick="unblockUser(${user.id})" class="btn-icon btn-success" title="Разблокировать">✅</button>`;
+      const lastLogin = user.last_login
+        ? escapeHtml(formatDate(user.last_login))
+        : '<span style="color: #a0aec0;">никогда</span>';
 
       userRows += `
-        <tr class="${!isActive ? 'row-blocked' : ''}">
+        <tr class="user-row-clickable ${!isActive ? 'row-blocked' : ''}" onclick="viewUser(${user.id})">
           <td>${user.id}</td>
           <td>
             <div class="user-cell">
-              <span class="user-avatar">${getInitials(user.full_name || user.username)}</span>
+              <span class="user-avatar">${escapeHtml(getInitials(user.full_name || user.username))}</span>
               <div>
-                <div class="user-name">${user.full_name || user.username}</div>
-                <div class="user-username">@${user.username}</div>
+                <div class="user-name">${escapeHtml(user.full_name || user.username)}</div>
+                <div class="user-username">@${escapeHtml(user.username)}</div>
               </div>
             </div>
           </td>
-          <td>${user.email}</td>
-          <td>${user.department || '—'}</td>
+          <td>${escapeHtml(user.email || '—')}</td>
+          <td>${escapeHtml(user.department || '—')}</td>
           <td>${roleBadge}</td>
           <td><span class="badge-count ${hasEquipment ? 'has-items' : 'no-items'}">${equipmentCount}</span></td>
           <td>${statusBadge}</td>
           <td style="font-size: 12px; color: #666;">${lastLogin}</td>
-          <td>
-            <div class="action-buttons">
-              <button onclick="viewUser(${user.id})" class="btn-icon btn-info" title="Просмотр">👁️</button>
-              <button onclick="editUser(${user.id})" class="btn-icon btn-edit" title="Редактировать">✏️</button>
-              <button onclick="resetUserPassword(${user.id}, '${user.username}')" class="btn-icon btn-warning" title="Сбросить пароль">🔑</button>
-              ${blockButton}
-              <button onclick="deleteUser(${user.id}, '${escapeAttr(user.full_name || user.username)}')" class="btn-icon btn-delete" title="Удалить">🗑️</button>
-            </div>
-          </td>
         </tr>
       `;
     });
+
+    // Пустое состояние
+    if (users.length === 0) {
+      userRows = `
+        <tr>
+          <td colspan="8" style="text-align: center; padding: 40px; color: var(--text-muted);">
+            <div style="font-size: 40px; margin-bottom: 10px;">🔍</div>
+            <div>Пользователи не найдены</div>
+          </td>
+        </tr>
+      `;
+    }
+
     html = html.replace('{{user_rows}}', userRows);
 
     renderPageFor(req, res, {
