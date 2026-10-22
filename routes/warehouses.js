@@ -895,7 +895,10 @@ async function renderWarehouseDetails(req, res) {
       title: `${warehouse.name} – MoveIT service`,
       content,
       pageCss: '/css/warehouse-details.css',
-      pageJs: '/js/warehouse-details.js',
+      pageJs: [
+        '/js/equipment-view.js',
+        '/js/warehouse-details.js',
+      ],
     });
 
   } catch (error) {

@@ -174,7 +174,10 @@ async function renderAdminUsers(req, res) {
         '/css/manage/modals.css',
         '/css/manage/responsive.css',
       ],
-      pageJs: '/js/admin-users.js',
+      pageJs: [
+        '/js/equipment-view.js',
+        '/js/admin-users.js',
+      ],
     });
   } catch (error) {
     console.error('❌ Ошибка загрузки страницы управления доступом:', error);

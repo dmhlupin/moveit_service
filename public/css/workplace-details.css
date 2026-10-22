@@ -549,3 +549,20 @@
         flex-wrap: wrap;
     }
 }
+
+/* ============================================================
+   КЛИКАБЕЛЬНАЯ СТРОКА ТЕХНИКИ (5.7.1)
+   ============================================================ */
+
+.equipment-row-link {
+    cursor: pointer;
+    transition: background var(--transition-fast);
+}
+
+.equipment-row-link:hover td {
+    background: var(--bg-hover);
+}
+
+.equipment-row-link td {
+    cursor: pointer;   /* 🆕 дублируем на td — для надёжности */
+}

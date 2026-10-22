@@ -278,16 +278,16 @@ async function viewUser(id) {
             `;
             activeEquipment.forEach(eq => {
                 const assignedDate = new Date(eq.assigned_date).toLocaleDateString('ru-RU');
-                activeEquipmentHtml += `
-                    <tr>
-                        <td><strong>${escapeHtml(eq.inventory_number || '—')}</strong></td>
-                        <td>${escapeHtml(eq.model_name || '—')}</td>
-                        <td>${escapeHtml(eq.model_corporate_id || '—')}</td>
-                        <td>${escapeHtml(eq.model_manufacturer || '—')}</td>
-                        <td>${assignedDate}</td>
-                        <td>${escapeHtml(eq.condition_on_assign || '—')}</td>
-                    </tr>
-                `;
+            activeEquipmentHtml += `
+                <tr class="equipment-row-link" onclick="viewEquipmentFromExternal(${eq.id})" title="Открыть карточку техники">
+                    <td><strong>${escapeHtml(eq.inventory_number || '—')}</strong></td>
+                    <td>${escapeHtml(eq.model_name || '—')}</td>
+                    <td>${escapeHtml(eq.model_corporate_id || '—')}</td>
+                    <td>${escapeHtml(eq.model_manufacturer || '—')}</td>
+                    <td>${assignedDate}</td>
+                    <td>${escapeHtml(eq.condition_on_assign || '—')}</td>
+                </tr>
+            `;
             });
             activeEquipmentHtml += '</tbody></table>';
         }

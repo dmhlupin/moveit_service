@@ -636,3 +636,36 @@
 .view-user-modal .user-detail-layout + .user-detail-section {
     margin-top: var(--space-lg);
 }
+
+/* ============================================================
+   ССЫЛКИ НА КАРТОЧКУ ТЕХНИКИ (5.7.1)
+   ============================================================ */
+
+.eq-inv-link {
+    color: var(--accent);
+    text-decoration: none;
+    cursor: pointer;
+    transition: color var(--transition-fast);
+}
+
+.eq-inv-link:hover {
+    color: var(--accent-hover, var(--purple));
+    text-decoration: underline;
+}
+
+/* ============================================================
+   КЛИКАБЕЛЬНАЯ СТРОКА ТЕХНИКИ В МОДАЛКАХ (5.7.1)
+   ============================================================ */
+
+.equipment-row-link {
+    cursor: pointer;
+    transition: background var(--transition-fast);
+}
+
+.equipment-row-link:hover td {
+    background: var(--bg-hover);
+}
+
+.equipment-row-link td {   /* 🆕 */
+    cursor: pointer;
+}

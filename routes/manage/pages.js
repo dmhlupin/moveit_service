@@ -308,6 +308,9 @@ async function renderManage(req, res) {
       page, totalPages, totalFiltered, query: q,
     }));
 
+        // 🆕 5.7.1: если перешли с ?open_equipment=ID — открыть карточку
+    html = html.replace('{{open_equipment_id}}', q.open_equipment ? parseInt(q.open_equipment, 10) || '' : '');
+
     renderPageFor(req, res, {
       title: 'Учёт ТМЦ – MoveIT service',
       content: html,

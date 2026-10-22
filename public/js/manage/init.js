@@ -61,4 +61,19 @@ document.addEventListener('DOMContentLoaded', function() {
     if (onlyMine) {
         onlyMine.addEventListener('change', applyFilters);
     }
+
+        // 🆕 5.7.1: если в URL был ?open_equipment=ID — открыть карточку
+    const openEquipmentId = document.getElementById('openEquipmentId')?.value;
+    if (openEquipmentId && !isNaN(parseInt(openEquipmentId, 10))) {
+        // Небольшая задержка, чтобы DOM точно отрисовался
+        setTimeout(() => {
+            if (typeof viewEquipment === 'function') {
+                viewEquipment(parseInt(openEquipmentId, 10));
+                // Очистить URL, чтобы при F5 не открывалось снова
+                const url = new URL(window.location.href);
+                url.searchParams.delete('open_equipment');
+                window.history.replaceState({}, '', url.toString());
+            }
+        }, 100);
+    }
 });

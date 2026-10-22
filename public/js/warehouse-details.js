@@ -717,7 +717,7 @@ async function viewCell(cellId) {
                 const statusLabel = statusLabels[eq.status] || eq.status;
 
                 html += `
-                    <tr>
+                    <tr class="equipment-row-link" onclick="viewEquipmentFromExternal(${eq.id})" title="Открыть карточку техники">
                         <td><span class="eq-inv">${escapeHtml(eq.inventory_number || '—')}</span></td>
                         <td>
                             <div class="eq-name">${escapeHtml(eq.model_name || '—')}</div>

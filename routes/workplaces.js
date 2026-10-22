@@ -125,7 +125,10 @@ async function renderWorkplaceDetails(req, res) {
       title: `${office.name} – MoveIT service`,
       content,
       pageCss: '/css/workplace-details.css',
-      pageJs: '/js/workplace-details.js',
+      pageJs: [
+        '/js/equipment-view.js',
+        '/js/workplace-details.js',
+      ],
     });
     
   } catch (error) {
