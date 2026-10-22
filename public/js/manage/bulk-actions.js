@@ -2,7 +2,7 @@
 // Групповое перемещение техники (5.0.5).
 
 function toggleSelectAll(checkbox) {
-    document.querySelectorAll('.row-checkbox').forEach(cb => {
+    document.querySelectorAll('.row-checkbox:not(:disabled)').forEach(cb => {
         cb.checked = checkbox.checked;
     });
     updateSelectedCount();
@@ -22,15 +22,17 @@ function updateSelectedCount() {
     if (bar) bar.style.display = selected.length > 0 ? 'flex' : 'none';
     if (countEl) countEl.textContent = selected.length;
 
-    const all = document.querySelectorAll('.row-checkbox');
+    const allAvailable = document.querySelectorAll('.row-checkbox:not(:disabled)');
     const selectAll = document.getElementById('selectAll');
-    if (selectAll && all.length > 0) {
-        selectAll.checked = selected.length === all.length;
+    if (selectAll && allAvailable.length > 0) {
+        selectAll.checked = selected.length === allAvailable.length;
+    } else if (selectAll) {
+        selectAll.checked = false;
     }
 }
 
 function getSelectedIds() {
-    return Array.from(document.querySelectorAll('.row-checkbox:checked'))
+    return Array.from(document.querySelectorAll('.row-checkbox:checked:not(:disabled)'))
         .map(cb => parseInt(cb.value, 10))
         .filter(n => !isNaN(n));
 }

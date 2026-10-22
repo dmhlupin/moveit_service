@@ -310,3 +310,28 @@
 .user-row-clickable:hover td {
     background: var(--bg-hover);
 }
+
+/* ============================================================
+   ЗАБЛОКИРОВАННЫЕ СТРОКИ (МОЛ, чужая техника) — 5.6.1
+   ============================================================ */
+
+.row-locked {
+    background: var(--bg-tertiary);
+    opacity: 0.65;
+}
+
+.row-locked:hover td {
+    background: var(--bg-tertiary) !important;
+    opacity: 0.75;
+}
+
+.row-locked td {
+    color: var(--text-muted);
+}
+
+.lock-icon {
+    display: inline-block;
+    margin-right: 4px;
+    font-size: 12px;
+    opacity: 0.8;
+}

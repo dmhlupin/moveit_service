@@ -180,6 +180,17 @@ async function renderManage(req, res) {
         const canBulkMove = (currentRole === 'admin' || currentRole === 'mol');
         const statusClass = `status-${item.status}`;
 
+        // 🆕 5.6.1: может ли текущий пользователь редактировать этот экземпляр
+        const canEditThis = currentRole === 'admin'
+          || (currentRole === 'mol' && Number(item.responsible_user_id) === Number(req.session.userId));
+
+        // 🆕 5.6.1: заблокированная строка для МОЛа (чужая техника)
+        const isLocked = currentRole === 'mol' && !canEditThis;
+        const rowClass = `equipment-row-clickable${isLocked ? ' row-locked' : ''}`;
+        const lockIcon = isLocked
+          ? '<span class="lock-icon" title="Техника закреплена за другим МОЛом — только просмотр">🔒</span>'
+          : '';
+
         let assignedInfo = '—';
         if (item.status === 'assigned' && item.user_name) {
           const initials = getInitials(item.user_name);
@@ -249,14 +260,17 @@ async function renderManage(req, res) {
         }
 
         equipmentRows += `
-          <tr class="equipment-row-clickable" onclick="viewEquipment(${item.id})">
+          <tr class="${rowClass}" onclick="viewEquipment(${item.id})">
             ${canBulkMove ? `
               <td onclick="event.stopPropagation()" style="text-align: center;">
-                <input type="checkbox" class="row-checkbox" value="${item.id}" onclick="event.stopPropagation(); updateSelectedCount()">
+                ${isLocked
+                  ? '<input type="checkbox" class="row-checkbox" disabled title="Техника закреплена за другим МОЛом — нельзя переместить" style="opacity: 0.3; cursor: not-allowed;">'
+                  : `<input type="checkbox" class="row-checkbox" value="${item.id}" onclick="event.stopPropagation(); updateSelectedCount()">`
+                }
               </td>
             ` : ''}
             <td>${item.id}</td>
-            <td><strong>${item.inventory_number || '—'}</strong></td>
+            <td>${lockIcon}<strong>${item.inventory_number || '—'}</strong></td>
             <td>${item.model_name || '—'}</td>
             <td>${item.model_corporate_id || '—'}</td>
             <td>${categoryCell}</td>
@@ -278,7 +292,7 @@ async function renderManage(req, res) {
     renderPageFor(req, res, {
       title: 'Учёт ТМЦ – MoveIT service',
       content: html,
-      pageCss: [                      // стало
+      pageCss: [
         '/css/manage/table.css',
         '/css/manage/card.css',
         '/css/manage/actions.css',
@@ -294,7 +308,7 @@ async function renderManage(req, res) {
         '/js/manage/init.js',
       ],
     });
-    
+
   } catch (error) {
     console.error('❌ Ошибка загрузки страницы учёта ТМЦ:', error);
     res.status(500).send('Ошибка при загрузке страницы учёта ТМЦ');
