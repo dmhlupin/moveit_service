@@ -322,19 +322,8 @@ async function viewUser(id) {
         if (history.length === 0) {
             historyHtml = '<p style="color: var(--text-muted); text-align: center; padding: 15px;">История пуста</p>';
         } else {
-            historyHtml = `
-                <table class="history-table">
-                    <thead>
-                        <tr>
-                            <th>Инв. номер</th>
-                            <th>Название</th>
-                            <th>Выдано</th>
-                            <th>Возвращено</th>
-                            <th>Статус</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
+            // 🆕 5.5.4: сворачиваемая история (закрыта по умолчанию)
+            let historyRows = '';
             history.forEach(h => {
                 const assignedDate = h.assigned_date
                     ? new Date(h.assigned_date).toLocaleDateString('ru-RU')
@@ -346,7 +335,7 @@ async function viewUser(id) {
                     ? '<span class="status-badge status-assigned">Активна</span>'
                     : '<span class="status-badge status-available">Возвращена</span>';
 
-                historyHtml += `
+                historyRows += `
                     <tr>
                         <td><strong>${escapeHtml(h.inventory_number || '—')}</strong></td>
                         <td>${escapeHtml(h.model_name || '—')}</td>
@@ -356,7 +345,24 @@ async function viewUser(id) {
                     </tr>
                 `;
             });
-            historyHtml += '</tbody></table>';
+
+            historyHtml = `
+                <details class="history-accordion">
+                    <summary>📜 История получений (${stats.total})</summary>
+                    <table class="history-table">
+                        <thead>
+                            <tr>
+                                <th>Инв. номер</th>
+                                <th>Название</th>
+                                <th>Выдано</th>
+                                <th>Возвращено</th>
+                                <th>Статус</th>
+                            </tr>
+                        </thead>
+                        <tbody>${historyRows}</tbody>
+                    </table>
+                </details>
+            `;
         }
 
         // === ДЕЙСТВИЯ В ПРАВОЙ КОЛОНКЕ ===
@@ -466,7 +472,6 @@ async function viewUser(id) {
             </div>
 
             <div class="user-detail-section">
-                <h4>📜 История получений (${stats.total})</h4>
                 ${historyHtml}
             </div>
         `;
