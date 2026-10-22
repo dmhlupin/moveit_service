@@ -279,8 +279,16 @@ async function renderManage(req, res) {
       title: 'Учёт ТМЦ – MoveIT service',
       content: html,
       pageCss: '/css/manage.css',
-      pageJs: '/js/manage.js',
+      pageJs: [
+        '/js/manage/helpers.js',
+        '/js/manage/equipment-card.js',
+        '/js/manage/equipment-actions.js',
+        '/js/manage/bulk-actions.js',
+        '/js/manage/filters.js',
+        '/js/manage/init.js',
+      ],
     });
+    
   } catch (error) {
     console.error('❌ Ошибка загрузки страницы учёта ТМЦ:', error);
     res.status(500).send('Ошибка при загрузке страницы учёта ТМЦ');

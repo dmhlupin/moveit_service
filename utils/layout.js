@@ -110,9 +110,12 @@ function renderPage(options) {
     
     const partials = loadPartials();
     
-    // Дополнительные CSS/JS
-    const extraCss = pageCss ? `<link rel="stylesheet" href="${pageCss}">` : '';
-    const extraJs = pageJs ? `<script src="${pageJs}"></script>` : '';
+    // Дополнительные CSS/JS (поддерживают строку и массив)
+    const cssList = Array.isArray(pageCss) ? pageCss : (pageCss ? [pageCss] : []);
+    const jsList  = Array.isArray(pageJs)  ? pageJs  : (pageJs  ? [pageJs]  : []);
+
+    const extraCss = cssList.map(href => `<link rel="stylesheet" href="${href}">`).join('\n    ');
+    const extraJs  = jsList.map(src => `<script src="${src}"></script>`).join('\n    ');
     
     // 🆕 Роле-зависимый sidebar (Этап 4).
     // Если user не передан (undefined) — считаем админом для обратной
