@@ -13,8 +13,8 @@ module.exports = ({ db, run, get, all }) => ({
         SELECT 
           e.id,
           e.inventory_number,
-          e.responsible_user_id,
-          m.name         AS model_name,
+          e.status,
+          m.name AS model_name,
           m.corporate_id AS model_corporate_id,
           m.manufacturer AS model_manufacturer,
           e.serial_number,
