@@ -237,3 +237,13 @@ http://localhost:3000/admin/user/edit/id
 - курсор `pointer` на `<tr>` — `.equipment-row-link` в `public/css/catalog.css` (или общий, если вынести в `components.css`).
 
 **Приоритет:** средний (UX-консистентность). Логично делать после 5.10.7 (финал 5.10), отдельным подэтапом 5.11.1 или сразу после разноса `catalog.js`.
+
+## 2026-10-23 Роуты → БД: прямой db.all
+**Что делал:** 5.10.6 (разнос routes/manage/users.js)
+**Что неудобно:** renderEditUser (routes/manage/users/pages.js) дёргает `db.all` напрямую для получения списка активных складов и офисов (для чекбоксов «Ответственность МОЛ»). Это нарушает слой: роут не должен знать про SQL.
+**Идея:** вынести в `database/modules/warehouses.js` и `database/modules/workplaces.js` функции:
+- `getWarehousesForFilter(scope)` — плоский список `{ id, name, is_default }` без подзапросов `zones_count`/`racks_count`/etc;
+- `getOfficesForFilter(scope)` — аналогично.
+Использовать в `renderEditUser` вместо `db.all`. Заодно проверить остальные `db.all` / `db.get` / `db.run` в роутах:
+- `routes/manage/users/api.js` → `updateUserAPI` / `deleteUserAPI` / `blockUserAPI` / `unblockUserAPI` — там уже есть `const { db } = require('../../database/db')` внутри для проверки «последний админ» (`SELECT COUNT(*) FROM users WHERE role = 'admin'`). Тоже кандидаты на вынос.
+**Приоритет:** средний (чистота слоёв, не блокирует).
