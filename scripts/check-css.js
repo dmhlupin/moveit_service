@@ -194,49 +194,68 @@ function checkAllPlaceholders() {
     return 0;
   }
 
-  // 1. Собираем JS-файлы, где может быть replace
-  const jsFiles = [];
-  for (const dir of [routesDir, utilsDir]) {
-    if (!fs.existsSync(dir)) continue;
-    for (const f of fs.readdirSync(dir)) {
-      if (f.endsWith('.js')) jsFiles.push(path.join(dir, f));
+  // 1. Собираем JS-файлы, где может быть replace (рекурсивно)
+  function walkJs(dir, out) {
+    if (!fs.existsSync(dir)) return;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walkJs(full, out);
+      } else if (entry.isFile() && entry.name.endsWith('.js')) {
+        out.push(full);
+      }
     }
   }
+  const jsFiles = [];
+  for (const dir of [routesDir, utilsDir]) walkJs(dir, jsFiles);
 
   // 2. Собираем "заменяемые" плейсхолдеры
   const replaced = collectReplacedPlaceholders(jsFiles);
 
-  // 3. Обходим views
-  const htmlFiles = fs.readdirSync(viewsDir).filter(f => f.endsWith('.html'));
+  // 3. Обходим views (включая views/partials)
+  const htmlFiles = [];
+  for (const entry of fs.readdirSync(viewsDir, { withFileTypes: true })) {
+    if (entry.isFile() && entry.name.endsWith('.html')) {
+      htmlFiles.push(entry.name);
+    }
+  }
+  // партиалы обрабатываем отдельным проходом с префиксом "partials/"
+  const partialsDir = path.join(viewsDir, 'partials');
+  const partialFiles = [];
+  if (fs.existsSync(partialsDir)) {
+    for (const entry of fs.readdirSync(partialsDir, { withFileTypes: true })) {
+      if (entry.isFile() && entry.name.endsWith('.html')) {
+        partialFiles.push(entry.name);
+      }
+    }
+  }
 
   // Известные плейсхолдеры, которые заменяются НЕ в routes/, а в layout.js
   // (или других местах) — оставляем в белом списке.
 
 
-const whitelist = new Set([
-  // Общие из layout.js
-  '{{title}}', '{{content}}', '{{pageCss}}', '{{pageJs}}',
-  '{{user}}', '{{username}}', '{{userRole}}', '{{currentYear}}',
-  // Клиентские шаблоны (Handlebars/Vue)
-  '{{this.name}}', '{{this.file}}',
-  // ... по мере появления
-]);
+  const whitelist = new Set([
+    // Общие из layout.js
+    '{{title}}', '{{content}}', '{{pageCss}}', '{{pageJs}}',
+    '{{user}}', '{{username}}', '{{userRole}}', '{{currentYear}}',
+    // Клиентские шаблоны (Handlebars/Vue)
+    '{{this.name}}', '{{this.file}}',
+    // ... по мере появления
+  ]);
 
-const whitelistPatterns = [
-  /^\{\{this\.[\w.]+\}\}$/,   // {{this.*}} — клиентские шаблоны
-];
+  const whitelistPatterns = [
+    /^\{\{this\.[\w.]+\}\}$/,   // {{this.*}} — клиентские шаблоны
+  ];
 
-function isWhitelisted(key) {
-  if (whitelist.has(key)) return true;
-  return whitelistPatterns.some(re => re.test(key));
-}
+  function isWhitelisted(key) {
+    if (whitelist.has(key)) return true;
+    return whitelistPatterns.some(re => re.test(key));
+  }
 
   let totalIssues = 0;
 
-  for (const file of htmlFiles) {
-    const fullPath = path.join(viewsDir, file);
+  function checkOneHtml(fullPath, label) {
     const placeholders = collectPlaceholdersFromHtml(fullPath);
-
     const missing = [];
     for (const [key, occurrences] of placeholders) {
       if (replaced.has(key)) continue;
@@ -245,17 +264,23 @@ function isWhitelisted(key) {
     }
 
     if (missing.length === 0) {
-      console.log(`✅ ${file} — все плейсхолдеры обрабатываются (${placeholders.size})`);
+      console.log(`✅ ${label} — все плейсхолдеры обрабатываются (${placeholders.size})`);
     } else {
-      console.log(`❌ ${file} — НЕ обрабатываются (${missing.length} из ${placeholders.size}):`);
+      console.log(`❌ ${label} — НЕ обрабатываются (${missing.length} из ${placeholders.size}):`);
       for (const { key, occurrences } of missing) {
         console.log(`     ${key}   (${occurrences.length}×)`);
-        // показываем первую строку для контекста
         const occ = occurrences[0];
         console.log(`       ↳ строка ${occ.line}: ${occ.raw}`);
       }
       totalIssues += missing.length;
     }
+  }
+
+  for (const file of htmlFiles) {
+    checkOneHtml(path.join(viewsDir, file), file);
+  }
+  for (const file of partialFiles) {
+    checkOneHtml(path.join(partialsDir, file), `partials/${file}`);
   }
 
   return totalIssues;
@@ -298,6 +323,12 @@ const cssFilesToCheck = [
   'pdf.css',
   'workplaces.css',
   'admin-models.css',
+    // 5.3.0: модули manage/
+  'manage/table.css',
+  'manage/card.css',
+  'manage/actions.css',
+  'manage/modals.css',
+  'manage/responsive.css',
 ];
 
 const missingVars = checkVars(themeVars, cssFilesToCheck);
