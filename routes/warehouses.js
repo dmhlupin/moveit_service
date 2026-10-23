@@ -1052,8 +1052,8 @@ async function exportInventoryCSV(req, res) {
     // Шапка таблицы
     lines.push([
       'Инв. номер',
-      'Название',
       'Модель',
+      'Корп. ИД',
       'Производитель',
       'Категория',
       'Тип',
@@ -1069,9 +1069,9 @@ async function exportInventoryCSV(req, res) {
 
       lines.push([
         eq.inventory_number,
-        eq.name,
-        eq.model || '',
-        eq.manufacturer || '',
+        eq.model_name || '',
+        eq.model_corporate_id || '',
+        eq.model_manufacturer || '',
         eq.category_name || '',
         eq.type_name || '',
         location,

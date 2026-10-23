@@ -753,8 +753,11 @@ module.exports = ({ db, run, get, all }) => ({
 
   /**
    * Получить всю технику на рабочем месте
+   * 5.9.0(a): scope — МОЛ видит только технику в своих офисах.
    */
-  getWorkplaceEquipment(workplaceId) {
+  getWorkplaceEquipment(workplaceId, scope = {}) {
+    const s = buildOfficeScope(scope);
+    const extraWhere = s.clause ? `AND ${s.clause}` : '';
     return new Promise((resolve, reject) => {
       db.all(`
         SELECT
@@ -777,9 +780,12 @@ module.exports = ({ db, run, get, all }) => ({
         JOIN equipment_models m ON m.id = e.model_id
         LEFT JOIN equipment_categories c ON c.id = m.category_id
         LEFT JOIN equipment_types      t ON t.id = m.type_id
-        WHERE e.workplace_id = ?
+        JOIN workplaces w ON e.workplace_id = w.id
+        JOIN rooms r ON w.room_id = r.id
+        JOIN offices o ON r.office_id = o.id
+        WHERE e.workplace_id = ? ${extraWhere}
         ORDER BY c.sort_order, t.sort_order, e.inventory_number
-      `, [workplaceId], (err, rows) => {
+      `, [workplaceId, ...s.params], (err, rows) => {
         if (err) reject(err);
         else resolve(rows || []);
       });
@@ -865,17 +871,41 @@ module.exports = ({ db, run, get, all }) => ({
 
   /**
    * Общая статистика по рабочим местам
+   * 5.9.0(a): scope — для МОЛа считаем только его офисы и его технику.
    */
-  getWorkplaceStats() {
+  getWorkplaceStats(scope = {}) {
+    const isMol = scope.role === 'mol';
+    const uid = parseInt(scope.userId, 10) || 0;
+
+    const molOffice = isMol
+      ? `AND o.id IN (SELECT office_id FROM office_responsibles WHERE user_id = ${uid})`
+      : '';
+    const molRoom = isMol
+      ? `AND r.office_id IN (SELECT office_id FROM office_responsibles WHERE user_id = ${uid})`
+      : '';
+    const molWp = isMol
+      ? `AND r.office_id IN (SELECT office_id FROM office_responsibles WHERE user_id = ${uid})`
+      : '';
+    const molEq = isMol ? `AND e.responsible_user_id = ${uid}` : '';
+
     return new Promise((resolve, reject) => {
       db.get(`
         SELECT
-          (SELECT COUNT(*) FROM offices WHERE is_active = 1) as total_offices,
-          (SELECT COUNT(*) FROM rooms WHERE is_active = 1) as total_rooms,
-          (SELECT COUNT(*) FROM workplaces WHERE is_active = 1) as total_workplaces,
-          (SELECT COUNT(*) FROM equipment WHERE workplace_id IS NOT NULL) as equipment_on_workplaces,
-          (SELECT COUNT(*) FROM equipment WHERE workplace_id IS NULL AND cell_id IS NULL AND status = 'available') as equipment_unassigned,
-          (SELECT COUNT(*) FROM equipment WHERE workplace_id IS NULL AND cell_id IS NOT NULL) as equipment_on_stock
+          (SELECT COUNT(*) FROM offices o
+            WHERE o.is_active = 1 ${molOffice}) as total_offices,
+          (SELECT COUNT(*) FROM rooms r
+            JOIN offices o ON r.office_id = o.id
+            WHERE r.is_active = 1 AND o.is_active = 1 ${molRoom}) as total_rooms,
+          (SELECT COUNT(*) FROM workplaces w
+            JOIN rooms r ON w.room_id = r.id
+            JOIN offices o ON r.office_id = o.id
+            WHERE w.is_active = 1 AND r.is_active = 1 AND o.is_active = 1 ${molWp}) as total_workplaces,
+          (SELECT COUNT(*) FROM equipment e
+            WHERE e.workplace_id IS NOT NULL ${molEq}) as equipment_on_workplaces,
+          (SELECT COUNT(*) FROM equipment e
+            WHERE e.workplace_id IS NULL AND e.cell_id IS NULL AND e.status = 'available' ${molEq}) as equipment_unassigned,
+          (SELECT COUNT(*) FROM equipment e
+            WHERE e.workplace_id IS NULL AND e.cell_id IS NOT NULL ${molEq}) as equipment_on_stock
       `, (err, row) => {
         if (err) reject(err);
         else resolve(row || {});

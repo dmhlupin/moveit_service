@@ -69,7 +69,8 @@ function escapeHtml(str) {
  */
 async function renderWorkplaces(req, res) {
   try {
-    const stats = await getWorkplaceStats();
+    const scope = { userId: req.session.userId, role: req.session.role };
+    const stats = await getWorkplaceStats(scope);
 
     const htmlPath = path.join(__dirname, '..', 'views', 'admin-workplaces.html');
     let content = fs.readFileSync(htmlPath, 'utf8');
@@ -385,7 +386,8 @@ async function getOfficeTreeAPI(req, res) {
  */
 async function getWorkplaceStatsAPI(req, res) {
   try {
-    const stats = await getWorkplaceStats();
+    const scope = { userId: req.session.userId, role: req.session.role };
+    const stats = await getWorkplaceStats(scope);
     res.json(stats);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -728,7 +730,8 @@ async function getWorkplaceEquipmentAPI(req, res) {
       return res.status(400).json({ error: 'Неверный ID' });
     }
 
-    const equipment = await getWorkplaceEquipment(id);
+    const scope = { userId: req.session.userId, role: req.session.role };
+    const equipment = await getWorkplaceEquipment(id, scope);
     res.json(equipment);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -825,7 +828,8 @@ async function getOfficeEquipmentAPI(req, res) {
       return res.status(400).json({ error: 'Неверный ID офиса' });
     }
 
-    const equipment = await getOfficeEquipment(officeId);
+    const scope = { userId: req.session.userId, role: req.session.role };
+    const equipment = await getOfficeEquipment(officeId, scope);
     res.json(equipment);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -842,7 +846,8 @@ async function getWorkplaceOccupancyAPI(req, res) {
       return res.status(400).json({ error: 'Неверный ID офиса' });
     }
 
-    const occupancy = await getWorkplaceOccupancy(officeId);
+    const scope = { userId: req.session.userId, role: req.session.role };
+    const occupancy = await getWorkplaceOccupancy(officeId, scope);
     res.json(occupancy);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -859,12 +864,13 @@ async function exportOfficeInventoryCSV(req, res) {
       return res.status(400).send('Неверный ID офиса');
     }
 
-    const office = await getOfficeById(officeId);
+    const scope = { userId: req.session.userId, role: req.session.role };
+    const office = await getOfficeById(officeId, scope);
     if (!office) {
       return res.status(404).send('Офис не найден');
     }
 
-    const equipment = await getOfficeEquipment(officeId);
+    const equipment = await getOfficeEquipment(officeId, scope);
 
     // Формируем CSV
     const lines = [];
@@ -881,8 +887,8 @@ async function exportOfficeInventoryCSV(req, res) {
     // Шапка таблицы
     lines.push([
       'Инв. номер',
-      'Название',
       'Модель',
+      'Корп. ИД',
       'Производитель',
       'Категория',
       'Тип',
@@ -898,9 +904,9 @@ async function exportOfficeInventoryCSV(req, res) {
 
       lines.push([
         eq.inventory_number,
-        eq.name,
-        eq.model || '',
-        eq.manufacturer || '',
+        eq.model_name || '',
+        eq.model_corporate_id || '',
+        eq.model_manufacturer || '',
         eq.category_name || '',
         eq.type_name || '',
         location,
