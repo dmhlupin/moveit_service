@@ -10,6 +10,10 @@ let totals = {};
 let currentWarehouseId = null;
 let currentWarehouse = null;
 
+let officesSummary = [];         // 🆕 5.9.3
+let currentOfficeId = null;      // 🆕 5.9.3
+let currentOffice = null;        // 🆕 5.9.3
+
 // ============================================================
 // ИНИЦИАЛИЗАЦИЯ
 // ============================================================
@@ -18,6 +22,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     await loadSummary();
     await loadTotals();
     await loadSpecialSummary();  // 🆕 2.11.15
+    await loadOfficesSummary();   // 🆕 5.9.3
 });
 
 /**
@@ -85,6 +90,109 @@ async function loadSpecialSummary() {
             </div>
         `;
     }
+}
+
+// ============================================================
+// 5.9.3: СВОДКА ПО ОФИСАМ
+// ============================================================
+
+async function loadOfficesSummary() {
+    const container = document.getElementById('officesSummary');
+    if (!container) return;
+
+    container.innerHTML = '<div class="loading-block">⏳ Загрузка...</div>';
+
+    try {
+        const response = await fetch('/api/admin/inventory/offices-summary');
+        officesSummary = await response.json();
+        renderOfficesSummary();
+    } catch (error) {
+        console.error('❌ Ошибка загрузки сводки по офисам:', error);
+        container.innerHTML = `
+            <div class="empty-state">
+                <span class="emoji">❌</span>
+                <h3>Ошибка загрузки</h3>
+                <p>Не удалось получить сводку по офисам</p>
+            </div>
+        `;
+    }
+}
+
+function renderOfficesSummary() {
+    const container = document.getElementById('officesSummary');
+    if (!container) return;
+
+    if (officesSummary.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <span class="emoji">📭</span>
+                <h3>Нет активных офисов</h3>
+                <p>Добавьте офис в админ-панели</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = officesSummary.map(o => renderOfficeCard(o)).join('');
+}
+
+function renderOfficeCard(o) {
+    const percent = o.fill_percent || 0;
+    let fillClass = 'low';
+    if (percent >= 90) fillClass = 'full';
+    else if (percent >= 60) fillClass = 'high';
+    else if (percent >= 30) fillClass = 'medium';
+
+    const cardClasses = ['warehouse-summary-card', 'office-summary-card'];
+    if (o.is_default) cardClasses.push('is-default');
+
+    return `
+        <div class="${cardClasses.join(' ')}" onclick="openOfficeDetail(${o.id})">
+            <div class="ws-header">
+                <div class="ws-title">
+                    <div class="ws-name">
+                        🏛️ ${escapeHtml(o.name)}
+                        ${o.is_default ? '<span class="ws-badge">⭐ По умолчанию</span>' : ''}
+                    </div>
+                    ${o.address ? `<div class="ws-address">📍 ${escapeHtml(o.address)}</div>` : ''}
+                </div>
+            </div>
+
+            <div class="ws-progress">
+                <div class="ws-progress-label">
+                    <span>Заполненность мест</span>
+                    <span><strong>${o.equipment_count}</strong> из <strong>${o.workplaces_count}</strong></span>
+                </div>
+                <div class="ws-progress-bar">
+                    <div class="ws-progress-fill ${fillClass}" style="width: ${percent}%"></div>
+                </div>
+            </div>
+
+            <div class="ws-stats">
+                <div class="ws-stat">
+                    <div class="ws-stat-value zones">${o.rooms_count || 0}</div>
+                    <div class="ws-stat-label">🚪 Каб.</div>
+                </div>
+                <div class="ws-stat">
+                    <div class="ws-stat-value racks">${o.workplaces_count || 0}</div>
+                    <div class="ws-stat-label">🪑 Мест</div>
+                </div>
+                <div class="ws-stat">
+                    <div class="ws-stat-value equipment">${o.equipment_count || 0}</div>
+                    <div class="ws-stat-label">🔧 Техн.</div>
+                </div>
+            </div>
+
+            <div class="ws-actions" onclick="event.stopPropagation()">
+                <button onclick="openOfficeDetail(${o.id})" class="btn btn-primary btn-sm">
+                    📋 Открыть инвентаризацию
+                </button>
+                <a href="/admin/workplaces/${o.id}" class="btn btn-ghost btn-sm btn-icon-only" title="Дерево офиса">
+                    🏛️
+                </a>
+            </div>
+        </div>
+    `;
 }
 
 /**
@@ -379,6 +487,7 @@ function renderWarehouseDetail(inventory, occupancy) {
                         <th>Категория</th>
                         <th>Тип</th>
                         <th>Место хранения</th>
+                        <th>МОЛ</th>
                         <th>Статус</th>
                     </tr>
                 </thead>
@@ -398,6 +507,7 @@ function renderWarehouseDetail(inventory, occupancy) {
                     <td>${eq.category_icon || '📁'} ${escapeHtml(eq.category_name || '—')}</td>
                     <td>${eq.type_icon || '📦'} ${escapeHtml(eq.type_name || '—')}</td>
                     <td style="font-size: 12px;">${location}</td>
+                    <td style="font-size: 12px;">${escapeHtml(eq.responsible_user_name || '—')}</td>
                     <td><span class="status-badge status-${eq.status}">${statusLabel(eq.status)}</span></td>
                 </tr>
             `;
@@ -479,6 +589,198 @@ function closeWarehouseDetailModal() {
     currentWarehouse = null;
 }
 
+// ============================================================
+// 5.9.3: ДЕТАЛИ ОФИСА (модалка)
+// ============================================================
+
+async function openOfficeDetail(officeId) {
+    currentOfficeId = officeId;
+    currentOffice = officesSummary.find(o => o.id === officeId);
+
+    const modal = document.getElementById('officeDetailModal');
+    const title = document.getElementById('officeDetailTitle');
+    const body = document.getElementById('officeDetailBody');
+
+    title.textContent = `🏛️ ${currentOffice?.name || 'Офис'}`;
+    body.innerHTML = '<div class="loading-block">⏳ Загрузка...</div>';
+    modal.classList.add('active');
+
+    try {
+        const [equipment, occupancy] = await Promise.all([
+            fetch(`/api/admin/offices/${officeId}/equipment`).then(r => r.json()),
+            fetch(`/api/admin/offices/${officeId}/occupancy`).then(r => r.json()),
+        ]);
+
+        renderOfficeDetail(equipment, occupancy);
+    } catch (error) {
+        console.error('❌ Ошибка загрузки деталей офиса:', error);
+        body.innerHTML = `
+            <div class="empty-state">
+                <span class="emoji">❌</span>
+                <h3>Ошибка загрузки</h3>
+                <p>Не удалось получить данные офиса</p>
+            </div>
+        `;
+    }
+}
+
+function renderOfficeDetail(equipment, occupancy) {
+    const body = document.getElementById('officeDetailBody');
+    const o = currentOffice;
+
+    const statusLabel = (s) => ({
+        available:   '✅ Доступна',
+        placed:      '🪑 На месте',
+        assigned:    '👤 Назначена',
+        maintenance: '🔧 В ремонте',
+        retired:     '❌ Списана',
+    }[s] || s);
+
+    let html = `
+        <div class="wh-detail-header">
+            <div class="wh-detail-icon">🏛️</div>
+            <div class="wh-detail-info">
+                <h2>${escapeHtml(o.name)}</h2>
+                ${o.address ? `<div class="wh-detail-address">📍 ${escapeHtml(o.address)}</div>` : ''}
+            </div>
+        </div>
+
+        <div class="detail-tabs">
+            <button class="detail-tab active" onclick="switchOfficeTab('equipment', event)">
+                🔧 Техника (${equipment.length})
+            </button>
+            <button class="detail-tab" onclick="switchOfficeTab('occupancy', event)">
+                📍 Заполненность мест (${occupancy.length})
+            </button>
+        </div>
+
+        <div id="officeTabEquipment" class="detail-tab-content active">
+    `;
+
+    if (equipment.length === 0) {
+        html += `
+            <div class="empty-state">
+                <span class="emoji">📭</span>
+                <h3>В офисе нет техники</h3>
+                <p>Техника появится, если её разместить на рабочем месте</p>
+            </div>
+        `;
+    } else {
+        html += `
+            <table class="inventory-table">
+                <thead>
+                    <tr>
+                        <th>Инв. номер</th>
+                        <th>Модель</th>
+                        <th>Корп. ИД</th>
+                        <th>Категория</th>
+                        <th>Тип</th>
+                        <th>Расположение</th>
+                        <th>МОЛ</th>
+                        <th>Статус</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        equipment.forEach(eq => {
+            const location = eq.workplace_code
+                ? `${escapeHtml(eq.room_name || '—')} → <strong>${escapeHtml(eq.workplace_name || '—')} [${escapeHtml(eq.workplace_code)}]</strong>`
+                : `${escapeHtml(eq.room_name || '—')} → ${escapeHtml(eq.workplace_name || '—')}`;
+
+            html += `
+                <tr class="equipment-row-link" onclick="openEquipmentCardFromInventory(${eq.id})">
+                    <td><strong>${escapeHtml(eq.inventory_number || '—')}</strong></td>
+                    <td>${escapeHtml(eq.model_name || '—')}</td>
+                    <td>${escapeHtml(eq.model_corporate_id || '—')}</td>
+                    <td>${eq.category_icon || '📁'} ${escapeHtml(eq.category_name || '—')}</td>
+                    <td>${eq.type_icon || '📦'} ${escapeHtml(eq.type_name || '—')}</td>
+                    <td style="font-size: 12px;">${location}</td>
+                    <td style="font-size: 12px;">${escapeHtml(eq.responsible_user_name || '—')}</td>
+                    <td><span class="status-badge status-${eq.status}">${statusLabel(eq.status)}</span></td>
+                </tr>
+            `;
+        });
+
+        html += `</tbody></table>`;
+    }
+
+    html += `</div><div id="officeTabOccupancy" class="detail-tab-content">`;
+
+    if (occupancy.length === 0) {
+        html += `
+            <div class="empty-state">
+                <span class="emoji">📭</span>
+                <h3>Нет рабочих мест</h3>
+                <p>В этом офисе пока нет рабочих мест</p>
+            </div>
+        `;
+    } else {
+        occupancy.forEach(wp => {
+            const percent = wp.percent || 0;
+            const fillColor = percent >= 100 ? 'var(--danger)' : (percent > 0 ? 'var(--success)' : 'var(--border-light)');
+            const capacityText = wp.current_count > 0 ? `🔴 ${wp.current_count}` : '0';
+
+            html += `
+                <div class="occupancy-item">
+                    <div class="occupancy-cell">
+                        <div class="occupancy-code">${escapeHtml(wp.code || '—')}</div>
+                        <div class="occupancy-name">${escapeHtml(wp.name)} · ${escapeHtml(wp.room_name || '—')}</div>
+                    </div>
+                    <div class="occupancy-bar">
+                        <div class="occupancy-bar-fill" style="width: ${percent}%; background: ${fillColor};"></div>
+                    </div>
+                    <div class="occupancy-count">${capacityText}</div>
+                </div>
+            `;
+        });
+    }
+
+    html += `
+        </div>
+        <div style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+            <a href="/admin/workplaces/${currentOfficeId}" class="btn btn-primary">
+                🏛️ Дерево офиса
+            </a>
+            <button onclick="exportOfficeInventory(${currentOfficeId})" class="btn btn-success">
+                📥 Экспорт в CSV
+            </button>
+        </div>
+    `;
+
+    body.innerHTML = html;
+}
+
+function closeOfficeDetailModal() {
+    document.getElementById('officeDetailModal').classList.remove('active');
+    currentOfficeId = null;
+    currentOffice = null;
+}
+
+function switchOfficeTab(tab, event) {
+    document.querySelectorAll('#officeTabEquipment, #officeTabOccupancy').forEach(el => {
+        el.classList.remove('active');
+    });
+    document.querySelectorAll('#officeDetailModal .detail-tab').forEach(el => {
+        el.classList.remove('active');
+    });
+
+    if (tab === 'equipment') {
+        document.getElementById('officeTabEquipment').classList.add('active');
+    } else {
+        document.getElementById('officeTabOccupancy').classList.add('active');
+    }
+
+    if (event && event.target) {
+        event.target.classList.add('active');
+    }
+}
+
+function exportOfficeInventory(officeId) {
+    window.location.href = `/api/admin/offices/${officeId}/equipment/export`;
+    showToast('📥 Начинается скачивание CSV...', 'success');
+}
+
 function switchDetailTab(tab, event) {
     // Скрываем все вкладки
     document.querySelectorAll('.detail-tab-content').forEach(el => {
@@ -541,11 +843,13 @@ window.openEquipmentCardFromInventory = function(id) {
 document.addEventListener('click', function(e) {
     if (e.target.classList.contains('modal-overlay')) {
         if (e.target.id === 'warehouseDetailModal') closeWarehouseDetailModal();
+        if (e.target.id === 'officeDetailModal') closeOfficeDetailModal();      // 🆕 5.9.3
     }
 });
 
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         closeWarehouseDetailModal();
+        closeOfficeDetailModal();      // 🆕 5.9.3
     }
 });

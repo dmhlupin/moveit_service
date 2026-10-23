@@ -893,7 +893,8 @@ async function exportOfficeInventoryCSV(req, res) {
       'Категория',
       'Тип',
       'Расположение',
-      'Статус'
+      'Статус',
+      'Ответственный МОЛ'
     ].join(';'));
 
     // Данные
@@ -910,7 +911,8 @@ async function exportOfficeInventoryCSV(req, res) {
         eq.category_name || '',
         eq.type_name || '',
         location,
-        eq.status
+        eq.status,
+        eq.responsible_user_name || '—'
       ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(';'));
     });
 
