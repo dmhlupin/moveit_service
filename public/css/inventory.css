@@ -361,6 +361,11 @@
     background: var(--bg-hover);
 }
 
+/* 🆕 5.9.2: кликабельная строка техники (открывает карточку) */
+.inventory-table tr.equipment-row-link {
+    cursor: pointer;
+}
+
 /* Заполненность ячеек */
 .occupancy-item {
     display: flex;

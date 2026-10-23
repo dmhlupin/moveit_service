@@ -929,12 +929,22 @@ async function renderInventory(req, res) {
     content = content.replace(/\{\{totals\.total_cells\}\}/g, totals.total_cells || 0);
     content = content.replace(/\{\{totals\.equipment_on_stock\}\}/g, totals.equipment_on_stock || 0);
     content = content.replace(/\{\{totals\.equipment_assigned\}\}/g, totals.equipment_assigned || 0);
+    
+    content = content.replace(/\{\{current_role\}\}/g, req.session.role || 'user');
+    content = content.replace(/\{\{current_user_id\}\}/g, req.session.userId || 0);
 
     renderPageFor(req, res, {
       title: 'Инвентаризация – MoveIT service',
       content,
       pageCss: '/css/inventory.css',
-      pageJs: '/js/inventory.js',
+      pageJs: [
+        '/js/equipment-card/loader.js',
+        '/js/equipment-card/render.js',
+        '/js/equipment-card/actions.js',
+        '/js/equipment-card/modals.js',
+        '/js/equipment-card/index.js',
+        '/js/inventory.js',
+      ],
     });
     
   } catch (error) {

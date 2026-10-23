@@ -327,7 +327,16 @@ async function openWarehouseDetail(warehouseId) {
 function renderWarehouseDetail(inventory, occupancy) {
     const body = document.getElementById('warehouseDetailBody');
     const w = currentWarehouse;
-    
+
+    const statusLabel = (s) => ({
+        available:   '✅ Доступна',
+        placed:      '🪑 На месте',
+        assigned:    '👤 Назначена',
+        maintenance: '🔧 В ремонте',
+        retired:     '❌ Списана',
+    }[s] || s);
+
+
     // Заголовок
     let html = `
         <div class="wh-detail-header">
@@ -365,8 +374,8 @@ function renderWarehouseDetail(inventory, occupancy) {
                 <thead>
                     <tr>
                         <th>Инв. номер</th>
-                        <th>Название</th>
                         <th>Модель</th>
+                        <th>Корп. ИД</th>
                         <th>Категория</th>
                         <th>Тип</th>
                         <th>Место хранения</th>
@@ -382,14 +391,14 @@ function renderWarehouseDetail(inventory, occupancy) {
                 : `${escapeHtml(eq.zone_name)} → ${escapeHtml(eq.rack_name)} → ${escapeHtml(eq.cell_name)}`;
             
             html += `
-                <tr>
-                    <td><strong>${escapeHtml(eq.inventory_number)}</strong></td>
-                    <td>${escapeHtml(eq.name)}</td>
-                    <td>${escapeHtml(eq.model || '—')}</td>
+                <tr class="equipment-row-link" onclick="openEquipmentCardFromInventory(${eq.id})">
+                    <td><strong>${escapeHtml(eq.inventory_number || '—')}</strong></td>
+                    <td>${escapeHtml(eq.model_name || '—')}</td>
+                    <td>${escapeHtml(eq.model_corporate_id || '—')}</td>
                     <td>${eq.category_icon || '📁'} ${escapeHtml(eq.category_name || '—')}</td>
                     <td>${eq.type_icon || '📦'} ${escapeHtml(eq.type_name || '—')}</td>
                     <td style="font-size: 12px;">${location}</td>
-                    <td><span class="status-badge status-${eq.status}">${eq.status}</span></td>
+                    <td><span class="status-badge status-${eq.status}">${statusLabel(eq.status)}</span></td>
                 </tr>
             `;
         });
@@ -500,6 +509,30 @@ function exportInventory(warehouseId) {
     window.location.href = `/api/admin/warehouses/${warehouseId}/inventory/export`;
     showToast('📥 Начинается скачивание CSV...', 'success');
 }
+
+// ============================================================
+// ОТКРЫТИЕ КАРТОЧКИ ТЕХНИКИ (5.9.2)
+// ============================================================
+
+/**
+ * Открывает карточку техники из модалки склада.
+ * После закрытия — если в карточке что-то изменилось (changed),
+ * перезагружаем страницу, чтобы обновить сводку и таблицу.
+ */
+window.openEquipmentCardFromInventory = function(id) {
+  if (typeof EquipmentCard === 'undefined') {
+    showToast?.('Модуль карточки не загружен', 'error');
+    return;
+  }
+  EquipmentCard.open({
+    id: id,
+    onClose: (result) => {
+      if (result && result.changed) {
+        location.reload();
+      }
+    },
+  });
+};
 
 // ============================================================
 // ЗАКРЫТИЕ МОДАЛКИ

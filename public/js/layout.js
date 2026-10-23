@@ -415,3 +415,30 @@ window.LayoutJS = {
     closeUserMenu,
     currentUser: () => currentUser,
 };
+
+// ============================================================
+// ГЛОБАЛЬНЫЕ УТИЛИТЫ (5.9.1)
+// Доступны всем страничным скриптам: inventory.js, warehouses.js,
+// workplace-details.js и т.д.
+// ============================================================
+
+/**
+ * Экранирование HTML-спецсимволов.
+ * Используется при рендере пользовательских данных через innerHTML /
+ * шаблонные строки — защита от XSS и «поехавшей» вёрстки.
+ *
+ * @param {*} str — любое значение; null / undefined → ''
+ * @returns {string}
+ */
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+// Экспорт в глобальную область (для страничных скриптов)
+window.escapeHtml = escapeHtml;
