@@ -40,6 +40,7 @@ const {
   createCellsBatch,   // 🆕
   // Инвентаризация
   getInventorySummary,
+  getWorkplaceSummary,       // 🆕 5.9.3
   getWarehouseInventory,
   getCellOccupancy,
   getInventoryTotals,
@@ -995,6 +996,20 @@ async function getSpecialStatusSummaryAPI(req, res) {
 }
 
 /**
+ * GET /api/admin/inventory/offices-summary — сводка по офисам (5.9.3)
+ */
+async function getInventoryOfficesSummaryAPI(req, res) {
+  try {
+    const scope = { userId: req.session.userId, role: req.session.role };
+    const summary = await getWorkplaceSummary(scope);
+    res.json(summary);
+  } catch (error) {
+    console.error('❌ Ошибка сводки по офисам:', error);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+/**
  * GET /api/admin/warehouses/:id/inventory — техника на складе
  */
 async function getWarehouseInventoryAPI(req, res) {
@@ -1040,13 +1055,13 @@ async function exportInventoryCSV(req, res) {
       return res.status(400).send('Неверный ID склада');
     }
 
-    const warehouse = await getWarehouseById(warehouseId);
+    const scope = { userId: req.session.userId, role: req.session.role };
+    const warehouse = await getWarehouseById(warehouseId, scope);
     if (!warehouse) {
       return res.status(404).send('Склад не найден');
     }
 
-    const inventory = await getWarehouseInventory(warehouseId);
-
+    const inventory = await getWarehouseInventory(warehouseId, scope);
     // Формируем CSV
     const lines = [];
 
@@ -1068,7 +1083,8 @@ async function exportInventoryCSV(req, res) {
       'Категория',
       'Тип',
       'Место хранения',
-      'Статус'
+      'Статус',
+      'Ответственный МОЛ'
     ].join(';'));
 
     // Данные
@@ -1085,7 +1101,8 @@ async function exportInventoryCSV(req, res) {
         eq.category_name || '',
         eq.type_name || '',
         location,
-        eq.status
+        eq.status,
+        eq.responsible_user_name || '—'
       ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(';'));
     });
 
@@ -1153,6 +1170,7 @@ module.exports = {
   getInventorySummaryAPI,
   getInventoryTotalsAPI,
   getSpecialStatusSummaryAPI,  // 🆕 2.11.14
+  getInventoryOfficesSummaryAPI,   // 🆕 5.9.3
   getWarehouseInventoryAPI,
   getCellOccupancyAPI,
   exportInventoryCSV,

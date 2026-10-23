@@ -7,6 +7,9 @@ module.exports = ({ db }) => ({
   getInventorySummary(scope = {}) {
     const s = buildWarehouseScope(scope);
     const extraWhere = s.clause ? `AND ${s.clause}` : '';
+    const isMol = scope.role === 'mol';
+    const uid = parseInt(scope.userId, 10) || 0;
+    const molEq = isMol ? `AND e.responsible_user_id = ${uid}` : '';
     return new Promise((resolve, reject) => {
       db.all(`
         SELECT
@@ -19,7 +22,7 @@ module.exports = ({ db }) => ({
             WHERE z.warehouse_id = w.id AND c.is_active = 1) as cells_count,
           (SELECT COUNT(*) FROM equipment e JOIN cells c ON e.cell_id = c.id
             JOIN racks r ON c.rack_id = r.id JOIN zones z ON r.zone_id = z.id
-            WHERE z.warehouse_id = w.id) as equipment_count,
+            WHERE z.warehouse_id = w.id ${molEq}) as equipment_count,
           (SELECT COALESCE(SUM(c.capacity), 0) FROM cells c
             JOIN racks r ON c.rack_id = r.id JOIN zones z ON r.zone_id = z.id
             WHERE z.warehouse_id = w.id AND c.is_active = 1 AND c.is_full = 0) as total_capacity,
@@ -45,12 +48,17 @@ module.exports = ({ db }) => ({
   getWarehouseInventory(warehouseId, scope = {}) {
     const s = buildWarehouseScope(scope);
     const extraWhere = s.clause ? `AND ${s.clause}` : '';
+    const isMol = scope.role === 'mol';
+    const uid = parseInt(scope.userId, 10) || 0;
+    const molEq = isMol ? `AND e.responsible_user_id = ${uid}` : '';
     return new Promise((resolve, reject) => {
       db.all(`
         SELECT
           e.id, e.inventory_number,
           m.name AS model_name, m.corporate_id AS model_corporate_id, m.manufacturer AS model_manufacturer,
           e.serial_number, e.status, e.purchase_date, e.warranty_until,
+          e.responsible_user_id,
+          ru.full_name AS responsible_user_name,
           m.category_id AS category_id, m.type_id AS type_id,
           c.name as category_name, c.icon as category_icon,
           t.name as type_name, t.icon as type_icon,
@@ -64,7 +72,8 @@ module.exports = ({ db }) => ({
         JOIN racks rack ON cell.rack_id = rack.id
         JOIN zones zone ON rack.zone_id = zone.id
         JOIN warehouses w ON zone.warehouse_id = w.id
-        WHERE zone.warehouse_id = ? ${extraWhere}
+        LEFT JOIN users ru ON ru.id = e.responsible_user_id
+        WHERE zone.warehouse_id = ? ${molEq} ${extraWhere}
         ORDER BY zone.sort_order, zone.name, rack.sort_order, rack.name, cell.sort_order, cell.name
       `, [warehouseId, ...s.params], (err, rows) => err ? reject(err) : resolve(rows || []));
     });
@@ -73,11 +82,14 @@ module.exports = ({ db }) => ({
   getCellOccupancy(warehouseId, scope = {}) {
     const s = buildWarehouseScope(scope);
     const extraWhere = s.clause ? `AND ${s.clause}` : '';
+    const isMol = scope.role === 'mol';
+    const uid = parseInt(scope.userId, 10) || 0;
+    const molEq = isMol ? `AND e.responsible_user_id = ${uid}` : '';
     return new Promise((resolve, reject) => {
       db.all(`
         SELECT
           c.id, c.name, c.code, c.capacity, c.is_full,
-          (SELECT COUNT(*) FROM equipment e WHERE e.cell_id = c.id) as current_count,
+            (SELECT COUNT(*) FROM equipment e WHERE e.cell_id = c.id ${molEq}) as current_count,
           rack.name as rack_name, zone.name as zone_name
         FROM cells c
         JOIN racks rack ON c.rack_id = rack.id

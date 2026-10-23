@@ -914,12 +914,17 @@ module.exports = ({ db, run, get, all }) => ({
   },
 
   /**
-   * Сводка по всем офисам (для страницы /admin/workplaces)
-   * Возвращает: список офисов со статистикой
+   * Сводка по всем офисам (для страницы /admin/workplaces и инвентаризации)
+   * 5.9.3: scope-для МОЛа — только его офисы и его техника.
    */
   getWorkplaceSummary(scope = {}) {
     const s = buildOfficeScope(scope);
     const extraWhere = s.clause ? `AND ${s.clause}` : '';
+
+    const isMol = scope.role === 'mol';
+    const uid = parseInt(scope.userId, 10) || 0;
+    const molEq = isMol ? `AND e.responsible_user_id = ${uid}` : '';
+
     return new Promise((resolve, reject) => {
       db.all(`
         SELECT
@@ -928,16 +933,15 @@ module.exports = ({ db, run, get, all }) => ({
           o.address,
           o.is_default,
           o.is_active,
-          (SELECT COUNT(*) FROM rooms r WHERE r.office_id = o.id AND r.is_active = 1) as rooms_count,
+          (SELECT COUNT(*) FROM rooms r
+            WHERE r.office_id = o.id AND r.is_active = 1) as rooms_count,
           (SELECT COUNT(*) FROM workplaces w
             JOIN rooms r ON w.room_id = r.id
-            WHERE r.office_id = o.id AND w.is_active = 1
-          ) as workplaces_count,
+            WHERE r.office_id = o.id AND w.is_active = 1) as workplaces_count,
           (SELECT COUNT(*) FROM equipment e
             JOIN workplaces w ON e.workplace_id = w.id
             JOIN rooms r ON w.room_id = r.id
-            WHERE r.office_id = o.id
-          ) as equipment_count
+            WHERE r.office_id = o.id ${molEq}) as equipment_count
         FROM offices o
         WHERE o.is_active = 1 ${extraWhere}
         ORDER BY o.is_default DESC, o.name ASC
@@ -947,12 +951,11 @@ module.exports = ({ db, run, get, all }) => ({
           return;
         }
 
-        // Заполненность считаем по количеству рабочих мест (ёмкость не лимитируем)
         const result = (rows || []).map(o => ({
           ...o,
           fill_percent: o.workplaces_count > 0
             ? Math.round((o.equipment_count / o.workplaces_count) * 100)
-            : 0
+            : 0,
         }));
 
         resolve(result);
@@ -962,9 +965,13 @@ module.exports = ({ db, run, get, all }) => ({
 
   /**
    * Техника в офисе (для инвентаризации рабочих мест)
+   * 5.9.4a: scope — для МОЛа только его техника (responsible_user_id).
    */
   getOfficeEquipment(officeId, scope = {}) {
     const s = buildOfficeScope(scope);
+    const isMol = scope.role === 'mol';
+    const uid = parseInt(scope.userId, 10) || 0;
+    const molEq = isMol ? `AND e.responsible_user_id = ${uid}` : '';
     const extraWhere = s.clause ? `AND ${s.clause}` : '';
     return new Promise((resolve, reject) => {
       db.all(`
@@ -976,6 +983,7 @@ module.exports = ({ db, run, get, all }) => ({
           m.manufacturer AS model_manufacturer,
           e.serial_number,
           e.status,
+          ru.full_name AS responsible_user_name,
           e.purchase_date,
           e.warranty_until,
           m.category_id  AS category_id,
@@ -996,7 +1004,8 @@ module.exports = ({ db, run, get, all }) => ({
         JOIN workplaces w ON e.workplace_id = w.id
         JOIN rooms r ON w.room_id = r.id
         JOIN offices o ON r.office_id = o.id
-        WHERE r.office_id = ? ${extraWhere}
+        LEFT JOIN users ru ON ru.id = e.responsible_user_id
+        WHERE r.office_id = ? ${molEq} ${extraWhere}
         ORDER BY r.sort_order, r.name, w.sort_order, w.name, c.sort_order, t.sort_order
       `, [officeId, ...s.params], (err, rows) => {
         if (err) {
@@ -1015,13 +1024,16 @@ module.exports = ({ db, run, get, all }) => ({
   getWorkplaceOccupancy(officeId, scope = {}) {
     const s = buildOfficeScope(scope);
     const extraWhere = s.clause ? `AND ${s.clause}` : '';
+    const isMol = scope.role === 'mol';
+    const uid = parseInt(scope.userId, 10) || 0;
+    const molEq = isMol ? `AND e.responsible_user_id = ${uid}` : '';
     return new Promise((resolve, reject) => {
       db.all(`
         SELECT
           w.id,
           w.name,
           w.code,
-          (SELECT COUNT(*) FROM equipment e WHERE e.workplace_id = w.id) as current_count,
+          (SELECT COUNT(*) FROM equipment e WHERE e.workplace_id = w.id ${molEq}) as current_count,
           r.name as room_name,
           o.name as office_name
         FROM workplaces w
