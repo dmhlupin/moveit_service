@@ -936,6 +936,7 @@ async function openUserDetail(userId) {
 function renderUserDetail(data) {
     const body = document.getElementById('userDetailBody');
     const { user, stats, activeEquipment, history } = data;
+    const showResponsibleCol = (document.getElementById('currentRole')?.value || '') !== 'mol';
 
     const statusLabel = (s) => ({
         available:   '✅ Доступна',
@@ -1002,6 +1003,7 @@ function renderUserDetail(data) {
                         <th>Модель</th>
                         <th>Корп. ИД</th>
                         <th>Производитель</th>
+                        ${showResponsibleCol ? '<th>МОЛ</th>' : ''}
                         <th>Статус</th>
                     </tr>
                 </thead>
@@ -1015,6 +1017,7 @@ function renderUserDetail(data) {
                     <td>${escapeHtml(eq.model_name || '—')}</td>
                     <td>${escapeHtml(eq.model_corporate_id || '—')}</td>
                     <td>${escapeHtml(eq.model_manufacturer || '—')}</td>
+                    ${showResponsibleCol ? `<td style="font-size: 12px;">${escapeHtml(eq.responsible_user_name || '—')}</td>` : ''}
                     <td><span class="status-badge status-${eq.status}">${statusLabel(eq.status)}</span></td>
                 </tr>
             `;

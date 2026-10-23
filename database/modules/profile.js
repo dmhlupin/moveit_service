@@ -14,6 +14,8 @@ module.exports = ({ db, run, get, all }) => ({
           e.id,
           e.inventory_number,
           e.status,
+          e.responsible_user_id,
+          ru.full_name AS responsible_user_name,
           m.name AS model_name,
           m.corporate_id AS model_corporate_id,
           m.manufacturer AS model_manufacturer,
@@ -26,6 +28,7 @@ module.exports = ({ db, run, get, all }) => ({
         FROM user_equipment ue
         JOIN equipment e ON ue.equipment_id = e.id
         JOIN equipment_models m ON m.id = e.model_id
+        LEFT JOIN users ru ON ru.id = e.responsible_user_id
         WHERE ue.user_id = ? AND ue.returned_date IS NULL
         ORDER BY ue.assigned_date DESC
       `, [userId], (err, rows) => {
