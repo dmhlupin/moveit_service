@@ -18,6 +18,8 @@ let usersSummary = [];           // 🆕 5.9.4
 let currentUserIdInv = null;     // 🆕 5.9.4
 let currentUserInv = null;       // 🆕 5.9.4
 
+let byLevelData = { level: '', id: 0, rows: [] };   // 🆕 5.9.5
+
 // ============================================================
 // ИНИЦИАЛИЗАЦИЯ
 // ============================================================
@@ -1089,6 +1091,176 @@ function switchUserTab(tab, event) {
     if (event && event.target) {
         event.target.classList.add('active');
     }
+}
+
+// ============================================================
+// 5.9.5: ВЫБОРКА ПО УРОВНЮ (склад / офис / пользователь)
+// ============================================================
+
+async function onByLevelTypeChange() {
+    const type = document.getElementById('byLevelType').value;
+    const objectGroup = document.getElementById('byLevelObjectGroup');
+    const actionsGroup = document.getElementById('byLevelActionsGroup');
+    const objectLabel = document.getElementById('byLevelObjectLabel');
+    const objectSelect = document.getElementById('byLevelObjectId');
+    const result = document.getElementById('byLevelResult');
+
+    result.style.display = 'none';
+    byLevelData = { level: '', id: 0, rows: [] };
+
+    if (!type) {
+        objectGroup.style.display = 'none';
+        actionsGroup.style.display = 'none';
+        return;
+    }
+
+    objectGroup.style.display = '';
+    actionsGroup.style.display = '';
+    objectSelect.innerHTML = '<option value="">⏳ Загрузка...</option>';
+
+    try {
+        let items = [];
+        if (type === 'warehouse') {
+            objectLabel.textContent = 'Склад';
+            items = summary;  // уже загружено в loadSummary
+        } else if (type === 'office') {
+            objectLabel.textContent = 'Офис';
+            items = officesSummary;  // уже загружено в loadOfficesSummary
+        } else if (type === 'user') {
+            objectLabel.textContent = 'Пользователь';
+            items = usersSummary;  // уже загружено в loadUsersSummary
+        }
+
+        if (!items || items.length === 0) {
+            objectSelect.innerHTML = '<option value="">— Нет объектов —</option>';
+            return;
+        }
+
+        objectSelect.innerHTML = '<option value="">— Выберите —</option>' +
+            items.map(o => {
+                const label = o.name || o.full_name || o.username || `#${o.id}`;
+                return `<option value="${o.id}">${escapeHtml(label)}</option>`;
+            }).join('');
+    } catch (error) {
+        console.error('❌ Ошибка загрузки объектов уровня:', error);
+        objectSelect.innerHTML = '<option value="">— Ошибка —</option>';
+    }
+}
+
+async function loadByLevel() {
+    const type = document.getElementById('byLevelType').value;
+    const id = parseInt(document.getElementById('byLevelObjectId').value, 10);
+    const result = document.getElementById('byLevelResult');
+
+    if (!type || !id) {
+        result.style.display = 'none';
+        return;
+    }
+
+    result.style.display = '';
+    result.innerHTML = '<div class="loading-block">⏳ Загрузка...</div>';
+
+    try {
+        const response = await fetch(`/api/admin/inventory/by-level?level=${encodeURIComponent(type)}&id=${id}`);
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.error || `HTTP ${response.status}`);
+        }
+        const rows = await response.json();
+        if (!Array.isArray(rows)) {
+            throw new Error('Некорректный ответ API');
+        }
+
+        byLevelData = { level: type, id, rows };
+        renderByLevel();
+    } catch (error) {
+        console.error('❌ Ошибка выборки по уровню:', error);
+        result.innerHTML = `
+            <div class="empty-state">
+                <span class="emoji">❌</span>
+                <h3>Ошибка загрузки</h3>
+                <p>${escapeHtml(error.message)}</p>
+            </div>
+        `;
+    }
+}
+
+function renderByLevel() {
+    const result = document.getElementById('byLevelResult');
+    const { level, rows } = byLevelData;
+
+    if (rows.length === 0) {
+        result.innerHTML = `
+            <div class="empty-state">
+                <span class="emoji">📭</span>
+                <h3>Техники нет</h3>
+                <p>На выбранном уровне не найдено ни одной единицы</p>
+            </div>
+        `;
+        return;
+    }
+
+    const statusLabel = (s) => ({
+        available:   '✅ Доступна',
+        placed:      '🪑 На месте',
+        assigned:    '👤 Назначена',
+        maintenance: '🔧 В ремонте',
+        retired:     '❌ Списана',
+    }[s] || s);
+
+    let locationHeader = 'Расположение';
+    if (level === 'warehouse') locationHeader = 'Ячейка';
+    else if (level === 'office') locationHeader = 'Рабочее место';
+
+    const tableHtml = `
+        <table class="inventory-table">
+            <thead>
+                <tr>
+                    <th>Инв. номер</th>
+                    <th>Модель</th>
+                    <th>Корп. ИД</th>
+                    <th>Производитель</th>
+                    <th>Категория</th>
+                    <th>Тип</th>
+                    <th>${locationHeader}</th>
+                    <th>МОЛ</th>
+                    <th>Статус</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${rows.map(eq => {
+                    let location = '—';
+                    if (level === 'warehouse' && eq.cell_code) {
+                        location = `${escapeHtml(eq.zone_name || '')} → ${escapeHtml(eq.rack_name || '')} → <strong>${escapeHtml(eq.cell_code)}</strong>`;
+                    } else if (level === 'office' && eq.workplace_code) {
+                        location = `${escapeHtml(eq.room_name || '')} → <strong>${escapeHtml(eq.workplace_name || '')} [${escapeHtml(eq.workplace_code)}]</strong>`;
+                    } else if (level === 'user' && (eq.cell_code || eq.workplace_code)) {
+                        if (eq.cell_code) {
+                            location = `📦 ${escapeHtml(eq.warehouse_name || '')} → ${escapeHtml(eq.cell_code)}`;
+                        } else {
+                            location = `🪑 ${escapeHtml(eq.office_name || '')} → ${escapeHtml(eq.workplace_name || '')} [${escapeHtml(eq.workplace_code)}]`;
+                        }
+                    }
+
+                    return `
+                        <tr class="equipment-row-link" onclick="openEquipmentCardFromInventory(${eq.id})">
+                            <td><strong>${escapeHtml(eq.inventory_number || '—')}</strong></td>
+                            <td>${escapeHtml(eq.model_name || '—')}</td>
+                            <td>${escapeHtml(eq.model_corporate_id || '—')}</td>
+                            <td>${escapeHtml(eq.model_manufacturer || '—')}</td>
+                            <td>${eq.category_icon || '📁'} ${escapeHtml(eq.category_name || '—')}</td>
+                            <td>${eq.type_icon || '📦'} ${escapeHtml(eq.type_name || '—')}</td>
+                            <td style="font-size: 12px;">${location}</td>
+                            <td style="font-size: 12px;">${escapeHtml(eq.responsible_user_name || '—')}</td>
+                            <td><span class="status-badge status-${eq.status}">${statusLabel(eq.status)}</span></td>
+                        </tr>
+                    `;
+                }).join('')}
+            </tbody>
+        </table>
+    `;
+
+    result.innerHTML = `<div class="by-level-summary">Найдено: <strong>${rows.length}</strong> единиц</div>${tableHtml}`;
 }
 
 // ============================================================

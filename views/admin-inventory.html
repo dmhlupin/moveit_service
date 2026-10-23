@@ -103,6 +103,46 @@
 </div>
 
 <!-- ============================================================ -->
+<!-- 5.9.5: Гибкая выборка по уровню (склад / офис / пользователь) -->
+<!-- ============================================================ -->
+<div class="inventory-section">
+    <div class="section-header">
+        <h2>🔎 Выборка по уровню</h2>
+        <div class="section-actions">
+            <button onclick="loadByLevel()" class="btn btn-ghost btn-sm">🔄 Обновить</button>
+        </div>
+    </div>
+
+    <div class="by-level-controls">
+        <div class="filter-group">
+            <label>Уровень</label>
+            <select id="byLevelType" onchange="onByLevelTypeChange()">
+                <option value="">— Не выбрано —</option>
+                <option value="warehouse">🏢 Склад</option>
+                <option value="office">🏛️ Офис</option>
+                <option value="user">👤 Пользователь</option>
+            </select>
+        </div>
+
+        <div class="filter-group" id="byLevelObjectGroup" style="display: none;">
+            <label id="byLevelObjectLabel">Объект</label>
+            <select id="byLevelObjectId">
+                <option value="">— Выберите —</option>
+            </select>
+        </div>
+
+        <div class="filter-group" id="byLevelActionsGroup" style="display: none;">
+            <label>&nbsp;</label>
+            <button onclick="loadByLevel()" class="btn btn-primary">🔎 Показать</button>
+        </div>
+    </div>
+
+    <div id="byLevelResult" class="by-level-result" style="display: none;">
+        <!-- Заполняется JS -->
+    </div>
+</div>
+
+<!-- ============================================================ -->
 <!-- ВИРТУАЛЬНЫЕ СКЛАДЫ: РЕМОНТ И СПИСАНИЕ (2.11.15)              -->
 <!-- ============================================================ -->
 <div class="inventory-section">

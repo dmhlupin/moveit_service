@@ -195,4 +195,118 @@ module.exports = ({ db }) => ({
       });
     });
   },
+
+    /**
+   * 5.9.5: техника на выбранном уровне (склад / офис / пользователь).
+   * @param {'warehouse'|'office'|'user'} level
+   * @param {number} id
+   * @param {Object} scope — { userId, role }
+   * @returns {Promise<Array>}
+   */
+  getEquipmentByLevel(level, id, scope = {}) {
+    const isMol = scope.role === 'mol';
+    const uid = parseInt(scope.userId, 10) || 0;
+
+    return new Promise((resolve, reject) => {
+      let sql = '';
+      let params = [];
+
+      if (level === 'warehouse') {
+        const molWh = isMol
+          ? `AND w.id IN (SELECT warehouse_id FROM warehouse_responsibles WHERE user_id = ?)`
+          : '';
+        const molEq = isMol ? `AND e.responsible_user_id = ?` : '';
+        sql = `
+          SELECT
+            e.id, e.inventory_number, e.status,
+            m.name AS model_name, m.corporate_id AS model_corporate_id, m.manufacturer AS model_manufacturer,
+            c.name AS category_name, c.icon AS category_icon,
+            t.name AS type_name, t.icon AS type_icon,
+            ru.full_name AS responsible_user_name,
+            cell.code AS cell_code, cell.name AS cell_name,
+            rack.name AS rack_name, zone.name AS zone_name, w.name AS warehouse_name,
+            NULL AS workplace_name, NULL AS workplace_code,
+            NULL AS room_name, NULL AS office_name
+          FROM equipment e
+          JOIN equipment_models m ON m.id = e.model_id
+          LEFT JOIN equipment_categories c ON c.id = m.category_id
+          LEFT JOIN equipment_types t ON t.id = m.type_id
+          LEFT JOIN users ru ON ru.id = e.responsible_user_id
+          JOIN cells cell ON e.cell_id = cell.id
+          JOIN racks rack ON cell.rack_id = rack.id
+          JOIN zones zone ON rack.zone_id = zone.id
+          JOIN warehouses w ON zone.warehouse_id = w.id
+          WHERE w.id = ? ${molWh} ${molEq}
+          ORDER BY zone.sort_order, zone.name, rack.sort_order, rack.name, cell.sort_order, cell.name
+        `;
+        params = [id];
+        if (isMol) { params.push(uid); params.push(uid); }
+      } else if (level === 'office') {
+        const molOf = isMol
+          ? `AND o.id IN (SELECT office_id FROM office_responsibles WHERE user_id = ?)`
+          : '';
+        const molEq = isMol ? `AND e.responsible_user_id = ?` : '';
+        sql = `
+          SELECT
+            e.id, e.inventory_number, e.status,
+            m.name AS model_name, m.corporate_id AS model_corporate_id, m.manufacturer AS model_manufacturer,
+            c.name AS category_name, c.icon AS category_icon,
+            t.name AS type_name, t.icon AS type_icon,
+            ru.full_name AS responsible_user_name,
+            NULL AS cell_code, NULL AS cell_name,
+            NULL AS rack_name, NULL AS zone_name, NULL AS warehouse_name,
+            wp.name AS workplace_name, wp.code AS workplace_code,
+            r.name AS room_name, o.name AS office_name
+          FROM equipment e
+          JOIN equipment_models m ON m.id = e.model_id
+          LEFT JOIN equipment_categories c ON c.id = m.category_id
+          LEFT JOIN equipment_types t ON t.id = m.type_id
+          LEFT JOIN users ru ON ru.id = e.responsible_user_id
+          JOIN workplaces wp ON e.workplace_id = wp.id
+          JOIN rooms r ON wp.room_id = r.id
+          JOIN offices o ON r.office_id = o.id
+          WHERE o.id = ? ${molOf} ${molEq}
+          ORDER BY r.sort_order, r.name, wp.sort_order, wp.name
+        `;
+        params = [id];
+        if (isMol) { params.push(uid); params.push(uid); }
+      } else if (level === 'user') {
+        const molEq = isMol ? `AND e.responsible_user_id = ?` : '';
+        sql = `
+          SELECT
+            e.id, e.inventory_number, e.status,
+            m.name AS model_name, m.corporate_id AS model_corporate_id, m.manufacturer AS model_manufacturer,
+            c.name AS category_name, c.icon AS category_icon,
+            t.name AS type_name, t.icon AS type_icon,
+            ru.full_name AS responsible_user_name,
+            cell.code AS cell_code, cell.name AS cell_name,
+            rack.name AS rack_name, zone.name AS zone_name, w.name AS warehouse_name,
+            wp.name AS workplace_name, wp.code AS workplace_code,
+            r.name AS room_name, o.name AS office_name,
+            ue.assigned_date
+          FROM user_equipment ue
+          JOIN equipment e ON e.id = ue.equipment_id
+          JOIN equipment_models m ON m.id = e.model_id
+          LEFT JOIN equipment_categories c ON c.id = m.category_id
+          LEFT JOIN equipment_types t ON t.id = m.type_id
+          LEFT JOIN users ru ON ru.id = e.responsible_user_id
+          LEFT JOIN cells cell ON e.cell_id = cell.id
+          LEFT JOIN racks rack ON cell.rack_id = rack.id
+          LEFT JOIN zones zone ON rack.zone_id = zone.id
+          LEFT JOIN warehouses w ON zone.warehouse_id = w.id
+          LEFT JOIN workplaces wp ON e.workplace_id = wp.id
+          LEFT JOIN rooms r ON wp.room_id = r.id
+          LEFT JOIN offices o ON r.office_id = o.id
+          WHERE ue.user_id = ? AND ue.returned_date IS NULL ${molEq}
+          ORDER BY ue.assigned_date DESC
+        `;
+        params = [id];
+        if (isMol) params.push(uid);
+      } else {
+        return reject(new Error('Неверный уровень (warehouse / office / user)'));
+      }
+
+      db.all(sql, params, (err, rows) => err ? reject(err) : resolve(rows || []));
+    });
+  },
 });

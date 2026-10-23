@@ -45,6 +45,7 @@ const {
   getCellOccupancy,
   getInventoryTotals,
   getSpecialStatusSummary,  // 🆕 2.11.14
+  getEquipmentByLevel,               // 🆕 5.9.5
   // Пользователи
   getUsersWithActiveEquipment,       // 🆕 5.9.4
   getUserWithDetails,                // 🆕 5.9.4
@@ -1070,6 +1071,30 @@ async function getInventoryUserDetailsAPI(req, res) {
 }
 
 /**
+ * GET /api/admin/inventory/by-level?level=warehouse|office|user&id=N — техника по уровню (5.9.5)
+ */
+async function getInventoryByLevelAPI(req, res) {
+  try {
+    const level = String(req.query.level || '').toLowerCase();
+    const id = parseInt(req.query.id, 10);
+
+    if (!['warehouse', 'office', 'user'].includes(level)) {
+      return res.status(400).json({ error: 'Неверный уровень (warehouse / office / user)' });
+    }
+    if (!id || isNaN(id)) {
+      return res.status(400).json({ error: 'Неверный ID' });
+    }
+
+    const scope = { userId: req.session.userId, role: req.session.role };
+    const rows = await getEquipmentByLevel(level, id, scope);
+    res.json(rows);
+  } catch (error) {
+    console.error('❌ Ошибка выборки по уровню:', error);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+/**
  * GET /api/admin/warehouses/:id/inventory — техника на складе
  */
 async function getWarehouseInventoryAPI(req, res) {
@@ -1236,4 +1261,5 @@ module.exports = {
   getCellOccupancyAPI,
   exportInventoryCSV,
   getInventoryUserDetailsAPI,
+  getInventoryByLevelAPI,            // 🆕 5.9.5
 };

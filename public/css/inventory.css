@@ -219,6 +219,39 @@
     .user-inv-stats { grid-template-columns: repeat(3, 1fr); }
 }
 
+/* ============================================================
+   5.9.5: Выборка по уровню
+   ============================================================ */
+
+.by-level-controls {
+    display: flex;
+    gap: var(--space-md);
+    align-items: flex-end;
+    margin-bottom: var(--space-md);
+    flex-wrap: wrap;
+}
+
+.by-level-controls .filter-group {
+    margin-bottom: 0;
+    min-width: 200px;
+}
+
+.by-level-controls .filter-group select {
+    width: 100%;
+}
+
+.by-level-result {
+    margin-top: var(--space-md);
+}
+
+.by-level-summary {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    margin-bottom: var(--space-sm);
+}
+
+
+
 /* Заголовок карточки */
 .ws-header {
     display: flex;
