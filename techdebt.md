@@ -132,6 +132,7 @@ H: /admin/users — убрать кнопки из таблицы, действ�
 - критерий готовности: `npm run check-css` зелёный на текущем `HEAD` (без правок шаблонов).
 
 **Приоритет:** средний (техдолг, копится с 5.1/5.1.1/5.2/5.3; блокирует нормальное использование проверки перед коммитом).
+**Статус:** ✅ выполнено в 5.10.1. `check-css` зелёный на текущем HEAD.
 
 ## 2026-10-23 Отображение таблиц в карточках
 **Что делал:** Смотрел карточки инвентаризации под учеткой МОЛа
@@ -240,10 +241,12 @@ http://localhost:3000/admin/user/edit/id
 
 ## 2026-10-23 Роуты → БД: прямой db.all
 **Что делал:** 5.10.6 (разнос routes/manage/users.js)
-**Что неудобно:** renderEditUser (routes/manage/users/pages.js) дёргает `db.all` напрямую для получения списка активных складов и офисов (для чекбоксов «Ответственность МОЛ»). Это нарушает слой: роут не должен знать про SQL.
+**Что неудобно:** renderEditUser (routes/manage/users/pages.js) дёргает `db.all` напрямую для получения списка активных складов и офисов (для чекбоксов «Ответственность МОЛ»). Это нарушает слой: роут не должен знать про SQL. `routes/manage/users/api.js` - тоже прямые запросы к БД
 **Идея:** вынести в `database/modules/warehouses.js` и `database/modules/workplaces.js` функции:
 - `getWarehousesForFilter(scope)` — плоский список `{ id, name, is_default }` без подзапросов `zones_count`/`racks_count`/etc;
 - `getOfficesForFilter(scope)` — аналогично.
 Использовать в `renderEditUser` вместо `db.all`. Заодно проверить остальные `db.all` / `db.get` / `db.run` в роутах:
 - `routes/manage/users/api.js` → `updateUserAPI` / `deleteUserAPI` / `blockUserAPI` / `unblockUserAPI` — там уже есть `const { db } = require('../../database/db')` внутри для проверки «последний админ» (`SELECT COUNT(*) FROM users WHERE role = 'admin'`). Тоже кандидаты на вынос.
 **Приоритет:** средний (чистота слоёв, не блокирует).
+**Статус:** ✅ частично выполнено в 5.10.0 (5.10.2–5.10.6). Все 5 крупных файлов разнесены:
+`workplaces`, `warehouses`, `catalog`, `equipment-models`, `manage/users`. С запросами к db необходимо разобраться

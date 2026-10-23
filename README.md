@@ -6,7 +6,7 @@
 [![Express](https://img.shields.io/badge/Express-4.18-000000?logo=express&logoColor=white)](https://expressjs.com/)
 [![SQLite](https://img.shields.io/badge/SQLite-5.1-003B57?logo=sqlite&logoColor=white)](https://www.sqlite.org/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-5.9.0-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-5.10.0-blue.svg)](CHANGELOG.md)
 
 ---
 
@@ -673,22 +673,53 @@ moveit_service/
 │ # canAccessEquipment / canEditEquipment
 │
 ├── routes/
-│ ├── manage.js # Учёт ТМЦ: рендер, CRUD техники,
-│ │ # пользователи, логи, перемещение
-│ ├── manage-equipment-actions.js # 🆕 Действия из карточки:
-│ │ # смена статуса, назначение, возврат,
-│ │ # перемещение на место
-│ ├── admin-responsibles.js # Управление МОЛ: склады / офисы / экземпляры
-│ ├── auth.js # Вход, выход, смена пароля
-│ ├── catalog.js # Справочник
-│ ├── dashboard.js # Дашборд
-│ ├── equipment.js # Просмотр + фильтры (серверный)
-│ ├── equipment-models.js # CRUD моделей ТМЦ
-│ ├── pdf.js # PDF-инструкции
-│ ├── profile.js # Личный кабинет
-│ ├── users.js # Read-only список пользователей
-│ ├── warehouses.js # Склады + инвентаризация
-│ └── workplaces.js # Рабочие места
+│   ├── manage/
+│   │   ├── index.js             # Сборка /manage
+│   │   ├── pages.js             # renderManage, renderAddEquipment, renderEditEquipment
+│   │   ├── equipment.js         # CRUD техники + фильтры
+│   │   ├── logs.js              # Логи
+│   │   └── users/               # 5.10.6
+│   │       ├── index.js
+│   │       ├── pages.js         # renderAdminUsers, renderAddUser, renderEditUser
+│   │       └── api.js           # 9 API пользователей
+│   ├── manage-equipment-actions.js # Действия из карточки
+│   ├── manage-import.js         # Импорт номенклатуры и экземпляров из CSV
+│   ├── warehouses/              # 5.10.3
+│   │   ├── index.js
+│   │   ├── pages.js             # renderWarehouses, renderWarehouseDetails, renderInventory
+│   │   ├── warehouses.js        # API складов
+│   │   ├── zones.js             # API зон
+│   │   ├── racks.js             # API стеллажей
+│   │   ├── cells.js             # API ячеек
+│   │   ├── inventory.js         # API инвентаризации (включая 5.9.3–5.9.6)
+│   │   └── helpers.js           # escapeHtml
+│   ├── workplaces/              # 5.10.2
+│   │   ├── index.js
+│   │   ├── pages.js             # renderWorkplaces, renderWorkplaceDetails
+│   │   ├── offices.js           # API офисов
+│   │   ├── rooms.js             # API кабинетов
+│   │   ├── workplaces.js        # API мест + техника
+│   │   ├── summary.js           # дерево, статистика, сводка, occupancy, CSV
+│   │   └── helpers.js           # escapeHtml
+│   ├── catalog/                 # 5.10.4
+│   │   ├── index.js
+│   │   ├── pages.js             # renderCatalog
+│   │   ├── categories.js        # API категорий
+│   │   ├── types.js             # API типов
+│   │   ├── equipment.js         # техника в категории/типе
+│   │   └── helpers.js           # escapeHtml
+│   ├── equipment-models/        # 5.10.5
+│   │   ├── index.js
+│   │   ├── pages.js             # renderModels
+│   │   ├── api.js               # 6 API моделей
+│   │   └── helpers.js           # escapeHtml
+│   ├── admin-responsibles.js    # Управление МОЛ
+│   ├── auth.js                  # Вход, выход, смена пароля
+│   ├── dashboard.js             # Дашборд
+│   ├── equipment.js             # /equipment: просмотр + фильтр
+│   ├── pdf.js                   # PDF-инструкции
+│   ├── profile.js               # Личный кабинет
+│   └── users.js                 # /users (read-only)
 │
 ├── scripts/
 │   ├── migrate.js             # Миграция БД (включая таблицы МОЛ)
@@ -792,6 +823,30 @@ moveit_service/
 ---
 
 ## 📝 История версий
+
+## [5.10.0] - 2026-10-23
+
+**🎉 Этап 5.10 завершён: структурный рефакторинг роутов + актуализация check-css**
+
+Разобраны все крупные роут-файлы. Каждый домен — папка с `index.js`
+(сборка) + `pages.js` (рендер) + `api.js` (или подфайлы по поддоменам).
+`server.js` и `routes/manage/index.js` не менялись — импорты через `index.js`
+подхватываются Node автоматически.
+
+### Ключевые изменения
+
+- **5.10.1** — актуализация `check-css.js`: рекурсивный обход `routes/**/*.js`,
+  `views/partials/*.html`, `public/css/manage/*.css`; `--purple-hover` в theme.css.
+- **5.10.2** — разнос `routes/workplaces.js` → `routes/workplaces/`.
+- **5.10.3** — разнос `routes/warehouses.js` → `routes/warehouses/` + фикс `status`
+  в `getUserActiveEquipment`.
+- **5.10.3.1** — фикс «Активной техники» под МОЛом + колонка «МОЛ».
+- **5.10.4** — разнос `routes/catalog.js` → `routes/catalog/` + фикс путей
+  `/api/admin/equipment` → `/api/manage/equipment` в `public/js/catalog.js`.
+- **5.10.5** — разнос `routes/equipment-models.js` → `routes/equipment-models/`.
+- **5.10.6** — разнос `routes/manage/users.js` → `routes/manage/users/`.
+
+Подробности — в [CHANGELOG.md](CHANGELOG.md).
 
 ## [5.9.0] - 2026-10-23
 
@@ -1059,6 +1114,8 @@ moveit_service/
 - [x] 🔒 **Scope инвентаризации:** МОЛ видит только свою технику (v5.9.3.1).
 - [x] 🧑‍💼 **Ответственный МОЛ в CSV и модалках** (v5.9.3.2).
 - [x] 🔎 **Углубление выборки:** склад → зона → стеллаж → ячейка, офис → кабинет → место (v5.9.6).
+- [x] 🧹 **5.10 — структурный рефакторинг:** разнос роутов на `pages.js` / `api.js`, актуализация `check-css.js` (v5.10.0).
+- [ ] 🧹 **5.11 — чистота слоёв:** вынос прямых `db.all` / `db.get` из роутов в `database/modules/*` (см. `techdebt.md`).
 - [ ] 📤 **Импорт / экспорт XLSX**.
 - [ ] 🖨️ **Печать карточек техники** и актов.
 - [ ] 📧 **Email-уведомления**.
@@ -1069,7 +1126,6 @@ moveit_service/
 ### Среднесрочное
 
 - [ ] 🎨 **Оптимизация интерфейса** — UX-ревью, единообразие форм.
-- [ ] 🧹 **5.10 — структурный рефакторинг:** разнос роутов на `pages.js` / `api.js`, актуализация `check-css.js` (см. `techdebt.md`).
 - [ ] 📤 **Экспорт в Excel** (xlsx) — расширение CSV.
 - [ ] 📧 **Email-уведомления** — гарантия, назначения.
 - [ ] 🖨️ **Печать карточек техники** и актов приёма-передачи.
@@ -1097,6 +1153,9 @@ moveit_service/
 - ⚠️ Импорт / экспорт XLSX — в разработке (J, 5.8.x).
 - ⚠️ Печать карточек и актов — в разработке (J, 5.8.x).
 - ⚠️ Email-уведомления — в разработке (J, 5.8.x).
+> 📝 Полный список техдолга — [techdebt.md](techdebt.md). Актуальные пункты после 5.10:
+> прямой `db.all` в роутах, `assigned_by_user_id` для «Выдал», карточка техники на `/admin/catalog`,
+> UX инвентаризации (вкладки), системные настройки (очистка БД / переключение).
 
 ---
 

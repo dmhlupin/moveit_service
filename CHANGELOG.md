@@ -1,5 +1,134 @@
 # История изменений
 
+## [5.10.0] - 2026-10-23
+
+**🎉 Этап 5.10 завершён: структурный рефакторинг роутов + актуализация check-css**
+
+Разобраны все крупные роут-файлы (по правилу «> 300 строк — разбивать»).
+Каждый домен — папка с `index.js` (сборка) + `pages.js` (рендер) + `api.js`
+(или подфайлы по поддоменам). `server.js` и `routes/manage/index.js`
+не менялись — импорты через `index.js` подхватываются Node автоматически.
+Плюс актуализирован `scripts/check-css.js` — теперь он рекурсивно обходит
+`routes/**/*.js`, `views/partials/*.html` и `public/css/manage/*.css`.
+
+### Подшаги 5.10.x
+
+- **5.10.1** — актуализация `check-css.js`:
+  * `checkAllPlaceholders` — рекурсивный обход `routes/**/*.js` и `utils/**/*.js`
+    (раньше только плоский `routes/*.js` — после 5.1 replace живут в
+    `routes/manage/pages.js` и т.д.);
+  * обход `views/partials/*.html` (отдельным проходом, с префиксом `partials/`);
+  * в `cssFilesToCheck` добавлены `public/css/manage/*.css`;
+  * `theme.css` — добавлена переменная `--purple-hover` (использовалась
+    в `manage/modals.css`, но не была объявлена — выявлено проверкой).
+  * Результат: `npm run check-css` зелёный (было 70 ложных срабатываний).
+
+- **5.10.2** — разнос `routes/workplaces.js` (~700 строк):
+  * `routes/workplaces/{index,pages,helpers,offices,rooms,workplaces,summary}.js`;
+  * 27 экспортов, 1:1 со старым.
+
+- **5.10.3** — разнос `routes/warehouses.js` (~600 строк):
+  * `routes/warehouses/{index,pages,helpers,warehouses,zones,racks,cells,inventory}.js`;
+  * 37 экспортов, 1:1 со старым;
+  * попутный фикс: `database/modules/users.js → getUserActiveEquipment` —
+    добавлено `e.status` в SELECT (в модалке пользователя на `/admin/inventory`
+    отображалось `undefined` в колонке «Статус»).
+
+- **5.10.3.1** — фикс модалки пользователя в инвентаризации:
+  * `database/modules/profile.js → getUserActiveEquipment` — добавлены
+    `e.responsible_user_id` и `ru.full_name AS responsible_user_name`
+    (иначе под МОЛом фильтр в `getInventoryUserDetailsAPI` отсеивал всё);
+  * `renderUserDetail` (`public/js/inventory.js`) — колонка «МОЛ»
+    (под МОЛом скрыта).
+
+- **5.10.4** — разнос `routes/catalog.js` (~500 строк):
+  * `routes/catalog/{index,pages,helpers,categories,types,equipment}.js`;
+  * 15 экспортов, 1:1 со старым;
+  * попутный фикс: `public/js/catalog.js` — устаревшие пути
+    `/api/admin/equipment/*` заменены на `/api/manage/equipment/*`
+    (после 4.1.5 роуты переехали с `/admin` на `/manage`):
+    `filtered` и `:id/details`.
+
+- **5.10.5** — разнос `routes/equipment-models.js` (~400 строк):
+  * `routes/equipment-models/{index,pages,helpers,api}.js`;
+  * 7 экспортов, 1:1 со старым;
+  * при переносе восстановлены «шапочные» определения:
+    `escapeHtml` (helpers.js), `PAGE_SIZE = 20` и `parseIntOrNull` (api.js).
+
+- **5.10.6** — разнос `routes/manage/users.js` (~550 строк, страницы + API):
+  * `routes/manage/users/{index,pages,api}.js`;
+  * 12 экспортов, 1:1 со старым;
+  * `routes/manage/index.js` и `server.js` не менялись.
+
+### Файлы
+
+**Новые папки:**
+- `routes/workplaces/`
+- `routes/warehouses/`
+- `routes/catalog/`
+- `routes/equipment-models/`
+- `routes/manage/users/`
+
+**Удалены (заменены папками):**
+- `routes/workplaces.js`
+- `routes/warehouses.js`
+- `routes/catalog.js`
+- `routes/equipment-models.js`
+- `routes/manage/users.js`
+
+**Изменены:**
+- `scripts/check-css.js`
+- `public/css/theme.css`
+- `public/js/catalog.js`
+- `database/modules/profile.js`
+- `database/modules/users.js`
+- `public/js/inventory.js`
+- `package.json`
+- `CHANGELOG.md`
+- `README.md`
+- `techdebt.md`
+
+### Проверено
+
+- `npm run check-roles` — зелёный (на каждом подшаге).
+- `npm run check-css` — зелёный (после 5.10.1; на каждом следующем подшаге).
+- Смоук по всем затронутым страницам и API под admin / supervisor / mol:
+  * `/admin/workplaces`, `/admin/workplaces/:id` — CRUD, дерево;
+  * `/admin/warehouses`, `/admin/warehouses/:id` — CRUD, дерево, массовое создание;
+  * `/admin/inventory` — вся страница (склады, офисы, пользователи, выборка
+    по уровню с углублением, CSV, модалки с вкладками, карточка техники);
+  * `/admin/catalog` — CRUD категорий/типов, фильтр, поиск, пагинация,
+    техника в категории, карточка;
+  * `/admin/models` — таблица, пагинация, CRUD, карточка, проверка дубликата;
+  * `/admin/users`, `/admin/user/add`, `/admin/user/edit/:id` — CRUD,
+    поиск, фильтры, пагинация, карточка, действия, чекбоксы складов/офисов;
+  * `/manage` — карточка техники, перемещение на склад, на место.
+
+### Техдолг (вынесен отдельно, см. `techdebt.md`)
+
+- Прямой `db.all` / `db.get` в `routes/manage/users/pages.js` (склады/офисы)
+  и `routes/manage/users/api.js` (проверка «последний админ») — вынести
+  в `database/modules/*` отдельным подэтапом.
+- Колонка «Выдал» в истории — требует миграции
+  `user_equipment.assigned_by_user_id`.
+- `/admin/catalog` — карточка техники через независимый модуль
+  `EquipmentCard` (сейчас своя модалка в `public/js/catalog.js`).
+- UX инвентаризации — три вкладки сверху (Склады / Рабочие места / Пользователи).
+- Системные настройки — очистка тестовой базы, переключение тестовая/боевая.
+
+### Теги
+
+- v5.10.1 — check-css + `--purple-hover`
+- v5.10.2 — разнос `routes/workplaces.js`
+- v5.10.3 — разнос `routes/warehouses.js` + фикс `status`
+- v5.10.3.1 — фикс «Активной техники» под МОЛом + колонка «МОЛ»
+- v5.10.4 — разнос `routes/catalog.js` + фикс путей `/api/manage/equipment`
+- v5.10.5 — разнос `routes/equipment-models.js`
+- v5.10.6 — разнос `routes/manage/users.js`
+- **v5.10.0 — финал этапа (этот)**
+
+---
+
 ## [5.9.0] - 2026-10-23
 
 **🎉 Этап 5.9 завершён: «Инвентаризация 2.0»**
