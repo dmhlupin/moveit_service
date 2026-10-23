@@ -546,7 +546,7 @@ async function loadFilteredEquipment(page = 1) {
         params.set('page', page);
         params.set('limit', 20);
         
-        const response = await fetch(`/api/admin/equipment/filtered?${params}`);
+        const response = await fetch(`/api/manage/equipment/filtered?${params}`)
         const data = await response.json();
         
         if (!response.ok) {
@@ -859,7 +859,7 @@ function setEquipmentTypeFilter(typeId) {
  */
 async function viewEquipment(id) {
     try {
-        const response = await fetch(`/api/admin/equipment/${id}/details`);
+        const response = await fetch(`/api/manage/equipment/${id}/details`);
         const data = await response.json();
         
         if (!data.equipment) {
