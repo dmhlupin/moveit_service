@@ -14,6 +14,10 @@ let officesSummary = [];         // 🆕 5.9.3
 let currentOfficeId = null;      // 🆕 5.9.3
 let currentOffice = null;        // 🆕 5.9.3
 
+let usersSummary = [];           // 🆕 5.9.4
+let currentUserIdInv = null;     // 🆕 5.9.4
+let currentUserInv = null;       // 🆕 5.9.4
+
 // ============================================================
 // ИНИЦИАЛИЗАЦИЯ
 // ============================================================
@@ -21,8 +25,9 @@ let currentOffice = null;        // 🆕 5.9.3
 document.addEventListener('DOMContentLoaded', async function() {
     await loadSummary();
     await loadTotals();
-    await loadSpecialSummary();  // 🆕 2.11.15
-    await loadOfficesSummary();   // 🆕 5.9.3
+    await loadSpecialSummary();
+    await loadOfficesSummary();
+    await loadUsersSummary();          // 🆕 5.9.4
 });
 
 /**
@@ -190,6 +195,89 @@ function renderOfficeCard(o) {
                 <a href="/admin/workplaces/${o.id}" class="btn btn-ghost btn-sm btn-icon-only" title="Дерево офиса">
                     🏛️
                 </a>
+            </div>
+        </div>
+    `;
+}
+
+// ============================================================
+// 5.9.4: СВОДКА ПО ПОЛЬЗОВАТЕЛЯМ
+// ============================================================
+
+async function loadUsersSummary() {
+    const container = document.getElementById('usersSummary');
+    if (!container) return;
+
+    container.innerHTML = '<div class="loading-block">⏳ Загрузка...</div>';
+
+    try {
+        const response = await fetch('/api/admin/inventory/users-summary');
+        const data = await response.json();
+        if (!Array.isArray(data)) {
+            throw new Error(data?.error || 'Некорректный ответ API');
+        }
+        usersSummary = data;
+        renderUsersSummary();
+    } catch (error) {
+        console.error('❌ Ошибка загрузки сводки по пользователям:', error);
+        container.innerHTML = `
+            <div class="empty-state">
+                <span class="emoji">❌</span>
+                <h3>Ошибка загрузки</h3>
+                <p>Не удалось получить сводку по пользователям</p>
+            </div>
+        `;
+    }
+}
+
+function renderUsersSummary() {
+    const container = document.getElementById('usersSummary');
+    if (!container) return;
+
+    if (usersSummary.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <span class="emoji">📭</span>
+                <h3>Нет пользователей с активной техникой</h3>
+                <p>Назначьте технику пользователям в /manage</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = usersSummary.map(u => renderUserCard(u)).join('');
+}
+
+function renderUserCard(u) {
+    const count = u.active_equipment_count || 0;
+    const initials = typeof getInitials === 'function'
+        ? getInitials(u.full_name || u.username)
+        : (u.username || '?').slice(0, 2).toUpperCase();
+
+    return `
+        <div class="warehouse-summary-card user-summary-card" onclick="openUserDetail(${u.id})">
+            <div class="ws-header">
+                <div class="ws-title">
+                    <div class="ws-name">
+                        <span class="user-summary-avatar">${escapeHtml(initials)}</span>
+                        ${escapeHtml(u.full_name || u.username)}
+                    </div>
+                    <div class="ws-address">
+                        @${escapeHtml(u.username)}
+                        ${u.department ? ` · ${escapeHtml(u.department)}` : ''}
+                    </div>
+                </div>
+            </div>
+
+            <div class="user-summary-count">
+                <span class="user-summary-count-number">${count}</span>
+                <span class="user-summary-count-label">единиц техники</span>
+            </div>
+
+            <div class="ws-actions" onclick="event.stopPropagation()">
+                <button onclick="openUserDetail(${u.id})" class="btn btn-primary btn-sm">
+                    📋 Открыть
+                </button>
             </div>
         </div>
     `;
@@ -781,6 +869,8 @@ function exportOfficeInventory(officeId) {
     showToast('📥 Начинается скачивание CSV...', 'success');
 }
 
+
+
 function switchDetailTab(tab, event) {
     // Скрываем все вкладки
     document.querySelectorAll('.detail-tab-content').forEach(el => {
@@ -797,6 +887,205 @@ function switchDetailTab(tab, event) {
         document.getElementById('detailTabOccupancy').classList.add('active');
     }
     
+    if (event && event.target) {
+        event.target.classList.add('active');
+    }
+}
+
+// ============================================================
+// 5.9.4: ДЕТАЛИ ПОЛЬЗОВАТЕЛЯ (модалка)
+// ============================================================
+
+async function openUserDetail(userId) {
+    currentUserIdInv = userId;
+    currentUserInv = usersSummary.find(u => u.id === userId);
+
+    const modal = document.getElementById('userDetailModal');
+    const title = document.getElementById('userDetailTitle');
+    const body = document.getElementById('userDetailBody');
+
+    title.textContent = `👤 ${currentUserInv?.full_name || currentUserInv?.username || 'Пользователь'}`;
+    body.innerHTML = '<div class="loading-block">⏳ Загрузка...</div>';
+    modal.classList.add('active');
+
+    try {
+        const response = await fetch(`/api/admin/inventory/users/${userId}/details`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        renderUserDetail(data);
+    } catch (error) {
+        console.error('❌ Ошибка загрузки деталей пользователя:', error);
+        body.innerHTML = `
+            <div class="empty-state">
+                <span class="emoji">❌</span>
+                <h3>Ошибка загрузки</h3>
+                <p>Не удалось получить данные пользователя</p>
+            </div>
+        `;
+    }
+}
+
+function renderUserDetail(data) {
+    const body = document.getElementById('userDetailBody');
+    const { user, stats, activeEquipment, history } = data;
+
+    const statusLabel = (s) => ({
+        available:   '✅ Доступна',
+        placed:      '🪑 На месте',
+        assigned:    '👤 Назначена',
+        maintenance: '🔧 В ремонте',
+        retired:     '❌ Списана',
+    }[s] || s);
+
+    let html = `
+        <div class="wh-detail-header">
+            <div class="wh-detail-icon">👤</div>
+            <div class="wh-detail-info">
+                <h2>${escapeHtml(user.full_name || user.username)}</h2>
+                <div class="wh-detail-address">
+                    @${escapeHtml(user.username)}
+                    ${user.department ? ` · ${escapeHtml(user.department)}` : ''}
+                    ${user.email ? ` · ${escapeHtml(user.email)}` : ''}
+                </div>
+            </div>
+        </div>
+
+        <div class="user-inv-stats">
+            <div class="user-inv-stat">
+                <div class="user-inv-stat-value active">${stats.active || 0}</div>
+                <div class="user-inv-stat-label">Активных</div>
+            </div>
+            <div class="user-inv-stat">
+                <div class="user-inv-stat-value total">${stats.total || 0}</div>
+                <div class="user-inv-stat-label">Всего выдач</div>
+            </div>
+            <div class="user-inv-stat">
+                <div class="user-inv-stat-value returned">${stats.returned || 0}</div>
+                <div class="user-inv-stat-label">Возвратов</div>
+            </div>
+        </div>
+
+        <div class="detail-tabs">
+            <button class="detail-tab active" onclick="switchUserTab('active', event)">
+                🔧 Активная техника (${activeEquipment.length})
+            </button>
+            <button class="detail-tab" onclick="switchUserTab('history', event)">
+                📜 История (${history.length})
+            </button>
+        </div>
+
+        <div id="userTabActive" class="detail-tab-content active">
+    `;
+
+    if (activeEquipment.length === 0) {
+        html += `
+            <div class="empty-state">
+                <span class="emoji">📭</span>
+                <h3>Нет активной техники</h3>
+                <p>Всё возвращено на склад</p>
+            </div>
+        `;
+    } else {
+        html += `
+            <table class="inventory-table">
+                <thead>
+                    <tr>
+                        <th>Инв. номер</th>
+                        <th>Модель</th>
+                        <th>Корп. ИД</th>
+                        <th>Производитель</th>
+                        <th>Статус</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        activeEquipment.forEach(eq => {
+            html += `
+                <tr class="equipment-row-link" onclick="openEquipmentCardFromInventory(${eq.id})">
+                    <td><strong>${escapeHtml(eq.inventory_number || '—')}</strong></td>
+                    <td>${escapeHtml(eq.model_name || '—')}</td>
+                    <td>${escapeHtml(eq.model_corporate_id || '—')}</td>
+                    <td>${escapeHtml(eq.model_manufacturer || '—')}</td>
+                    <td><span class="status-badge status-${eq.status}">${statusLabel(eq.status)}</span></td>
+                </tr>
+            `;
+        });
+
+        html += `</tbody></table>`;
+    }
+
+    html += `</div><div id="userTabHistory" class="detail-tab-content">`;
+
+    if (history.length === 0) {
+        html += `
+            <div class="empty-state">
+                <span class="emoji">📭</span>
+                <h3>История пуста</h3>
+                <p>Пользователь ещё не получал технику</p>
+            </div>
+        `;
+    } else {
+        html += `
+            <table class="inventory-table">
+                <thead>
+                    <tr>
+                        <th>Модель</th>
+                        <th>Корп. ИД</th>
+                        <th>Выдано</th>
+                        <th>Возвращено</th>
+                        <th>Статус</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        history.forEach(h => {
+            const assignedDate = h.assigned_date
+                ? new Date(h.assigned_date).toLocaleDateString('ru-RU') : '—';
+            const returnedDate = h.returned_date
+                ? new Date(h.returned_date).toLocaleDateString('ru-RU') : '—';
+            const active = !h.returned_date;
+
+            html += `
+                <tr>
+                    <td>${escapeHtml(h.model_name || '—')}</td>
+                    <td>${escapeHtml(h.model_corporate_id || '—')}</td>
+                    <td>${assignedDate}</td>
+                    <td>${returnedDate}</td>
+                    <td><span class="status-badge ${active ? 'status-assigned' : 'status-available'}">${active ? 'Активна' : 'Возвращена'}</span></td>
+                </tr>
+            `;
+        });
+
+        html += `</tbody></table>`;
+    }
+
+    html += `</div>`;
+
+    body.innerHTML = html;
+}
+
+function closeUserDetailModal() {
+    document.getElementById('userDetailModal').classList.remove('active');
+    currentUserIdInv = null;
+    currentUserInv = null;
+}
+
+function switchUserTab(tab, event) {
+    document.querySelectorAll('#userTabActive, #userTabHistory').forEach(el => {
+        el.classList.remove('active');
+    });
+    document.querySelectorAll('#userDetailModal .detail-tab').forEach(el => {
+        el.classList.remove('active');
+    });
+
+    if (tab === 'active') {
+        document.getElementById('userTabActive').classList.add('active');
+    } else {
+        document.getElementById('userTabHistory').classList.add('active');
+    }
+
     if (event && event.target) {
         event.target.classList.add('active');
     }
@@ -843,13 +1132,15 @@ window.openEquipmentCardFromInventory = function(id) {
 document.addEventListener('click', function(e) {
     if (e.target.classList.contains('modal-overlay')) {
         if (e.target.id === 'warehouseDetailModal') closeWarehouseDetailModal();
-        if (e.target.id === 'officeDetailModal') closeOfficeDetailModal();      // 🆕 5.9.3
+        if (e.target.id === 'officeDetailModal') closeOfficeDetailModal();
+        if (e.target.id === 'userDetailModal') closeUserDetailModal();      // 🆕 5.9.4
     }
 });
 
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         closeWarehouseDetailModal();
-        closeOfficeDetailModal();      // 🆕 5.9.3
+        closeOfficeDetailModal();
+        closeUserDetailModal();       // 🆕 5.9.4
     }
 });

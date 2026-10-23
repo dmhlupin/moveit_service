@@ -71,6 +71,38 @@
 </div>
 
 <!-- ============================================================ -->
+<!-- 5.9.3: Сводка по офисам                                       -->
+<!-- ============================================================ -->
+<div class="inventory-section">
+    <div class="section-header">
+        <h2>🏛️ Сводка по офисам</h2>
+        <div class="section-actions">
+            <button onclick="loadOfficesSummary()" class="btn btn-ghost btn-sm">🔄 Обновить</button>
+        </div>
+    </div>
+
+    <div id="officesSummary" class="warehouse-summary">
+        <div class="loading-block">⏳ Загрузка...</div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 5.9.4: Сводка по пользователям                                -->
+<!-- ============================================================ -->
+<div class="inventory-section">
+    <div class="section-header">
+        <h2>👥 Сводка по пользователям</h2>
+        <div class="section-actions">
+            <button onclick="loadUsersSummary()" class="btn btn-ghost btn-sm">🔄 Обновить</button>
+        </div>
+    </div>
+
+    <div id="usersSummary" class="users-summary">
+        <div class="loading-block">⏳ Загрузка...</div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
 <!-- ВИРТУАЛЬНЫЕ СКЛАДЫ: РЕМОНТ И СПИСАНИЕ (2.11.15)              -->
 <!-- ============================================================ -->
 <div class="inventory-section">
@@ -96,6 +128,32 @@
             <button onclick="closeWarehouseDetailModal()" class="modal-close">✕</button>
         </div>
         <div class="modal-body" id="warehouseDetailBody">
+            <!-- Заполняется JS -->
+        </div>
+    </div>
+</div>
+
+<!-- МОДАЛЬНОЕ ОКНО: ДЕТАЛИ ОФИСА (5.9.3) -->
+<div class="modal-overlay" id="officeDetailModal">
+    <div class="modal view-user-modal">
+        <div class="modal-header">
+            <h3 id="officeDetailTitle">🏛️ Офис</h3>
+            <button onclick="closeOfficeDetailModal()" class="modal-close">✕</button>
+        </div>
+        <div class="modal-body" id="officeDetailBody">
+            <!-- Заполняется JS -->
+        </div>
+    </div>
+</div>
+
+<!-- МОДАЛЬНОЕ ОКНО: ДЕТАЛИ ПОЛЬЗОВАТЕЛЯ (5.9.4) -->
+<div class="modal-overlay" id="userDetailModal">
+    <div class="modal view-user-modal">
+        <div class="modal-header">
+            <h3 id="userDetailTitle">👤 Пользователь</h3>
+            <button onclick="closeUserDetailModal()" class="modal-close">✕</button>
+        </div>
+        <div class="modal-body" id="userDetailBody">
             <!-- Заполняется JS -->
         </div>
     </div>

@@ -45,6 +45,12 @@ const {
   getCellOccupancy,
   getInventoryTotals,
   getSpecialStatusSummary,  // 🆕 2.11.14
+  // Пользователи
+  getUsersWithActiveEquipment,       // 🆕 5.9.4
+  getUserWithDetails,                // 🆕 5.9.4
+  getUserActiveEquipment,            // 🆕 5.9.4
+  getUserEquipmentHistory,           // 🆕 5.9.4
+
 } = require('../database/db');
 const { logAction } = require('../utils/logger');
 const { renderPageFor } = require('../utils/layout');
@@ -1010,6 +1016,60 @@ async function getInventoryOfficesSummaryAPI(req, res) {
 }
 
 /**
+ * GET /api/admin/inventory/users-summary — сводка по пользователям (5.9.4)
+ * Только пользователи с активной техникой; для МОЛа — только с его техникой.
+ */
+async function getInventoryUsersSummaryAPI(req, res) {
+  try {
+    const scope = { userId: req.session.userId, role: req.session.role };
+    const rows = await getUsersWithActiveEquipment(scope);
+    res.json(rows);
+  } catch (error) {
+    console.error('❌ Ошибка сводки по пользователям:', error);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+/**
+ * GET /api/admin/inventory/users/:id/details — детали пользователя для инвентаризации (5.9.4).
+ * Для МОЛа — только его техника (activeEquipment + history с его responsible_user_id).
+ */
+async function getInventoryUserDetailsAPI(req, res) {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!id || isNaN(id)) {
+      return res.status(400).json({ error: 'Неверный ID' });
+    }
+
+    const user = await getUserWithDetails(id);
+    if (!user) {
+      return res.status(404).json({ error: 'Пользователь не найден' });
+    }
+
+    let activeEquipment = await getUserActiveEquipment(id);
+    let history = await getUserEquipmentHistory(id);
+
+    if (req.session.role === 'mol') {
+      const uid = parseInt(req.session.userId, 10) || 0;
+      activeEquipment = activeEquipment.filter(eq => Number(eq.responsible_user_id) === uid);
+      history = history.filter(h => Number(h.responsible_user_id) === uid);
+    }
+
+    const stats = {
+      active: activeEquipment.length,
+      total: history.length,
+      returned: history.filter(h => h.returned_date).length,
+    };
+
+    delete user.password_hash;
+    res.json({ user, stats, activeEquipment, history: history.slice(0, 30) });
+  } catch (error) {
+    console.error('❌ Ошибка деталей пользователя (инвентаризация):', error);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+/**
  * GET /api/admin/warehouses/:id/inventory — техника на складе
  */
 async function getWarehouseInventoryAPI(req, res) {
@@ -1171,7 +1231,9 @@ module.exports = {
   getInventoryTotalsAPI,
   getSpecialStatusSummaryAPI,  // 🆕 2.11.14
   getInventoryOfficesSummaryAPI,   // 🆕 5.9.3
+  getInventoryUsersSummaryAPI,       // 🆕 5.9.4
   getWarehouseInventoryAPI,
   getCellOccupancyAPI,
   exportInventoryCSV,
+  getInventoryUserDetailsAPI,
 };

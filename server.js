@@ -125,6 +125,9 @@ const {
   getWarehouseInventoryAPI,
   getCellOccupancyAPI,
   exportInventoryCSV,
+  getInventoryOfficesSummaryAPI,
+  getInventoryUsersSummaryAPI,       // 🆕 5.9.4
+  getInventoryUserDetailsAPI,
 } = require('./routes/warehouses');
 
 // Роуты рабочих мест
@@ -457,6 +460,9 @@ app.get('/admin/inventory', requireRole(['admin', 'supervisor', 'mol']), renderI
 app.get('/api/admin/inventory/summary', requireRole(['admin', 'supervisor', 'mol']), getInventorySummaryAPI);
 app.get('/api/admin/inventory/totals',  requireRole(['admin', 'supervisor', 'mol']), getInventoryTotalsAPI);
 app.get('/api/admin/inventory/special', requireRole(['admin', 'supervisor', 'mol']), getSpecialStatusSummaryAPI);
+app.get('/api/admin/inventory/offices-summary', requireRole(['admin', 'supervisor', 'mol']), getInventoryOfficesSummaryAPI);
+app.get('/api/admin/inventory/users-summary', requireRole(['admin', 'supervisor', 'mol']), getInventoryUsersSummaryAPI);
+app.get('/api/admin/inventory/users/:id/details', requireRole(['admin', 'supervisor', 'mol']), getInventoryUserDetailsAPI);
 
 app.get('/api/admin/warehouses/:id/inventory/export', requireRole(['admin', 'supervisor', 'mol']), exportInventoryCSV);
 app.get('/api/admin/warehouses/:id/inventory',        requireRole(['admin', 'supervisor', 'mol']), getWarehouseInventoryAPI);

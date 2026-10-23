@@ -117,6 +117,108 @@
     background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--warning-bg) 100%);
 }
 
+/* 5.9.3: карточка офиса — наследует .warehouse-summary-card, но с акцентом цвета */
+.office-summary-card {
+    border-left-color: var(--info);
+}
+.office-summary-card:hover {
+    border-color: var(--info);
+}
+.office-summary-card.is-default {
+    border-left-color: var(--warning);
+}
+
+/* ============================================================
+   5.9.4: Сводка по пользователям
+   ============================================================ */
+
+.users-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: var(--space-md);
+}
+
+.user-summary-card {
+    border-left-color: var(--purple);
+}
+
+.user-summary-card:hover {
+    border-color: var(--purple);
+}
+
+.user-summary-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--purple) 0%, var(--accent) 100%);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    margin-right: var(--space-xs);
+}
+
+.user-summary-count {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-xs);
+    padding: var(--space-sm) 0;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    margin: var(--space-sm) 0;
+}
+
+.user-summary-count-number {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--purple);
+    line-height: 1;
+}
+
+.user-summary-count-label {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+}
+
+.user-inv-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-sm);
+    margin-bottom: var(--space-md);
+}
+
+.user-inv-stat {
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    padding: var(--space-sm);
+    text-align: center;
+}
+
+.user-inv-stat-value {
+    font-size: var(--text-xl);
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: var(--space-xs);
+}
+
+.user-inv-stat-value.active   { color: var(--success); }
+.user-inv-stat-value.total    { color: var(--info); }
+.user-inv-stat-value.returned { color: var(--text-secondary); }
+
+.user-inv-stat-label {
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+@media (max-width: 900px) {
+    .users-summary { grid-template-columns: 1fr; }
+    .user-inv-stats { grid-template-columns: repeat(3, 1fr); }
+}
+
 /* Заголовок карточки */
 .ws-header {
     display: flex;

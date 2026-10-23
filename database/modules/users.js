@@ -142,6 +142,49 @@ module.exports = ({ db, run, get, all }) => ({
         });
     });
   },
+
+    /**
+   * 5.9.4: Сводка по пользователям с активной техникой (для инвентаризации).
+   * Только те, у кого есть активная техника.
+   * Для МОЛа — только те, у кого есть активная техника ЭТОГО МОЛа.
+   * @param {Object} scope — { userId, role }
+   * @returns {Promise<Array>}
+   */
+  getUsersWithActiveEquipment(scope = {}) {
+    const isMol = scope.role === 'mol';
+    const uid = parseInt(scope.userId, 10) || 0;
+    const molEq = isMol ? `AND e.responsible_user_id = ${uid}` : '';
+
+    return new Promise((resolve, reject) => {
+      db.all(`
+        SELECT
+          u.id,
+          u.username,
+          u.email,
+          u.full_name,
+          u.department,
+          (SELECT COUNT(*) FROM user_equipment ue
+            JOIN equipment e ON e.id = ue.equipment_id
+            WHERE ue.user_id = u.id
+              AND ue.returned_date IS NULL
+              ${molEq}
+          ) as active_equipment_count
+        FROM users u
+        WHERE u.is_active = 1
+          AND EXISTS (
+            SELECT 1 FROM user_equipment ue
+            JOIN equipment e ON e.id = ue.equipment_id
+            WHERE ue.user_id = u.id
+              AND ue.returned_date IS NULL
+              ${molEq}
+          )
+        ORDER BY active_equipment_count DESC, u.full_name ASC
+      `, (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows || []);
+      });
+    });
+  },
   
   /**
    * Получить всех пользователей с их техникой (сводка)
