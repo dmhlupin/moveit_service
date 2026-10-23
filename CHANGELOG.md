@@ -1,5 +1,115 @@
 # История изменений
 
+## [5.9.0] - 2026-10-23
+
+**🎉 Этап 5.9 завершён: «Инвентаризация 2.0»**
+
+Инвентаризация расширена со складов на офисы и пользователей. Добавлена гибкая выборка по уровню с углублением (склад → зона → стеллаж → ячейка, офис → кабинет → место). Все сводки и выборки под МОЛом отдают только его технику (`responsible_user_id`). Устранены дыры scope в функциях рабочих мест, поправлен баг «Наименование» в CSV-экспортах, добавлена колонка «Ответственный МОЛ» в CSV и модалки.
+
+### Подшаги 5.9.x
+
+- **5.9.0** — подготовительный рефакторинг:
+  * scope для `getWorkplaceStats` / `getWorkplaceEquipment` (`database/modules/workplaces.js`);
+  * передача scope в `routes/workplaces.js`: `getWorkplaceStats` / `getWorkplaceEquipment` /
+    `getOfficeEquipment` / `getWorkplaceOccupancy` / `exportOfficeInventoryCSV`;
+  * фикс `eq.name` → `eq.model_name` в `exportInventoryCSV` / `exportOfficeInventoryCSV`;
+  * вынос `escapeHtml` в `public/js/layout.js` (глобально, `window.escapeHtml`);
+  * чистка дубля `escapeHtml` в `public/js/inventory.js`.
+
+- **5.9.1** — фикс бага «Наименование» в модалке склада:
+  * `renderWarehouseDetail` — `eq.model_name` / `eq.model_corporate_id` / `eq.model_manufacturer`;
+  * локализован статус (`statusLabel`);
+  * «Corporate ID» → «Корп. ИД».
+
+- **5.9.2** — кликабельные строки в модалке склада:
+  * `window.openEquipmentCardFromInventory(id)` — обёртка над `EquipmentCard.open`;
+  * подключение модулей `equipment-card/*` на `/admin/inventory` (`pageJs`);
+  * скрытые `<input id="currentRole">` / `<input id="currentUserId">` в шаблоне —
+    для того, чтобы `index.js` прочитал роль и userId из DOM;
+  * `tr.equipment-row-link` + `cursor: pointer` в `inventory.css`.
+
+- **5.9.3** — офисы в инвентаризации:
+  * `getWorkplaceSummary(scope)` — `fill_percent`, scope для МОЛа;
+  * API `GET /api/admin/inventory/offices-summary`;
+  * секция «🏛️ Сводка по офисам» и модалка `#officeDetailModal` с вкладками
+    «Техника» / «Заполненность мест»;
+  * кликабельная техника → карточка (5.9.2).
+
+- **5.9.3.1** — scope-фикс инвентаризации (МОЛ видит только свою технику):
+  * `getOfficeEquipment` / `getWorkplaceOccupancy` / `getWarehouseInventory` /
+    `getCellOccupancy` / `getInventorySummary` — `AND e.responsible_user_id = uid` для МОЛа;
+  * `exportInventoryCSV` — передача scope в `getWarehouseById` / `getWarehouseInventory`.
+
+- **5.9.3.2** — ответственный МОЛ в CSV и модалках:
+  * `LEFT JOIN users ru ON ru.id = e.responsible_user_id` в `getWarehouseInventory` /
+    `getOfficeEquipment`;
+  * колонка «Ответственный МОЛ» в CSV-экспортах и в модалках складов/офисов.
+
+- **5.9.4** — пользователи в инвентаризации:
+  * `getUsersWithActiveEquipment(scope)` — только пользователи с активной техникой
+    (для МОЛа — только с его техникой);
+  * API `GET /api/admin/inventory/users-summary`, `GET /api/admin/inventory/users/:id/details`
+    (для МОЛа activeEquipment / history фильтруются по `responsible_user_id`);
+  * секция «👥 Сводка по пользователям» и модалка `#userDetailModal` с вкладками
+    «Активная техника» / «История».
+
+- **5.9.5** — гибкая выборка по уровню:
+  * `getEquipmentByLevel(level, id, scope)` — единый endpoint
+    `GET /api/admin/inventory/by-level?level=warehouse|office|user&id=N`;
+  * секция «🔎 Выборка по уровню» на `/admin/inventory` — селектор уровня и объекта,
+    таблица техники на выбранном уровне (строки кликабельны).
+
+- **5.9.6** — углубление выборки:
+  * `getEquipmentByLevel(level, id, scope, sub)` — параметр `sub`
+    (`zone_id` / `rack_id` / `cell_id` / `room_id` / `workplace_id`);
+  * каскады на фронте: Склад → Зона → Стеллаж → Ячейка; Офис → Кабинет → Место;
+  * хлебные крошки (`#byLevelBreadcrumbs`) с корректным сбросом нижележащих селектов;
+  * можно остановиться на любом уровне.
+
+### Файлы
+
+**Изменены:**
+- `database/modules/workplaces.js`
+- `database/modules/warehouses/inventory.js`
+- `database/modules/users.js`
+- `routes/warehouses.js`
+- `routes/workplaces.js`
+- `routes/manage/users.js`
+- `server.js`
+- `views/admin-inventory.html`
+- `public/js/layout.js`
+- `public/js/inventory.js`
+- `public/css/inventory.css`
+- `package.json`
+- `CHANGELOG.md`
+- `README.md`
+
+### Проверено
+
+- `npm run check-roles` — зелёный.
+- `/admin/inventory` под admin / supervisor / mol:
+  * сводки по складам, офисам, пользователям;
+  * виртуальные склады (`maintenance` / `retired`);
+  * модалки с вкладками, кликабельная техника;
+  * выборка по уровню с углублением и хлебными крошками;
+  * CSV-экспорт с колонкой «Ответственный МОЛ».
+- Под МОЛом: сводки и модалки показывают только его технику, выборка — только его объекты.
+
+### Теги
+
+- v5.9.1 — 5.9.0: подготовительный рефакторинг
+- v5.9.2 — 5.9.1: фикс «Наименование»
+- v5.9.3 — 5.9.2: кликабельные строки в модалке склада
+- v5.9.4 — 5.9.3: офисы в инвентаризации
+- v5.9.4.1 — 5.9.3.1: scope инвентаризации
+- v5.9.4.2 — 5.9.3.2: МОЛ в CSV/модалках
+- v5.9.5 — 5.9.4: пользователи в инвентаризации
+- v5.9.6 — 5.9.5: гибкая выборка по уровню
+- v5.9.7 — 5.9.6: углубление выборки
+- **v5.9.0 — финал этапа (этот)**
+
+---
+
 ## [5.7.2] - 2026-10-22
 
 **🎉 Этап 5.7 завершён: ссылки на карточку техники из модалок**
