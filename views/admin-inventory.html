@@ -126,8 +126,45 @@
 
         <div class="filter-group" id="byLevelObjectGroup" style="display: none;">
             <label id="byLevelObjectLabel">Объект</label>
-            <select id="byLevelObjectId">
+            <select id="byLevelObjectId" onchange="onByLevelObjectChange()">
                 <option value="">— Выберите —</option>
+            </select>
+        </div>
+
+        <!-- Склад: Зона → Стеллаж → Ячейка -->
+        <div class="filter-group" id="byLevelZoneGroup" style="display: none;">
+            <label>Зона</label>
+            <select id="byLevelZoneId" onchange="onByLevelZoneChange()">
+                <option value="">— Любая —</option>
+            </select>
+        </div>
+
+        <div class="filter-group" id="byLevelRackGroup" style="display: none;">
+            <label>Стеллаж</label>
+            <select id="byLevelRackId" onchange="onByLevelRackChange()">
+                <option value="">— Любой —</option>
+            </select>
+        </div>
+
+        <div class="filter-group" id="byLevelCellGroup" style="display: none;">
+            <label>Ячейка</label>
+            <select id="byLevelCellId">
+                <option value="">— Любая —</option>
+            </select>
+        </div>
+
+        <!-- Офис: Кабинет → Место -->
+        <div class="filter-group" id="byLevelRoomGroup" style="display: none;">
+            <label>Кабинет</label>
+            <select id="byLevelRoomId" onchange="onByLevelRoomChange()">
+                <option value="">— Любой —</option>
+            </select>
+        </div>
+
+        <div class="filter-group" id="byLevelWorkplaceGroup" style="display: none;">
+            <label>Рабочее место</label>
+            <select id="byLevelWorkplaceId">
+                <option value="">— Любое —</option>
             </select>
         </div>
 
@@ -136,6 +173,9 @@
             <button onclick="loadByLevel()" class="btn btn-primary">🔎 Показать</button>
         </div>
     </div>
+
+    <!-- 5.9.6: хлебные крошки -->
+    <div id="byLevelBreadcrumbs" class="by-level-breadcrumbs" style="display: none;"></div>
 
     <div id="byLevelResult" class="by-level-result" style="display: none;">
         <!-- Заполняется JS -->

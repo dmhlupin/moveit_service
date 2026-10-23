@@ -18,7 +18,13 @@ let usersSummary = [];           // 🆕 5.9.4
 let currentUserIdInv = null;     // 🆕 5.9.4
 let currentUserInv = null;       // 🆕 5.9.4
 
-let byLevelData = { level: '', id: 0, rows: [] };   // 🆕 5.9.5
+let byLevelData = {
+    level: '',
+    id: 0,
+    sub: {},        // 🆕 5.9.6: { zone_id, rack_id, cell_id, room_id, workplace_id }
+    rows: [],
+    breadcrumbs: [], // 🆕 5.9.6
+};
 
 // ============================================================
 // ИНИЦИАЛИЗАЦИЯ
@@ -1094,8 +1100,21 @@ function switchUserTab(tab, event) {
 }
 
 // ============================================================
-// 5.9.5: ВЫБОРКА ПО УРОВНЮ (склад / офис / пользователь)
+// 5.9.6: ВЫБОРКА ПО УРОВНЮ (углубление)
 // ============================================================
+
+const BY_LEVEL_GROUPS = {
+    warehouse: ['byLevelZoneGroup', 'byLevelRackGroup', 'byLevelCellGroup'],
+    office:    ['byLevelRoomGroup', 'byLevelWorkplaceGroup'],
+    user:      [],
+};
+
+function hideAllLevelGroups() {
+    Object.values(BY_LEVEL_GROUPS).flat().forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+}
 
 async function onByLevelTypeChange() {
     const type = document.getElementById('byLevelType').value;
@@ -1104,9 +1123,14 @@ async function onByLevelTypeChange() {
     const objectLabel = document.getElementById('byLevelObjectLabel');
     const objectSelect = document.getElementById('byLevelObjectId');
     const result = document.getElementById('byLevelResult');
+    const breadcrumbs = document.getElementById('byLevelBreadcrumbs');
 
     result.style.display = 'none';
-    byLevelData = { level: '', id: 0, rows: [] };
+    breadcrumbs.style.display = 'none';
+    breadcrumbs.innerHTML = '';
+    byLevelData = { level: '', id: 0, sub: {}, rows: [], breadcrumbs: [] };
+
+    hideAllLevelGroups();
 
     if (!type) {
         objectGroup.style.display = 'none';
@@ -1122,13 +1146,13 @@ async function onByLevelTypeChange() {
         let items = [];
         if (type === 'warehouse') {
             objectLabel.textContent = 'Склад';
-            items = summary;  // уже загружено в loadSummary
+            items = summary;
         } else if (type === 'office') {
             objectLabel.textContent = 'Офис';
-            items = officesSummary;  // уже загружено в loadOfficesSummary
+            items = officesSummary;
         } else if (type === 'user') {
             objectLabel.textContent = 'Пользователь';
-            items = usersSummary;  // уже загружено в loadUsersSummary
+            items = usersSummary;
         }
 
         if (!items || items.length === 0) {
@@ -1147,31 +1171,217 @@ async function onByLevelTypeChange() {
     }
 }
 
+// При выборе объекта (склад/офис/пользователь) — показать нужные каскады
+async function onByLevelObjectChange() {
+    const type = document.getElementById('byLevelType').value;
+    const objectId = parseInt(document.getElementById('byLevelObjectId').value, 10);
+
+    hideAllLevelGroups();
+
+    if (!type || !objectId) return;
+
+    // Сброс значений каскадов
+    ['byLevelZoneId', 'byLevelRackId', 'byLevelCellId',
+     'byLevelRoomId', 'byLevelWorkplaceId'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            const placeholder = el.options[0]?.textContent || '— Любой —';
+            el.innerHTML = `<option value="">${placeholder}</option>`;
+            el.value = '';
+        }
+    });
+
+    if (type === 'warehouse') {
+        document.getElementById('byLevelZoneGroup').style.display = '';
+        await loadByLevelZones(objectId);
+    } else if (type === 'office') {
+        document.getElementById('byLevelRoomGroup').style.display = '';
+        await loadByLevelRooms(objectId);
+    }
+}
+
+async function loadByLevelZones(warehouseId) {
+    const select = document.getElementById('byLevelZoneId');
+    select.innerHTML = '<option value="">⏳ Загрузка...</option>';
+
+    try {
+        const response = await fetch(`/api/admin/warehouses/${warehouseId}/zones`);
+        const zones = await response.json();
+        select.innerHTML = '<option value="">— Любая зона —</option>' +
+            zones.map(z => `<option value="${z.id}">${escapeHtml(z.name)}</option>`).join('');
+    } catch (error) {
+        console.error('❌ Ошибка зон:', error);
+        select.innerHTML = '<option value="">— Ошибка —</option>';
+    }
+}
+
+async function onByLevelZoneChange() {
+    const zoneId = parseInt(document.getElementById('byLevelZoneId').value, 10);
+    document.getElementById('byLevelRackGroup').style.display = zoneId ? '' : 'none';
+    document.getElementById('byLevelCellGroup').style.display = 'none';
+
+    const rackSelect = document.getElementById('byLevelRackId');
+    const cellSelect = document.getElementById('byLevelCellId');
+    rackSelect.innerHTML = '<option value="">— Любой —</option>';
+    cellSelect.innerHTML = '<option value="">— Любая —</option>';
+
+    if (!zoneId) return;
+
+    rackSelect.innerHTML = '<option value="">⏳ Загрузка...</option>';
+    try {
+        const response = await fetch(`/api/admin/zones/${zoneId}/racks`);
+        const racks = await response.json();
+        rackSelect.innerHTML = '<option value="">— Любой стеллаж —</option>' +
+            racks.map(r => `<option value="${r.id}">${escapeHtml(r.name)}</option>`).join('');
+    } catch (error) {
+        console.error('❌ Ошибка стеллажей:', error);
+        rackSelect.innerHTML = '<option value="">— Ошибка —</option>';
+    }
+}
+
+async function onByLevelRackChange() {
+    const rackId = parseInt(document.getElementById('byLevelRackId').value, 10);
+    document.getElementById('byLevelCellGroup').style.display = rackId ? '' : 'none';
+
+    const cellSelect = document.getElementById('byLevelCellId');
+    cellSelect.innerHTML = '<option value="">— Любая —</option>';
+
+    if (!rackId) return;
+
+    cellSelect.innerHTML = '<option value="">⏳ Загрузка...</option>';
+    try {
+        const response = await fetch(`/api/admin/racks/${rackId}/cells`);
+        const cells = await response.json();
+        cellSelect.innerHTML = '<option value="">— Любая ячейка —</option>' +
+            cells.map(c => {
+                const code = c.code ? ` [${c.code}]` : '';
+                return `<option value="${c.id}">${escapeHtml(c.name)}${code}</option>`;
+            }).join('');
+    } catch (error) {
+        console.error('❌ Ошибка ячеек:', error);
+        cellSelect.innerHTML = '<option value="">— Ошибка —</option>';
+    }
+}
+
+async function loadByLevelRooms(officeId) {
+    const select = document.getElementById('byLevelRoomId');
+    select.innerHTML = '<option value="">⏳ Загрузка...</option>';
+
+    try {
+        const response = await fetch(`/api/admin/offices/${officeId}/rooms`);
+        const rooms = await response.json();
+        select.innerHTML = '<option value="">— Любой кабинет —</option>' +
+            rooms.map(r => `<option value="${r.id}">${escapeHtml(r.name)}</option>`).join('');
+    } catch (error) {
+        console.error('❌ Ошибка кабинетов:', error);
+        select.innerHTML = '<option value="">— Ошибка —</option>';
+    }
+}
+
+async function onByLevelRoomChange() {
+    const roomId = parseInt(document.getElementById('byLevelRoomId').value, 10);
+    document.getElementById('byLevelWorkplaceGroup').style.display = roomId ? '' : 'none';
+
+    const wpSelect = document.getElementById('byLevelWorkplaceId');
+    wpSelect.innerHTML = '<option value="">— Любое —</option>';
+
+    if (!roomId) return;
+
+    wpSelect.innerHTML = '<option value="">⏳ Загрузка...</option>';
+    try {
+        const response = await fetch(`/api/admin/rooms/${roomId}/workplaces`);
+        const wps = await response.json();
+        wpSelect.innerHTML = '<option value="">— Любое место —</option>' +
+            wps.map(wp => {
+                const code = wp.code ? ` [${wp.code}]` : '';
+                return `<option value="${wp.id}">${escapeHtml(wp.name)}${code}</option>`;
+            }).join('');
+    } catch (error) {
+        console.error('❌ Ошибка рабочих мест:', error);
+        wpSelect.innerHTML = '<option value="">— Ошибка —</option>';
+    }
+}
+
 async function loadByLevel() {
     const type = document.getElementById('byLevelType').value;
     const id = parseInt(document.getElementById('byLevelObjectId').value, 10);
     const result = document.getElementById('byLevelResult');
+    const breadcrumbs = document.getElementById('byLevelBreadcrumbs');
 
     if (!type || !id) {
         result.style.display = 'none';
+        breadcrumbs.style.display = 'none';
         return;
     }
 
+    // Собираем sub из селектов (только релевантные уровню)
+    const sub = {};
+    const breadcrumbsArr = [];
+
+    // Название объекта
+    let objectName = '';
+    if (type === 'warehouse') {
+        objectName = summary.find(w => w.id === id)?.name || `Склад #${id}`;
+        const zoneId = parseInt(document.getElementById('byLevelZoneId').value, 10);
+        const rackId = parseInt(document.getElementById('byLevelRackId').value, 10);
+        const cellId = parseInt(document.getElementById('byLevelCellId').value, 10);
+        if (zoneId) sub.zone_id = zoneId;
+        if (rackId) sub.rack_id = rackId;
+        if (cellId) sub.cell_id = cellId;
+
+        breadcrumbsArr.push({ level: 'warehouse', id, label: `🏢 ${objectName}`, active: false });
+        if (zoneId) {
+            const name = document.getElementById('byLevelZoneId').selectedOptions[0]?.textContent || `Зона #${zoneId}`;
+            breadcrumbsArr.push({ level: 'zone', id: zoneId, label: `📍 ${name}`, active: false });
+        }
+        if (rackId) {
+            const name = document.getElementById('byLevelRackId').selectedOptions[0]?.textContent || `Стеллаж #${rackId}`;
+            breadcrumbsArr.push({ level: 'rack', id: rackId, label: `🗄️ ${name}`, active: false });
+        }
+        if (cellId) {
+            const name = document.getElementById('byLevelCellId').selectedOptions[0]?.textContent || `Ячейка #${cellId}`;
+            breadcrumbsArr.push({ level: 'cell', id: cellId, label: `📦 ${name}`, active: false });
+        }
+    } else if (type === 'office') {
+        objectName = officesSummary.find(o => o.id === id)?.name || `Офис #${id}`;
+        const roomId = parseInt(document.getElementById('byLevelRoomId').value, 10);
+        const wpId = parseInt(document.getElementById('byLevelWorkplaceId').value, 10);
+        if (roomId) sub.room_id = roomId;
+        if (wpId) sub.workplace_id = wpId;
+
+        breadcrumbsArr.push({ level: 'office', id, label: `🏛️ ${objectName}`, active: false });
+        if (roomId) {
+            const name = document.getElementById('byLevelRoomId').selectedOptions[0]?.textContent || `Кабинет #${roomId}`;
+            breadcrumbsArr.push({ level: 'room', id: roomId, label: `🚪 ${name}`, active: false });
+        }
+        if (wpId) {
+            const name = document.getElementById('byLevelWorkplaceId').selectedOptions[0]?.textContent || `Место #${wpId}`;
+            breadcrumbsArr.push({ level: 'workplace', id: wpId, label: `🪑 ${name}`, active: false });
+        }
+    } else if (type === 'user') {
+        objectName = usersSummary.find(u => u.id === id)?.full_name || `Пользователь #${id}`;
+        breadcrumbsArr.push({ level: 'user', id, label: `👤 ${objectName}`, active: false });
+    }
+
+    // Запрос
     result.style.display = '';
+    breadcrumbs.style.display = '';
     result.innerHTML = '<div class="loading-block">⏳ Загрузка...</div>';
 
     try {
-        const response = await fetch(`/api/admin/inventory/by-level?level=${encodeURIComponent(type)}&id=${id}`);
+        const qs = new URLSearchParams({ level: type, id: String(id) });
+        Object.entries(sub).forEach(([k, v]) => qs.set(k, String(v)));
+
+        const response = await fetch(`/api/admin/inventory/by-level?${qs.toString()}`);
         if (!response.ok) {
             const err = await response.json().catch(() => ({}));
             throw new Error(err.error || `HTTP ${response.status}`);
         }
         const rows = await response.json();
-        if (!Array.isArray(rows)) {
-            throw new Error('Некорректный ответ API');
-        }
+        if (!Array.isArray(rows)) throw new Error('Некорректный ответ API');
 
-        byLevelData = { level: type, id, rows };
+        byLevelData = { level: type, id, sub, rows, breadcrumbs: breadcrumbsArr };
+        renderByLevelBreadcrumbs();
         renderByLevel();
     } catch (error) {
         console.error('❌ Ошибка выборки по уровню:', error);
@@ -1182,7 +1392,65 @@ async function loadByLevel() {
                 <p>${escapeHtml(error.message)}</p>
             </div>
         `;
+        breadcrumbs.style.display = 'none';
     }
+}
+
+function renderByLevelBreadcrumbs() {
+    const container = document.getElementById('byLevelBreadcrumbs');
+    if (!byLevelData.breadcrumbs.length) {
+        container.style.display = 'none';
+        return;
+    }
+
+    // Последний — активный (не кликабельный)
+    const html = byLevelData.breadcrumbs.map((bc, idx) => {
+        const isLast = idx === byLevelData.breadcrumbs.length - 1;
+        if (isLast) {
+            return `<span class="breadcrumb-item active">${escapeHtml(bc.label)}</span>`;
+        }
+        return `<span class="breadcrumb-item" onclick="navigateBreadcrumb(${idx})">${escapeHtml(bc.label)}</span><span class="breadcrumb-sep">/</span>`;
+    }).join('');
+
+    container.innerHTML = html;
+    container.style.display = '';
+}
+
+function navigateBreadcrumb(idx) {
+    const bc = byLevelData.breadcrumbs[idx];
+    if (!bc) return;
+
+    // Сбрасываем селекты НИЖЕ выбранного уровня
+    if (bc.level === 'warehouse') {
+        ['byLevelZoneId', 'byLevelRackId', 'byLevelCellId'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        document.getElementById('byLevelRackGroup').style.display = 'none';
+        document.getElementById('byLevelCellGroup').style.display = 'none';
+    } else if (bc.level === 'zone') {
+        ['byLevelRackId', 'byLevelCellId'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        document.getElementById('byLevelCellGroup').style.display = 'none';
+    } else if (bc.level === 'rack') {               // 🆕 5.9.6: ячейка
+        const cellEl = document.getElementById('byLevelCellId');
+        if (cellEl) cellEl.value = '';
+        // byLevelCellGroup оставляем видимым (ячейки этого стеллажа ещё доступны)
+    } else if (bc.level === 'office') {
+        ['byLevelRoomId', 'byLevelWorkplaceId'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        document.getElementById('byLevelWorkplaceGroup').style.display = 'none';
+    } else if (bc.level === 'room') {
+        const wpEl = document.getElementById('byLevelWorkplaceId');
+        if (wpEl) wpEl.value = '';
+        // byLevelWorkplaceGroup оставляем видимым
+    }
+
+    loadByLevel();
 }
 
 function renderByLevel() {

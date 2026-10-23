@@ -1071,7 +1071,9 @@ async function getInventoryUserDetailsAPI(req, res) {
 }
 
 /**
- * GET /api/admin/inventory/by-level?level=warehouse|office|user&id=N — техника по уровню (5.9.5)
+ * GET /api/admin/inventory/by-level?level=warehouse|office|user&id=N
+ *     &zone_id=&rack_id=&cell_id=&room_id=&workplace_id=
+ * 5.9.6: углубление — техника на уровне зоны / стеллажа / ячейки / кабинета / места.
  */
 async function getInventoryByLevelAPI(req, res) {
   try {
@@ -1085,8 +1087,16 @@ async function getInventoryByLevelAPI(req, res) {
       return res.status(400).json({ error: 'Неверный ID' });
     }
 
+    const sub = {
+      zone_id:      req.query.zone_id      ? parseInt(req.query.zone_id, 10)      : null,
+      rack_id:      req.query.rack_id      ? parseInt(req.query.rack_id, 10)      : null,
+      cell_id:      req.query.cell_id      ? parseInt(req.query.cell_id, 10)      : null,
+      room_id:      req.query.room_id      ? parseInt(req.query.room_id, 10)      : null,
+      workplace_id: req.query.workplace_id ? parseInt(req.query.workplace_id, 10) : null,
+    };
+
     const scope = { userId: req.session.userId, role: req.session.role };
-    const rows = await getEquipmentByLevel(level, id, scope);
+    const rows = await getEquipmentByLevel(level, id, scope, sub);
     res.json(rows);
   } catch (error) {
     console.error('❌ Ошибка выборки по уровню:', error);

@@ -196,16 +196,27 @@ module.exports = ({ db }) => ({
     });
   },
 
-    /**
-   * 5.9.5: техника на выбранном уровне (склад / офис / пользователь).
+  /**
+   * 5.9.6: техника на выбранном уровне с углублением.
    * @param {'warehouse'|'office'|'user'} level
-   * @param {number} id
+   * @param {number} id — ID склада / офиса / пользователя
    * @param {Object} scope — { userId, role }
+   * @param {Object} [sub] — { zone_id, rack_id, cell_id, room_id, workplace_id }
    * @returns {Promise<Array>}
    */
-  getEquipmentByLevel(level, id, scope = {}) {
+  getEquipmentByLevel(level, id, scope = {}, sub = {}) {
     const isMol = scope.role === 'mol';
     const uid = parseInt(scope.userId, 10) || 0;
+
+    const subZone    = sub.zone_id    ? 'AND zone.id = ?'    : '';
+    const subRack    = sub.rack_id    ? 'AND rack.id = ?'    : '';
+    const subCell    = sub.cell_id    ? 'AND cell.id = ?'    : '';
+    const subRoom    = sub.room_id    ? 'AND r.id = ?'       : '';
+    const subWp      = sub.workplace_id ? 'AND wp.id = ?'    : '';
+    const subParams  = [
+      sub.zone_id, sub.rack_id, sub.cell_id,
+      sub.room_id, sub.workplace_id,
+    ].filter(v => v !== undefined && v !== null && v !== '').map(v => parseInt(v, 10));
 
     return new Promise((resolve, reject) => {
       let sql = '';
@@ -223,10 +234,12 @@ module.exports = ({ db }) => ({
             c.name AS category_name, c.icon AS category_icon,
             t.name AS type_name, t.icon AS type_icon,
             ru.full_name AS responsible_user_name,
-            cell.code AS cell_code, cell.name AS cell_name,
-            rack.name AS rack_name, zone.name AS zone_name, w.name AS warehouse_name,
-            NULL AS workplace_name, NULL AS workplace_code,
-            NULL AS room_name, NULL AS office_name
+            cell.id AS cell_id, cell.code AS cell_code, cell.name AS cell_name,
+            rack.id AS rack_id, rack.name AS rack_name,
+            zone.id AS zone_id, zone.name AS zone_name,
+            w.id AS warehouse_id, w.name AS warehouse_name,
+            NULL AS workplace_id, NULL AS workplace_name, NULL AS workplace_code,
+            NULL AS room_id, NULL AS room_name, NULL AS office_id, NULL AS office_name
           FROM equipment e
           JOIN equipment_models m ON m.id = e.model_id
           LEFT JOIN equipment_categories c ON c.id = m.category_id
@@ -236,11 +249,12 @@ module.exports = ({ db }) => ({
           JOIN racks rack ON cell.rack_id = rack.id
           JOIN zones zone ON rack.zone_id = zone.id
           JOIN warehouses w ON zone.warehouse_id = w.id
-          WHERE w.id = ? ${molWh} ${molEq}
+          WHERE w.id = ? ${subZone} ${subRack} ${subCell} ${molWh} ${molEq}
           ORDER BY zone.sort_order, zone.name, rack.sort_order, rack.name, cell.sort_order, cell.name
         `;
-        params = [id];
-        if (isMol) { params.push(uid); params.push(uid); }
+        params = [id, ...subParams];
+        if (isMol) params.push(uid);
+        if (isMol) params.push(uid);
       } else if (level === 'office') {
         const molOf = isMol
           ? `AND o.id IN (SELECT office_id FROM office_responsibles WHERE user_id = ?)`
@@ -253,10 +267,11 @@ module.exports = ({ db }) => ({
             c.name AS category_name, c.icon AS category_icon,
             t.name AS type_name, t.icon AS type_icon,
             ru.full_name AS responsible_user_name,
-            NULL AS cell_code, NULL AS cell_name,
-            NULL AS rack_name, NULL AS zone_name, NULL AS warehouse_name,
-            wp.name AS workplace_name, wp.code AS workplace_code,
-            r.name AS room_name, o.name AS office_name
+            NULL AS cell_id, NULL AS cell_code, NULL AS cell_name,
+            NULL AS rack_id, NULL AS rack_name, NULL AS zone_id, NULL AS zone_name,
+            NULL AS warehouse_id, NULL AS warehouse_name,
+            wp.id AS workplace_id, wp.name AS workplace_name, wp.code AS workplace_code,
+            r.id AS room_id, r.name AS room_name, o.id AS office_id, o.name AS office_name
           FROM equipment e
           JOIN equipment_models m ON m.id = e.model_id
           LEFT JOIN equipment_categories c ON c.id = m.category_id
@@ -265,11 +280,12 @@ module.exports = ({ db }) => ({
           JOIN workplaces wp ON e.workplace_id = wp.id
           JOIN rooms r ON wp.room_id = r.id
           JOIN offices o ON r.office_id = o.id
-          WHERE o.id = ? ${molOf} ${molEq}
+          WHERE o.id = ? ${subRoom} ${subWp} ${molOf} ${molEq}
           ORDER BY r.sort_order, r.name, wp.sort_order, wp.name
         `;
-        params = [id];
-        if (isMol) { params.push(uid); params.push(uid); }
+        params = [id, ...subParams];
+        if (isMol) params.push(uid);
+        if (isMol) params.push(uid);
       } else if (level === 'user') {
         const molEq = isMol ? `AND e.responsible_user_id = ?` : '';
         sql = `
@@ -279,10 +295,12 @@ module.exports = ({ db }) => ({
             c.name AS category_name, c.icon AS category_icon,
             t.name AS type_name, t.icon AS type_icon,
             ru.full_name AS responsible_user_name,
-            cell.code AS cell_code, cell.name AS cell_name,
-            rack.name AS rack_name, zone.name AS zone_name, w.name AS warehouse_name,
-            wp.name AS workplace_name, wp.code AS workplace_code,
-            r.name AS room_name, o.name AS office_name,
+            cell.id AS cell_id, cell.code AS cell_code, cell.name AS cell_name,
+            rack.id AS rack_id, rack.name AS rack_name,
+            zone.id AS zone_id, zone.name AS zone_name,
+            w.id AS warehouse_id, w.name AS warehouse_name,
+            wp.id AS workplace_id, wp.name AS workplace_name, wp.code AS workplace_code,
+            r.id AS room_id, r.name AS room_name, o.id AS office_id, o.name AS office_name,
             ue.assigned_date
           FROM user_equipment ue
           JOIN equipment e ON e.id = ue.equipment_id
