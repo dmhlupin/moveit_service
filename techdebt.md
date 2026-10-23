@@ -213,3 +213,27 @@ http://localhost:3000/admin/user/edit/id
 - `connect-sqlite3` сессии лежат в `data/sessions.db` — при переключении БД сессии, скорее всего, надо чистить (иначе непонятные «полу-авторизованные» состояния).
 - В `clean-test-data.js` уже есть защита «не удалять админов» — переиспользовать её логику, не дублировать.
 - Кнопка должна быть **только у admin**, и, желательно, скрыта за `NODE_ENV !== 'production'` — чтобы не выстрелила в боевой среде.
+
+## 2026-10-23 История выдач — «Выдал»
+**Что делал:** смотрел модалку пользователя в /admin/inventory (5.9.4 / 5.10.3.1)
+**Что неудобно:** в «Истории» нет колонки «Выдал» (кто выдавал технику пользователю). В таблице `user_equipment` нет поля автора выдачи.
+**Идея:** миграция + запись + UI.
+- `ALTER TABLE user_equipment ADD COLUMN assigned_by_user_id INTEGER NULL REFERENCES users(id)`;
+- в `assignEquipment` (database/modules/equipment.js) — принимать `assignedByUserId` и писать в поле; прокинуть `req.session.userId` из роутов (`assignEquipmentAPI` / `moveToWorkplaceFromCardAPI` / `addEquipmentAPI` при назначении);
+- в `getUserEquipmentHistory` — `LEFT JOIN users ab ON ab.id = ue.assigned_by_user_id` + `ab.full_name AS assigned_by_name`;
+- в `renderUserDetail` (`public/js/inventory.js`) — колонка «Выдал» в таблице «История»;
+- бэкфилл для старых записей — `NULL` (UI покажет «—»).
+**Приоритет:** низкий (UX, не блокирует).
+
+## 2026-10-23 /admin/catalog — карточка техники
+**Что делал:** клик по строке техники на /admin/catalog
+**Что неудобно:** используется «старая» модалка карточки техники (свой рендер в `public/js/catalog.js`), а не независимый модуль `EquipmentCard` (public/js/equipment-card/*). Расхождение с /manage, /admin/users, /admin/warehouses, /admin/workplaces, /admin/inventory (5.9.2). Нет единого поведения, стилей, кнопок действий.
+**Идея:** на `/admin/catalog` (секция «🔧 Техника в выбранной категории»):
+- строки таблицы техники сделать кликабельными (`class="equipment-row-link"` + `onclick="openEquipmentCard(...)"`);
+- подключить модуль `EquipmentCard` через `pageJs` (`equipment-card/loader|render|actions|modals|index`);
+- убрать старую модалку `#viewEquipmentModal` из `views/admin-catalog.html` и старую функцию `viewEquipment` из `public/js/catalog.js` (или оставить `#viewEquipmentModal` как контейнер, если карточка его использует — проверить, что `EquipmentCard` рендерит в свой `#viewEquipmentBody`, см. `equipment-card/index.js` → `render.js`);
+- в шаблон добавить `<input id="currentRole" value="{{current_role}}">` и `<input id="currentUserId" value="{{current_user_id}}">` (если ещё нет) — `EquipmentCard.open` читает их из DOM, если не переданы явно;
+- под МОЛом/супервизоре — карточка read-only (уже обеспечивается `render.js` → `canEdit`);
+- курсор `pointer` на `<tr>` — `.equipment-row-link` в `public/css/catalog.css` (или общий, если вынести в `components.css`).
+
+**Приоритет:** средний (UX-консистентность). Логично делать после 5.10.7 (финал 5.10), отдельным подэтапом 5.11.1 или сразу после разноса `catalog.js`.

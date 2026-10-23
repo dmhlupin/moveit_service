@@ -1,74 +1,28 @@
-// routes/equipment-models.js
-// Номенклатура: управление моделями ТМЦ (equipment_models)
-
-const fs = require('fs');
-const path = require('path');
 const {
-  // Модели
   getAllModels,
   getModelById,
-  getModelByCorporateId,
-  getModelInstances,
+  getModelInstances,           // если getModelAPI его использует
+  isCorporateIdFree,           // если createModelAPI / updateModelAPI / checkDuplicateAPI его используют
+  findSimilarModel,            // если checkDuplicateAPI его использует
   createModel,
   updateModel,
   deleteModel,
-  isCorporateIdFree,
-  findSimilarModel,
-  // Справочник — для селектов и подписей
-  getAllCategories,
-  getAllTypes,
-} = require('../database/db');
-const { logAction } = require('../utils/logger');
-const { renderPageFor } = require('../utils/layout');
+  // + то, что реально вызывается в телах — проверь по факту
+} = require('../../database/db');
 
-const PAGE_SIZE = 20;
+const { logAction } = require('../../utils/logger');
+const { escapeHtml } = require('./helpers');
 
 // ============================================================
-// УТИЛИТЫ
+// ХЕЛПЕРЫ
 // ============================================================
 
-function escapeHtml(str) {
-  if (str === null || str === undefined) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+function parseIntOrNull(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const n = parseInt(value, 10);
+  return isNaN(n) ? null : n;
 }
-
-function parseIntOrNull(v) {
-  if (v === undefined || v === null || v === '') return null;
-  const n = parseInt(v, 10);
-  return Number.isNaN(n) ? null : n;
-}
-
-// ============================================================
-// СТРАНИЦА
-// ============================================================
-
-/**
- * GET /admin/models — страница «Номенклатура»
- */
-async function renderModels(req, res) {
-  try {
-    const htmlPath = path.join(__dirname, '..', 'views', 'admin-models.html');
-    let content = fs.readFileSync(htmlPath, 'utf8');
-
-    // 🆕 Этап 4: роль пользователя — для JS (скрытие кнопки «Удалить»)
-    content = content.replace(/\{\{current_role\}\}/g, req.session.role || 'user');
-
-    renderPageFor(req, res, {
-      title: 'Номенклатура – MoveIT service',
-      content,
-      pageCss: '/css/admin-models.css',
-      pageJs: '/js/admin-models.js',
-    });
-  } catch (error) {
-    console.error('❌ Ошибка загрузки номенклатуры:', error);
-    res.status(500).send('Ошибка загрузки страницы');
-  }
-}
+const PAGE_SIZE = 20;   // моделей на страницу (как было)
 
 // ============================================================
 // API — СПИСОК И ОДНА МОДЕЛЬ
@@ -158,7 +112,7 @@ async function createModelAPI(req, res) {
     const manufacturerClean = manufacturer ? String(manufacturer).trim() : null;
 
     if (!corporateIdClean) {
-      return res.status(400).json({ error: 'Corporate ID обязателен' });
+      return res.status(400).json({ error: 'Корпоративный ИД обязателен' });
     }
     if (!nameClean) {
       return res.status(400).json({ error: 'Название модели обязательно' });
@@ -247,7 +201,7 @@ async function updateModelAPI(req, res) {
     const manufacturerClean = manufacturer ? String(manufacturer).trim() : null;
 
     if (!corporateIdClean) {
-      return res.status(400).json({ error: 'Corporate ID обязателен' });
+      return res.status(400).json({ error: 'Корпоративный ИД обязателен' });
     }
     if (!nameClean) {
       return res.status(400).json({ error: 'Название модели обязательно' });
@@ -269,7 +223,7 @@ async function updateModelAPI(req, res) {
     const free = await isCorporateIdFree(corporateIdClean, id);
     if (!free) {
       return res.status(400).json({
-        error: `Corporate ID «${corporateIdClean}» уже используется другой моделью`,
+        error: `Корпоративный ИД «${corporateIdClean}» уже используется другой моделью`,
       });
     }
 
@@ -300,7 +254,7 @@ async function updateModelAPI(req, res) {
     });
   } catch (error) {
     if (error.message && error.message.includes('UNIQUE constraint failed')) {
-      return res.status(400).json({ error: 'Corporate ID уже используется' });
+      return res.status(400).json({ error: 'Корпоративный ИД уже используется' });
     }
     console.error('❌ Ошибка обновления модели:', error);
     res.status(500).json({ error: error.message });
@@ -384,12 +338,7 @@ async function checkDuplicateAPI(req, res) {
   }
 }
 
-// ============================================================
-// ЭКСПОРТ
-// ============================================================
-
 module.exports = {
-  renderModels,
   getModelsAPI,
   getModelAPI,
   createModelAPI,
