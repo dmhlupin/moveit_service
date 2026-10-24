@@ -1533,6 +1533,28 @@ function createImportHistoryTable() {
     });
 }
 
+// 5.11.2: assigned_by_user_id в user_equipment
+function migrateUserEquipmentAssignedBy() {
+  return new Promise((resolve, reject) => {
+    db.all('PRAGMA table_info(user_equipment)', (err, cols) => {
+      if (err) return reject(err);
+      const has = (cols || []).some(c => c.name === 'assigned_by_user_id');
+      if (has) {
+        console.log('   ⏭️  user_equipment.assigned_by_user_id уже есть');
+        return resolve();
+      }
+      db.run(
+        'ALTER TABLE user_equipment ADD COLUMN assigned_by_user_id INTEGER NULL REFERENCES users(id)',
+        (err) => {
+          if (err) return reject(err);
+          console.log('   ✅ user_equipment.assigned_by_user_id добавлена');
+          resolve();
+        }
+      );
+    });
+  });
+}
+
 // ============================================================
 // ГЛАВНАЯ ФУНКЦИЯ МИГРАЦИИ
 // ============================================================
@@ -1612,6 +1634,10 @@ async function migrate() {
     await createOfficeResponsiblesTable();
     await addResponsibleUserIdToEquipment();
     await createRoleResponsiblesIndexes();
+
+    console.log('Этап 5.11: Добавление колонки Выдал в user_equipment');
+
+    await migrateUserEquipmentAssignedBy();
 
     // ===== ИТОГИ =====
     console.log('═══════════════════════════════════════════════');

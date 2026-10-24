@@ -268,9 +268,10 @@ async function viewUser(id) {
                         <tr>
                             <th>Инв. №</th>
                             <th>Модель</th>
-                            <th>Corporate ID</th>
+                            <th>Корп.ИД</th>
                             <th>Производитель</th>
                             <th>Выдано</th>
+                            <th>Выдал</th>
                             <th>Состояние</th>
                         </tr>
                     </thead>
@@ -285,6 +286,7 @@ async function viewUser(id) {
                     <td>${escapeHtml(eq.model_corporate_id || '—')}</td>
                     <td>${escapeHtml(eq.model_manufacturer || '—')}</td>
                     <td>${assignedDate}</td>
+                    <td>${escapeHtml(eq.assigned_by_name || '—')}</td>
                     <td>${escapeHtml(eq.condition_on_assign || '—')}</td>
                 </tr>
             `;
@@ -315,6 +317,7 @@ async function viewUser(id) {
                         <td>${escapeHtml(h.model_name || '—')}</td>
                         <td>${assignedDate}</td>
                         <td>${returnedDate}</td>
+                        <td>${escapeHtml(h.assigned_by_name || '—')}</td>
                         <td>${histStatus}</td>
                     </tr>
                 `;
@@ -330,6 +333,7 @@ async function viewUser(id) {
                                 <th>Название</th>
                                 <th>Выдано</th>
                                 <th>Возвращено</th>
+                                <th>Выдал</th>
                                 <th>Статус</th>
                             </tr>
                         </thead>

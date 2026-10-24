@@ -935,7 +935,7 @@ module.exports = ({ db, run, get, all }) => {
    * - Закрывает предыдущее активное назначение (если есть).
    * - Ставит status = 'assigned', обнуляет cell_id и workplace_id.
    */
-  assignEquipment(userId, equipmentId, condition, notes = '') {
+  assignEquipment(userId, equipmentId, condition, notes, assignedByUserId = null) {
     return new Promise((resolve, reject) => {
       db.get('SELECT id, is_active FROM users WHERE id = ?', [userId], (err, user) => {
         if (err) { reject(err); return; }
@@ -958,11 +958,11 @@ module.exports = ({ db, run, get, all }) => {
               if (err) { reject(err); return; }
 
               const createNewAssignment = () => {
-                db.run(`
-                  INSERT INTO user_equipment
-                    (user_id, equipment_id, condition_on_assign, notes)
-                  VALUES (?, ?, ?, ?)
-                `, [userId, equipmentId, condition || 'В хорошем состоянии', notes], function(err) {
+              db.run(`
+                INSERT INTO user_equipment
+                  (user_id, equipment_id, condition_on_assign, notes, assigned_by_user_id)
+                VALUES (?, ?, ?, ?, ?)
+              `, [userId, equipmentId, condition || 'В хорошем состоянии', notes, assignedByUserId || null], function(err) {
                   if (err) { reject(err); return; }
                   const assignmentId = this.lastID;
 

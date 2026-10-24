@@ -450,19 +450,25 @@
         document.getElementById('assignCondition').value = 'В хорошем состоянии';
 
         try {
-            const response = await fetch('/api/admin/users');
+            const response = await fetch('/api/manage/users-for-assign');
+            if (!response.ok) {
+                const errBody = await response.json().catch(() => ({}));
+                throw new Error(errBody.error || `HTTP ${response.status}`);
+            }
             const users = await response.json();
+            if (!Array.isArray(users)) {
+                throw new Error('Некорректный ответ API');
+            }
             const select = document.getElementById('assignUserId');
             select.innerHTML = '<option value="">— Выберите пользователя —</option>' +
-                users
-                    .filter(u => u.is_active === 1 && u.role !== 'admin')
-                    .map(u => {
-                        const name = u.full_name || u.username;
-                        const dept = u.department ? ` (${u.department})` : '';
-                        return `<option value="${u.id}">${escapeHtml(name)}${escapeHtml(dept)}</option>`;
-                    }).join('');
+                users.map(u => {
+                    const name = u.full_name || u.username;
+                    const dept = u.department ? ` (${u.department})` : '';
+                    return `<option value="${u.id}">${escapeHtml(name)}${escapeHtml(dept)}</option>`;
+                }).join('');
         } catch (err) {
             console.error('[EquipmentCard] load users error:', err);
+            showToast('❌ Не удалось загрузить список пользователей', 'error');
         }
 
         document.getElementById('assignModal').classList.add('active');

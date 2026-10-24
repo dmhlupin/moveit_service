@@ -290,7 +290,8 @@ async function updateEquipmentAPI(req, res) {
         assignmentResult = await assignEquipment(
           parseInt(assign_user_id, 10), id,
           assign_condition || 'В хорошем состоянии',
-          'Назначено через редактирование техники'
+          'Назначено через редактирование техники',
+          req.session.userId
         );
         await logAction({
           req, action: 'equipment_assign', entityType: 'equipment', entityId: id,

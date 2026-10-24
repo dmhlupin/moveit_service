@@ -25,6 +25,7 @@ module.exports = {
   resetUserPasswordAPI: users.resetUserPasswordAPI,
   blockUserAPI: users.blockUserAPI,
   unblockUserAPI: users.unblockUserAPI,
+  getUsersForAssignAPI: users.getUsersForAssignAPI,   // 🆕 5.11.2.2
 
   // Техника (API)
   getEquipmentAPI: equipment.getEquipmentAPI,

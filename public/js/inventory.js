@@ -1004,6 +1004,7 @@ function renderUserDetail(data) {
                         <th>Корп. ИД</th>
                         <th>Производитель</th>
                         ${showResponsibleCol ? '<th>МОЛ</th>' : ''}
+                        <th>Выдал</th>
                         <th>Статус</th>
                     </tr>
                 </thead>
@@ -1018,6 +1019,7 @@ function renderUserDetail(data) {
                     <td>${escapeHtml(eq.model_corporate_id || '—')}</td>
                     <td>${escapeHtml(eq.model_manufacturer || '—')}</td>
                     ${showResponsibleCol ? `<td style="font-size: 12px;">${escapeHtml(eq.responsible_user_name || '—')}</td>` : ''}
+                    <td>${escapeHtml(eq.assigned_by_name || '—')}</td>
                     <td><span class="status-badge status-${eq.status}">${statusLabel(eq.status)}</span></td>
                 </tr>
             `;
@@ -1045,6 +1047,7 @@ function renderUserDetail(data) {
                         <th>Корп. ИД</th>
                         <th>Выдано</th>
                         <th>Возвращено</th>
+                        <th>Выдал</th>
                         <th>Статус</th>
                     </tr>
                 </thead>
@@ -1064,6 +1067,7 @@ function renderUserDetail(data) {
                     <td>${escapeHtml(h.model_corporate_id || '—')}</td>
                     <td>${assignedDate}</td>
                     <td>${returnedDate}</td>
+                    <td>${escapeHtml(h.assigned_by_name || '—')}</td>
                     <td><span class="status-badge ${active ? 'status-assigned' : 'status-available'}">${active ? 'Активна' : 'Возвращена'}</span></td>
                 </tr>
             `;

@@ -67,6 +67,28 @@ async function getUserDetailsAPI(req, res) {
   }
 }
 
+/**
+ * GET /api/manage/users-for-assign — список активных пользователей для назначения техники.
+ * Доступен admin / supervisor / mol. Возвращает только id, username, full_name, department.
+ */
+async function getUsersForAssignAPI(req, res) {
+  try {
+    const users = await getAllUsers();
+    const filtered = users
+      .filter(u => u.is_active === 1 && u.role !== 'admin')
+      .map(u => ({
+        id: u.id,
+        username: u.username,
+        full_name: u.full_name,
+        department: u.department,
+      }));
+    res.json(filtered);
+  } catch (error) {
+    console.error('❌ Ошибка получения пользователей для назначения:', error);
+    res.status(500).json({ error: error.message });
+  }
+}
+
 async function addUserAPI(req, res) {
   try {
     const { username, email, full_name, department, phone, role } = req.body;
@@ -332,4 +354,5 @@ module.exports = {
   resetUserPasswordAPI,
   blockUserAPI,
   unblockUserAPI,
+  getUsersForAssignAPI,
 };

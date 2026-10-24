@@ -167,7 +167,8 @@ async function assignEquipmentAPI(req, res) {
       parseInt(user_id, 10),
       id,
       condition || 'В хорошем состоянии',
-      'Назначено через карточку техники'
+      'Назначено через карточку техники',
+      req.session.userId
     );
 
     await logAction({

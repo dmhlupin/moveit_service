@@ -45,6 +45,7 @@ const {
   resetUserPasswordAPI,
   blockUserAPI,
   unblockUserAPI,
+  getUsersForAssignAPI,
 
   // Логи
   getLogsAPI,
@@ -337,6 +338,7 @@ app.get('/admin/user/edit/:id',  requireAdmin, renderEditUser);
 // Чтение — admin + supervisor + mol (mol видит только свои через scope).
 // Запись — admin + mol (mol — только свои через permissions.js).
 
+app.get('/api/manage/users-for-assign', requireRole(['admin', 'supervisor', 'mol']), getUsersForAssignAPI);
 app.get('/api/manage/equipment',          requireRole(['admin', 'supervisor', 'mol']), getEquipmentAPI);
 app.get('/api/manage/equipment/filtered', requireRole(['admin', 'supervisor', 'mol']), getFilteredEquipmentAPI);
 app.get('/api/manage/equipment/counts',   requireRole(['admin', 'supervisor', 'mol']), getEquipmentCountsAPI);
