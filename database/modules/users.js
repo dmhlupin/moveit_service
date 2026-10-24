@@ -171,6 +171,70 @@ module.exports = ({ db, run, get, all }) => ({
     });
   },
 
+    /**
+   * 5.11.1b: обновление пользователя + привязок МОЛ (транзакционно).
+   * @param {number} id
+   * @param {Object} data — { username, email, full_name, department, phone, role }
+   * @param {Object} [responsibles] — { warehouse_ids: number[], office_ids: number[] }
+   * @returns {Promise<{ id: number }>}
+   */
+  updateUserWithResponsibles(id, data, responsibles = {}) {
+    const {
+      username, email, full_name, department, phone, role,
+    } = data;
+    const warehouseIds = Array.isArray(responsibles.warehouse_ids)
+      ? responsibles.warehouse_ids.map(n => parseInt(n, 10)).filter(n => !isNaN(n))
+      : [];
+    const officeIds = Array.isArray(responsibles.office_ids)
+      ? responsibles.office_ids.map(n => parseInt(n, 10)).filter(n => !isNaN(n))
+      : [];
+
+    return new Promise((resolve, reject) => {
+      db.serialize(() => {
+        db.run('BEGIN TRANSACTION');
+
+        db.run(
+          `UPDATE users
+           SET username = ?, email = ?, full_name = ?, department = ?, phone = ?,
+               role = ?, updated_at = CURRENT_TIMESTAMP
+           WHERE id = ?`,
+          [username, email, full_name || '', department || '', phone || '', role, id],
+          function (err) {
+            if (err) { db.run('ROLLBACK'); return reject(err); }
+            if (this.changes === 0) {
+              db.run('ROLLBACK');
+              return reject(new Error('Пользователь не найден'));
+            }
+          }
+        );
+
+        db.run('DELETE FROM warehouse_responsibles WHERE user_id = ?', [id], (err) => {
+          if (err) { db.run('ROLLBACK'); return reject(err); }
+        });
+        db.run('DELETE FROM office_responsibles WHERE user_id = ?', [id], (err) => {
+          if (err) { db.run('ROLLBACK'); return reject(err); }
+        });
+
+        for (const wid of warehouseIds) {
+          db.run(
+            'INSERT OR IGNORE INTO warehouse_responsibles (warehouse_id, user_id) VALUES (?, ?)',
+            [wid, id],
+            (err) => { if (err) { db.run('ROLLBACK'); reject(err); } }
+          );
+        }
+        for (const oid of officeIds) {
+          db.run(
+            'INSERT OR IGNORE INTO office_responsibles (office_id, user_id) VALUES (?, ?)',
+            [oid, id],
+            (err) => { if (err) { db.run('ROLLBACK'); reject(err); } }
+          );
+        }
+
+        db.run('COMMIT', (err) => err ? reject(err) : resolve({ id }));
+      });
+    });
+  },
+
   /**
    * 5.11.1: ID офисов, за которые отвечает МОЛ.
    * @param {number} userId

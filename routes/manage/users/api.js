@@ -9,6 +9,7 @@ const {
   getUserActiveEquipment, 
   getUserEquipmentHistory,
   countActiveAdmins,
+  updateUserWithResponsibles,
   // + те, что реально вызываются в телах API:
   //   createUserWithPassword?, getUserActiveEquipment?, getUserEquipmentHistory?
 } = require('../../../database/db');
@@ -168,56 +169,25 @@ async function updateUserAPI(req, res) {
       }
     }
 
-    const { db } = require('../../../database/db');
-    await new Promise((resolve, reject) => {
-      db.run(
-        `UPDATE users
-         SET username = ?, email = ?, full_name = ?, department = ?, phone = ?, role = ?, updated_at = CURRENT_TIMESTAMP
-         WHERE id = ?`,
-        [username.trim(), email.trim(), full_name || '', department || '', phone || '', newRole, id],
-        function(err) { if (err) reject(err); else resolve(this.changes); }
-      );
+    // 5.11.1b: транзакционно — UPDATE users + привязки МОЛ
+    const warehouseIds = Array.isArray(req.body.warehouse_ids)
+      ? req.body.warehouse_ids.map(n => parseInt(n, 10)).filter(n => !isNaN(n))
+      : [];
+    const officeIds = Array.isArray(req.body.office_ids)
+      ? req.body.office_ids.map(n => parseInt(n, 10)).filter(n => !isNaN(n))
+      : [];
+
+    await updateUserWithResponsibles(id, {
+      username: username.trim(),
+      email: email.trim(),
+      full_name: full_name || '',
+      department: department || '',
+      phone: phone || '',
+      role: newRole,
+    }, {
+      warehouse_ids: newRole === 'mol' ? warehouseIds : [],
+      office_ids:    newRole === 'mol' ? officeIds    : [],
     });
-
-    if (newRole === 'mol') {
-      const warehouseIds = Array.isArray(req.body.warehouse_ids)
-        ? req.body.warehouse_ids.map(n => parseInt(n, 10)).filter(n => !isNaN(n))
-        : [];
-      const officeIds = Array.isArray(req.body.office_ids)
-        ? req.body.office_ids.map(n => parseInt(n, 10)).filter(n => !isNaN(n))
-        : [];
-
-      await new Promise((resolve, reject) => {
-        db.run('DELETE FROM warehouse_responsibles WHERE user_id = ?', [id],
-          (err) => err ? reject(err) : resolve());
-      });
-      await new Promise((resolve, reject) => {
-        db.run('DELETE FROM office_responsibles WHERE user_id = ?', [id],
-          (err) => err ? reject(err) : resolve());
-      });
-
-      for (const wid of warehouseIds) {
-        await new Promise((resolve, reject) => {
-          db.run('INSERT OR IGNORE INTO warehouse_responsibles (warehouse_id, user_id) VALUES (?, ?)',
-            [wid, id], (err) => err ? reject(err) : resolve());
-        });
-      }
-      for (const oid of officeIds) {
-        await new Promise((resolve, reject) => {
-          db.run('INSERT OR IGNORE INTO office_responsibles (office_id, user_id) VALUES (?, ?)',
-            [oid, id], (err) => err ? reject(err) : resolve());
-        });
-      }
-    } else {
-      await new Promise((resolve, reject) => {
-        db.run('DELETE FROM warehouse_responsibles WHERE user_id = ?', [id],
-          (err) => err ? reject(err) : resolve());
-      });
-      await new Promise((resolve, reject) => {
-        db.run('DELETE FROM office_responsibles WHERE user_id = ?', [id],
-          (err) => err ? reject(err) : resolve());
-      });
-    }
 
     await logAction({
       req, action: 'user_update', entityType: 'user', entityId: id,
