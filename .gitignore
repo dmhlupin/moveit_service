@@ -24,6 +24,7 @@ data/*.db-shm
 data/*.backup*
 data/sessions.db
 data/sessions.db-journal
+data/backups/
 
 # ============================================================
 # Бэкапы
