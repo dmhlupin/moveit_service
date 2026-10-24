@@ -6,7 +6,7 @@
 [![Express](https://img.shields.io/badge/Express-4.18-000000?logo=express&logoColor=white)](https://expressjs.com/)
 [![SQLite](https://img.shields.io/badge/SQLite-5.1-003B57?logo=sqlite&logoColor=white)](https://www.sqlite.org/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-5.10.0-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-5.11.0-blue.svg)](CHANGELOG.md)
 
 ---
 
@@ -824,6 +824,24 @@ moveit_service/
 
 ## 📝 История версий
 
+## [5.11.0] - 2026-10-25
+
+**🚧 Этап 5.11 (в работе): чистота слоёв + «Выдал» + фиксы назначения**
+
+- **5.11.1a** — вынос `db.all` / `db.get` из `routes/manage/users` в `database/modules/*`
+  (`getWarehousesForFilter`, `getOfficesForFilter`, `countActiveAdmins`,
+  `getUserWarehouseResponsibles`, `getUserOfficeResponsibles`); фикс проверки
+  «последний админ»; `scripts/restore-admin.js`.
+- **5.11.1b** — транзакция `updateUserWithResponsibles`.
+- **5.11.2** — `assigned_by_user_id`: миграция, запись при назначении, «Выдал»
+  в «Истории» (`/admin/inventory`, `/admin/users`).
+- **5.11.2.1** — «Выдал» в «Активной технике» (там же).
+- **5.11.2.2** — фикс назначения под МОЛом: `/api/manage/users-for-assign`.
+
+Осталось в 5.11: карточка техники на `/admin/catalog` (5.11.3),
+UX инвентаризации (5.11.4), системные настройки (5.11.5).
+Подробности — в [CHANGELOG.md](CHANGELOG.md).
+
 ## [5.10.0] - 2026-10-23
 
 **🎉 Этап 5.10 завершён: структурный рефакторинг роутов + актуализация check-css**
@@ -1115,7 +1133,13 @@ moveit_service/
 - [x] 🧑‍💼 **Ответственный МОЛ в CSV и модалках** (v5.9.3.2).
 - [x] 🔎 **Углубление выборки:** склад → зона → стеллаж → ячейка, офис → кабинет → место (v5.9.6).
 - [x] 🧹 **5.10 — структурный рефакторинг:** разнос роутов на `pages.js` / `api.js`, актуализация `check-css.js` (v5.10.0).
-- [ ] 🧹 **5.11 — чистота слоёв:** вынос прямых `db.all` / `db.get` из роутов в `database/modules/*` (см. `techdebt.md`).
+- [x] 🧹 **5.11 — чистота слоёв:** вынос прямых `db.all` / `db.get` из роутов
+  в `database/modules/*` (5.11.1a, 5.11.1b).
+- [x] 📝 **«Выдал» в истории и активной технике** (5.11.2, 5.11.2.1).
+- [x] 👤 **Фикс назначения под МОЛом** — `/api/manage/users-for-assign` (5.11.2.2).
+- [ ] 🎛️ **Карточка техники на `/admin/catalog`** через `EquipmentCard` (5.11.3).
+- [ ] 🗂️ **UX инвентаризации** — три вкладки (5.11.4).
+- [ ] ⚙️ **Системные настройки** — очистка БД / переключение тестовая ↔ боевая (5.11.5).
 - [ ] 📤 **Импорт / экспорт XLSX**.
 - [ ] 🖨️ **Печать карточек техники** и актов.
 - [ ] 📧 **Email-уведомления**.

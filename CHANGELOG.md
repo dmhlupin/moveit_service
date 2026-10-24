@@ -1,5 +1,123 @@
 # История изменений
 
+## [5.11.0] - 2026-10-25
+
+**🚧 Этап 5.11 (в работе): чистота слоёв + «Выдал» + фиксы назначения**
+
+Подэтапы 5.11.1a–5.11.2.2. Полный финал этапа (5.11.3+) — в следующем чате
+(см. передаточную записку).
+
+### Подшаги
+
+- **5.11.1a** — вынос прямых `db.all` / `db.get` из `routes/manage/users` в `database/modules/*`:
+  * `database/modules/warehouses/crud.js → getWarehousesForFilter(scope)`;
+  * `database/modules/workplaces.js → getOfficesForFilter(scope)`;
+  * `database/modules/users.js → countActiveAdmins()`,
+    `getUserWarehouseResponsibles(userId)`, `getUserOfficeResponsibles(userId)`;
+  * `routes/manage/users/pages.js → renderEditUser` — `db.all` заменены на новые функции;
+  * `routes/manage/users/api.js → updateUserAPI / deleteUserAPI / blockUserAPI` —
+    `db.get` заменён на `countActiveAdmins()`;
+  * `scripts/restore-admin.js` — восстановление роли `admin` (по умолчанию `admin`, `manager`);
+  * **фикс:** `updateUserAPI` — проверка «последний админ» срабатывала только при
+    `newRole === 'user'`. Теперь `newRole !== 'admin'` (покрывает `user` / `mol` /
+    `supervisor` и любые будущие роли).
+
+- **5.11.1b** — транзакция `updateUserWithResponsibles`:
+  * `database/modules/users.js → updateUserWithResponsibles(id, data, responsibles)` —
+    одна транзакция: `UPDATE users` + `DELETE/INSERT` `warehouse_responsibles` /
+    `office_responsibles`. При ошибке — `ROLLBACK`;
+  * `routes/manage/users/api.js → updateUserAPI` — прямые `db.run` заменены вызовом
+    `updateUserWithResponsibles`. SQL из роут-слоя убран полностью.
+
+- **5.11.2** — `assigned_by_user_id` («Выдал»):
+  * миграция `migrateUserEquipmentAssignedBy` — `ALTER TABLE user_equipment
+    ADD COLUMN assigned_by_user_id INTEGER NULL REFERENCES users(id)`;
+  * `database/modules/equipment.js → assignEquipment(..., assignedByUserId = null)` —
+    пишет `assigned_by_user_id`;
+  * `routes/manage-equipment-actions.js`, `routes/manage/equipment.js` — передают
+    `req.session.userId`;
+  * `database/modules/profile.js → getUserEquipmentHistory` — `LEFT JOIN users ab`,
+    `assigned_by_name`;
+  * `public/js/inventory.js → renderUserDetail` — колонка «Выдал» в «Истории»;
+  * `public/js/admin-users.js → viewUser` — колонка «Выдал» в «Истории получений».
+
+- **5.11.2.1** — «Выдал» в активной технике:
+  * `getUserActiveEquipment` — `LEFT JOIN users ab`, `assigned_by_name`;
+  * `renderUserDetail` — колонка «Выдал» во вкладке «Активная техника»;
+  * `viewUser` — колонка «Выдал» в блоке «Активная техника».
+
+- **5.11.2.2** — фикс назначения техники под МОЛом:
+  * новый API `GET /api/manage/users-for-assign`
+    (`routes/manage/users/api.js → getUsersForAssignAPI`, `routes/manage/index.js`,
+    `server.js` под `requireRole(['admin', 'supervisor', 'mol'])`):
+    только `{ id, username, full_name, department }`, `is_active = 1`,
+    `role !== 'admin'`;
+  * `public/js/equipment-card/modals.js → openAssign` — запрос на новый API,
+    проверка `response.ok` + `Array.isArray`, `showToast` при ошибке.
+    Раньше дёргался `/api/admin/users` (`requireAdmin` → 403 под МОЛом),
+    падало на `users.filter`.
+
+### Файлы
+
+**Изменены:**
+- `scripts/migrate.js`
+- `database/modules/equipment.js`
+- `database/modules/profile.js`
+- `database/modules/users.js`
+- `database/modules/warehouses/crud.js`
+- `database/modules/workplaces.js`
+- `routes/manage-equipment-actions.js`
+- `routes/manage/equipment.js`
+- `routes/manage/users/api.js`
+- `routes/manage/users/index.js`
+- `routes/manage/index.js`
+- `server.js`
+- `public/js/equipment-card/modals.js`
+- `public/js/inventory.js`
+- `public/js/admin-users.js`
+- `package.json`
+- `CHANGELOG.md`
+- `README.md`
+- `techdebt.md`
+
+**Новые:**
+- `scripts/restore-admin.js`
+
+### Проверено
+
+- `npm run migrate` — зелёный, `assigned_by_user_id` добавлена (идемпотентно).
+- `npm run check-roles` / `npm run check-css` — зелёные.
+- Под admin / mol:
+  * «Назначить» из карточки техники — список пользователей заполнен (без admin);
+  * `/admin/inventory` → модалка пользователя — «Выдал» в «Активной технике» и «Истории»;
+  * `/admin/users` → карточка пользователя — «Выдал» в обоих блоках;
+  * последний админ → `mol` / `supervisor` / `user` — ошибка;
+  * при наличии второго админа — смена проходит;
+  * `/admin/user/edit/:id` — чекбоксы складов / офисов, сохранение (транзакция);
+  * `/api/admin/users` под МОЛом — 403 (не сломано);
+  * старые записи (до миграции) — «—» в «Выдал».
+
+### Техдолг (в работе, см. `techdebt.md`)
+
+- `getUserActiveEquipment` / `getUserEquipmentHistory` / `getUserWithDetails` —
+  вынести `db.all` в `database/modules/*` (осталось в `profile.js` / `users.js`).
+- Транзакции в `database/modules/equipment.js` (назначение, возврат, перемещение) —
+  сейчас без `BEGIN/COMMIT/ROLLBACK` в некоторых местах.
+- 5.11.3 — карточка техники на `/admin/catalog` через `EquipmentCard`.
+- 5.11.4 — UX инвентаризации (три вкладки).
+- 5.11.5 — системные настройки (очистка БД / переключение тестовая ↔ боевая).
+
+### Теги
+
+- v5.11.1a — вынос db.all / db.get + фикс «последний админ»
+- v5.11.1b — транзакция `updateUserWithResponsibles`
+- v5.11.2 — `assigned_by_user_id`, «Выдал» (история + активная техника)
+- v5.11.2.2 — `/api/manage/users-for-assign` (фикс назначения под МОЛом)
+- **v5.11.2-docs — документация (этот)**
+
+---
+
+
 ## [5.10.0] - 2026-10-23
 
 **🎉 Этап 5.10 завершён: структурный рефакторинг роутов + актуализация check-css**

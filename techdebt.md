@@ -250,3 +250,29 @@ http://localhost:3000/admin/user/edit/id
 **Приоритет:** средний (чистота слоёв, не блокирует).
 **Статус:** ✅ частично выполнено в 5.10.0 (5.10.2–5.10.6). Все 5 крупных файлов разнесены:
 `workplaces`, `warehouses`, `catalog`, `equipment-models`, `manage/users`. С запросами к db необходимо разобраться
+
+## 2026-10-25 Чистота слоёв — остатки
+**Что делал:** 5.11.1a / 5.11.1b (вынос db.all / db.get из routes/manage/users)
+**Что неудобно:** не всё вынесено. Остались прямые db.all / db.run в:
+- `database/modules/profile.js` → `getUserActiveEquipment`, `getUserEquipmentHistory`
+  (это модуль БД, но там `db.all` напрямую — это нормально, это слой БД);
+- `routes/warehouses/inventory.js` → `getInventoryUserDetailsAPI` и др. — использует
+  функции модулей, не db.all; но `getUsersWithActiveEquipment` в `database/modules/users.js`
+  содержит `EXISTS` + подзапрос — это ок.
+- `database/modules/equipment.js` → `assignEquipment`, `returnEquipmentByEquipmentId`,
+  `moveEquipmentToCellDetailed` — без явных `BEGIN/COMMIT/ROLLBACK`. Отдельный подэтап
+  «транзакции в equipment».
+**Идея:** отдельный подэтап 5.12 «Транзакции в equipment» + ревизия оставшихся db.*.
+**Приоритет:** средний.
+
+## 2026-10-25 /admin/catalog — карточка техники
+(уже было, 5.11.3 — не сделано)
+**Статус:** запланировано в 5.11.3.
+
+## 2026-10-25 UX инвентаризации — три вкладки
+(уже было, 5.11.4 — не сделано)
+**Статус:** запланировано в 5.11.4.
+
+## 2026-10-25 Системные настройки
+(уже было, 5.11.5 — не сделано)
+**Статус:** запланировано в 5.11.5.
