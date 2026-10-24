@@ -32,6 +32,25 @@ module.exports = ({ db }) => ({
     });
   },
 
+    /**
+   * 5.11.1: плоский список складов для селектов / чекбоксов.
+   * Без подзапросов zones_count / racks_count / cells_count / equipment_count.
+   * @param {Object} scope — { userId, role }
+   * @returns {Promise<Array<{id, name, is_default}>>}
+   */
+  getWarehousesForFilter(scope = {}) {
+    const s = buildWarehouseScope(scope);
+    const where = s.clause ? `WHERE ${s.clause}` : '';
+    return new Promise((resolve, reject) => {
+      db.all(`
+        SELECT w.id, w.name, w.is_default
+        FROM warehouses w
+        ${where}
+        ORDER BY w.is_default DESC, w.name
+      `, s.params, (err, rows) => err ? reject(err) : resolve(rows || []));
+    });
+  },
+
   getWarehouseById(id, scope = {}) {
     const s = buildWarehouseScope(scope);
     const extraWhere = s.clause ? `AND ${s.clause}` : '';

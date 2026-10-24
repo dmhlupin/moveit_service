@@ -4,6 +4,10 @@ const path = require('path');
 const {
   getUserById,
   getAllUsersWithDetails,
+  getWarehousesForFilter,
+  getOfficesForFilter,
+  getUserWarehouseResponsibles,
+  getUserOfficeResponsibles,
   // + то, что реально используется в renderAdminUsers / renderEditUser
   //   (getUserWithDetails? getAllWarehouses? getAllOffices?
   //    — проверь по факту, но в renderEditUser уже используется require('../../database/db').db)
@@ -212,24 +216,10 @@ async function renderEditUser(req, res) {
     content = content.replace(/\{\{phone\}\}/g, escapeHtml(user.phone || ''));
     content = content.replace(/\{\{role\}\}/g, user.role || 'user');
 
-    const { db } = require('../../../database/db');
-
-    const allWarehouses = await new Promise((resolve, reject) => {
-      db.all(`SELECT id, name, is_default FROM warehouses WHERE is_active = 1 ORDER BY is_default DESC, name`,
-        (err, rows) => err ? reject(err) : resolve(rows || []));
-    });
-    const allOffices = await new Promise((resolve, reject) => {
-      db.all(`SELECT id, name, is_default FROM offices WHERE is_active = 1 ORDER BY is_default DESC, name`,
-        (err, rows) => err ? reject(err) : resolve(rows || []));
-    });
-    const userWarehouseIds = await new Promise((resolve, reject) => {
-      db.all(`SELECT warehouse_id FROM warehouse_responsibles WHERE user_id = ?`, [id],
-        (err, rows) => err ? reject(err) : resolve((rows || []).map(r => r.warehouse_id)));
-    });
-    const userOfficeIds = await new Promise((resolve, reject) => {
-      db.all(`SELECT office_id FROM office_responsibles WHERE user_id = ?`, [id],
-        (err, rows) => err ? reject(err) : resolve((rows || []).map(r => r.office_id)));
-    });
+    const allWarehouses = await getWarehousesForFilter({ role: 'admin' });
+    const allOffices = await getOfficesForFilter({ role: 'admin' });
+    const userWarehouseIds = await getUserWarehouseResponsibles(id);
+    const userOfficeIds = await getUserOfficeResponsibles(id);
 
     let warehouseCheckboxes = '';
     if (allWarehouses.length === 0) {

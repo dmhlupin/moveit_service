@@ -8,6 +8,7 @@ const {
   setUserActive,
   getUserActiveEquipment, 
   getUserEquipmentHistory,
+  countActiveAdmins,
   // + те, что реально вызываются в телах API:
   //   createUserWithPassword?, getUserActiveEquipment?, getUserEquipmentHistory?
 } = require('../../../database/db');
@@ -160,18 +161,14 @@ async function updateUserAPI(req, res) {
     const ALLOWED_ROLES = ['admin', 'supervisor', 'mol', 'user'];
     const newRole = ALLOWED_ROLES.includes(role) ? role : user.role;
 
-    if (user.role === 'admin' && newRole === 'user') {
-      const { db } = require('../../database/db');
-      const adminCount = await new Promise((resolve, reject) => {
-        db.get(`SELECT COUNT(*) as count FROM users WHERE role = 'admin' AND is_active = 1`,
-          (err, row) => err ? reject(err) : resolve(row.count));
-      });
+    if (user.role === 'admin' && newRole !== 'admin') {
+      const adminCount = await countActiveAdmins();
       if (adminCount <= 1) {
         return res.status(400).json({ error: 'Нельзя изменить роль последнего администратора' });
       }
     }
 
-    const { db } = require('../../database/db');
+    const { db } = require('../../../database/db');
     await new Promise((resolve, reject) => {
       db.run(
         `UPDATE users
@@ -247,11 +244,7 @@ async function deleteUserAPI(req, res) {
     }
 
     if (user.role === 'admin') {
-      const { db } = require('../../database/db');
-      const adminCount = await new Promise((resolve, reject) => {
-        db.get(`SELECT COUNT(*) as count FROM users WHERE role = 'admin' AND is_active = 1`,
-          (err, row) => err ? reject(err) : resolve(row.count));
-      });
+      const adminCount = await countActiveAdmins();
       if (adminCount <= 1) {
         return res.status(400).json({ error: 'Нельзя удалить последнего администратора' });
       }
@@ -317,11 +310,7 @@ async function blockUserAPI(req, res) {
     }
 
     if (user.role === 'admin') {
-      const { db } = require('../../database/db');
-      const adminCount = await new Promise((resolve, reject) => {
-        db.get(`SELECT COUNT(*) as count FROM users WHERE role = 'admin' AND is_active = 1`,
-          (err, row) => err ? reject(err) : resolve(row.count));
-      });
+      const adminCount = await countActiveAdmins();
       if (adminCount <= 1) {
         return res.status(400).json({ error: 'Нельзя заблокировать последнего администратора' });
       }

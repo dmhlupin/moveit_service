@@ -144,6 +144,49 @@ module.exports = ({ db, run, get, all }) => ({
   },
 
     /**
+   * 5.11.1: количество активных админов (для проверки «последний админ»).
+   * @returns {Promise<number>}
+   */
+  countActiveAdmins() {
+    return new Promise((resolve, reject) => {
+      db.get(
+        `SELECT COUNT(*) AS count FROM users WHERE role = 'admin' AND is_active = 1`,
+        (err, row) => err ? reject(err) : resolve(row?.count || 0)
+      );
+    });
+  },
+
+  /**
+   * 5.11.1: ID складов, за которые отвечает МОЛ.
+   * @param {number} userId
+   * @returns {Promise<number[]>}
+   */
+  getUserWarehouseResponsibles(userId) {
+    return new Promise((resolve, reject) => {
+      db.all(
+        `SELECT warehouse_id FROM warehouse_responsibles WHERE user_id = ?`,
+        [userId],
+        (err, rows) => err ? reject(err) : resolve((rows || []).map(r => r.warehouse_id))
+      );
+    });
+  },
+
+  /**
+   * 5.11.1: ID офисов, за которые отвечает МОЛ.
+   * @param {number} userId
+   * @returns {Promise<number[]>}
+   */
+  getUserOfficeResponsibles(userId) {
+    return new Promise((resolve, reject) => {
+      db.all(
+        `SELECT office_id FROM office_responsibles WHERE user_id = ?`,
+        [userId],
+        (err, rows) => err ? reject(err) : resolve((rows || []).map(r => r.office_id))
+      );
+    });
+  },
+
+    /**
    * 5.9.4: Сводка по пользователям с активной техникой (для инвентаризации).
    * Только те, у кого есть активная техника.
    * Для МОЛа — только те, у кого есть активная техника ЭТОГО МОЛа.

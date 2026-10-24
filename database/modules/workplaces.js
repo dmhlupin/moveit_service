@@ -63,6 +63,25 @@ module.exports = ({ db, run, get, all }) => ({
     });
   },
 
+    /**
+   * 5.11.1: плоский список офисов для селектов / чекбоксов.
+   * Без подзапросов rooms_count / workplaces_count / equipment_count.
+   * @param {Object} scope — { userId, role }
+   * @returns {Promise<Array<{id, name, is_default}>>}
+   */
+  getOfficesForFilter(scope = {}) {
+    const s = buildOfficeScope(scope);
+    const where = s.clause ? `WHERE ${s.clause}` : '';
+    return new Promise((resolve, reject) => {
+      db.all(`
+        SELECT o.id, o.name, o.is_default
+        FROM offices o
+        ${where}
+        ORDER BY o.is_default DESC, o.name
+      `, s.params, (err, rows) => err ? reject(err) : resolve(rows || []));
+    });
+  },
+
   /**
    * Получить офис по ID
    */
