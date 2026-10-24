@@ -18,7 +18,9 @@
     "create-admin": "node scripts/create-admin.js",
     "reset-admin": "node scripts/reset-admin-password.js",
     "fix-assignments": "node scripts/fix-double-assignments.js",
-    "clean-test-data": "node scripts/clean-test-data.js"
+    "clean-test-data": "node scripts/clean-test-data.js",
+    "backup": "node scripts/backup-db.js",
+    "backup:gz": "node scripts/backup-db.js --compress --keep 30"
   },
   "dependencies": {
     "express": "^4.18.2",
