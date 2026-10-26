@@ -1,13 +1,21 @@
-/* public/css/auth.css — Стили для страниц авторизации */
+/* public/css/auth.css — Стили для страниц авторизации (тёмная тема) */
+
+/* ============================================================ */
+/* СТРАНИЦА                                                     */
+/* ============================================================ */
 
 .auth-page {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: radial-gradient(circle at 20% 20%, rgba(139, 92, 246, 0.12), transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(96, 165, 250, 0.10), transparent 50%),
+                var(--bg-primary);
     min-height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 20px;
+    padding: var(--space-lg);
     margin: 0;
+    font-family: var(--font-sans);
+    color: var(--text-primary);
 }
 
 .auth-container {
@@ -16,64 +24,77 @@
 }
 
 .auth-card {
-    background: white;
-    border-radius: 20px;
-    padding: 40px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-2xl);
+    box-shadow: var(--shadow-lg);
     animation: authFadeIn 0.5s ease;
 }
 
 @keyframes authFadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(-20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(-20px); }
+    to   { opacity: 1; transform: translateY(0); }
 }
+
+/* ============================================================ */
+/* ШАПКА                                                        */
+/* ============================================================ */
 
 .auth-header {
     text-align: center;
-    margin-bottom: 30px;
+    margin-bottom: var(--space-xl);
 }
 
-.auth-icon {
-    font-size: 56px;
-    margin-bottom: 15px;
-    display: inline-block;
-    animation: authPulse 2s infinite;
+.auth-logo {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto var(--space-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    border-radius: var(--radius-lg);
+    background: linear-gradient(135deg, var(--accent) 0%, var(--purple) 100%);
+    box-shadow: 0 8px 24px rgba(139, 92, 246, 0.35);
 }
 
-@keyframes authPulse {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.05); }
+.auth-logo-img {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto var(--space-md);
+    display: block;
+    object-fit: contain;
 }
 
 .auth-header h1 {
-    color: #2d3748;
-    font-size: 26px;
-    margin-bottom: 8px;
+    color: var(--text-primary);
+    font-size: var(--text-2xl);
+    margin: 0 0 var(--space-xs);
     font-weight: 700;
+    letter-spacing: -0.02em;
 }
 
 .auth-subtitle {
-    color: #a0aec0;
-    font-size: 14px;
+    color: var(--text-secondary);
+    font-size: var(--text-sm);
+    margin: 0;
 }
 
-/* Формы */
+/* ============================================================ */
+/* ФОРМЫ                                                        */
+/* ============================================================ */
+
 .auth-card .form-group {
-    margin-bottom: 20px;
+    margin-bottom: var(--space-md);
 }
 
 .auth-card .form-group label {
     display: block;
-    margin-bottom: 8px;
-    color: #4a5568;
+    margin-bottom: var(--space-xs);
+    color: var(--text-secondary);
     font-weight: 500;
-    font-size: 14px;
+    font-size: var(--text-sm);
 }
 
 .input-wrapper {
@@ -84,70 +105,65 @@
 
 .input-wrapper .input-icon {
     position: absolute;
-    left: 15px;
-    font-size: 18px;
-    color: #a0aec0;
+    left: 14px;
+    font-size: 16px;
+    opacity: 0.6;
     pointer-events: none;
     z-index: 1;
 }
 
 .input-wrapper input {
     width: 100%;
-    padding: 12px 45px 12px 45px;
-    border: 2px solid #e2e8f0;
-    border-radius: 10px;
-    font-size: 15px;
-    transition: all 0.2s;
+    padding: 12px 16px 12px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    font-size: var(--text-base);
+    transition: var(--transition-fast);
     font-family: inherit;
-    background: #f7fafc;
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+/* если иконка осталась — сдвигаем текст */
+.input-wrapper .input-icon + input {
+    padding-left: 42px;
 }
 
 .input-wrapper input:focus {
     outline: none;
-    border-color: #667eea;
-    background: white;
-    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+    border-color: var(--accent);
+    background: var(--bg-secondary);
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.18);
 }
 
 .input-wrapper input::placeholder {
-    color: #cbd5e0;
+    color: var(--text-muted);
 }
 
-.password-toggle {
-    position: absolute;
-    right: 10px;
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-size: 18px;
-    padding: 5px 10px;
-    color: #a0aec0;
-    transition: color 0.2s;
-    z-index: 2;
-}
+/* ============================================================ */
+/* КНОПКИ                                                       */
+/* ============================================================ */
 
-.password-toggle:hover {
-    color: #4a5568;
-}
-
-/* Кнопки */
 .btn-block {
     width: 100%;
-    padding: 14px;
-    font-size: 16px;
+    padding: 12px 16px;
+    font-size: var(--text-base);
     font-weight: 600;
-    margin-top: 10px;
+    margin-top: var(--space-xs);
 }
 
-/* Сообщения об ошибках */
+/* ============================================================ */
+/* ОШИБКИ                                                       */
+/* ============================================================ */
+
 .error-message {
-    background: #fff5f5;
-    border: 1px solid #fc8181;
-    color: #c53030;
-    padding: 12px 15px;
-    border-radius: 8px;
-    font-size: 14px;
-    margin-bottom: 15px;
+    background: var(--danger-bg, rgba(248, 113, 113, 0.1));
+    border: 1px solid var(--danger);
+    color: var(--danger);
+    padding: 10px 14px;
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+    margin-bottom: var(--space-md);
     display: none;
     animation: shakeError 0.4s ease;
 }
@@ -162,48 +178,54 @@
     75% { transform: translateX(5px); }
 }
 
-/* Предупреждающий блок */
+/* ============================================================ */
+/* ПРЕДУПРЕЖДАЮЩИЙ БЛОК (change-password)                       */
+/* ============================================================ */
+
 .warning-box {
-    background: #fffaf0;
-    border: 1px solid #f6ad55;
-    border-radius: 10px;
-    padding: 15px;
-    margin-bottom: 20px;
+    background: var(--warning-bg);
+    border: 1px solid var(--warning);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+    margin-bottom: var(--space-md);
     display: flex;
-    gap: 12px;
+    gap: var(--space-sm);
     align-items: flex-start;
 }
 
 .warning-box .warning-icon {
-    font-size: 22px;
+    font-size: 20px;
     flex-shrink: 0;
 }
 
 .warning-box strong {
-    color: #c05621;
+    color: var(--warning);
     display: block;
     margin-bottom: 4px;
-    font-size: 14px;
+    font-size: var(--text-sm);
 }
 
 .warning-box p {
-    color: #744210;
-    font-size: 13px;
+    color: var(--text-secondary);
+    font-size: var(--text-sm);
     margin: 0;
     line-height: 1.5;
 }
 
-/* Индикатор силы пароля */
+/* ============================================================ */
+/* ИНДИКАТОР СИЛЫ ПАРОЛЯ (change-password)                      */
+/* ============================================================ */
+
 .password-strength {
-    margin-top: 8px;
+    margin-top: var(--space-xs);
 }
 
 .strength-bar {
     height: 4px;
-    background: #e2e8f0;
+    background: var(--bg-tertiary);
     border-radius: 2px;
     overflow: hidden;
-    margin-bottom: 5px;
+    margin-bottom: 6px;
 }
 
 .strength-fill {
@@ -213,43 +235,31 @@
     border-radius: 2px;
 }
 
-.strength-fill.weak {
-    width: 33%;
-    background: #fc8181;
-}
+.strength-fill.weak   { width: 33%;  background: var(--danger); }
+.strength-fill.medium { width: 66%;  background: var(--warning); }
+.strength-fill.strong { width: 100%; background: var(--success); }
 
-.strength-fill.medium {
-    width: 66%;
-    background: #f6ad55;
-}
+.strength-text { font-size: var(--text-xs); color: var(--text-muted); }
+.strength-text.weak   { color: var(--danger); }
+.strength-text.medium { color: var(--warning); }
+.strength-text.strong { color: var(--success); }
 
-.strength-fill.strong {
-    width: 100%;
-    background: #48bb78;
-}
+/* ============================================================ */
+/* ТРЕБОВАНИЯ К ПАРОЛЮ (change-password)                        */
+/* ============================================================ */
 
-.strength-text {
-    font-size: 12px;
-    color: #a0aec0;
-}
-
-.strength-text.weak { color: #c53030; }
-.strength-text.medium { color: #c05621; }
-.strength-text.strong { color: #2f855a; }
-
-/* Требования к паролю */
 .password-requirements {
-    background: #f7fafc;
-    border-radius: 8px;
-    padding: 12px 15px;
-    margin-bottom: 20px;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    padding: var(--space-sm) var(--space-md);
+    margin-bottom: var(--space-md);
 }
 
 .requirements-title {
-    font-size: 13px;
+    font-size: var(--text-sm);
     font-weight: 600;
-    color: #4a5568;
-    margin-bottom: 8px;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
 }
 
 .password-requirements ul {
@@ -259,10 +269,9 @@
 }
 
 .password-requirements li {
-    font-size: 12px;
-    color: #a0aec0;
-    padding: 3px 0;
-    padding-left: 22px;
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    padding: 3px 0 3px 20px;
     position: relative;
     transition: color 0.2s;
 }
@@ -271,122 +280,80 @@
     content: '○';
     position: absolute;
     left: 0;
-    color: #cbd5e0;
+    color: var(--text-muted);
     transition: all 0.2s;
 }
 
 .password-requirements li.valid {
-    color: #2f855a;
+    color: var(--success);
 }
 
 .password-requirements li.valid::before {
     content: '✓';
-    color: #48bb78;
+    color: var(--success);
     font-weight: bold;
 }
 
-/* Футер */
+/* ============================================================ */
+/* ФУТЕР                                                        */
+/* ============================================================ */
+
 .auth-footer {
-    margin-top: 25px;
-    padding-top: 20px;
-    border-top: 1px solid #e2e8f0;
+    margin-top: var(--space-lg);
+    padding-top: var(--space-md);
+    border-top: 1px solid var(--border);
     text-align: center;
 }
 
 .auth-footer p {
-    color: #a0aec0;
-    font-size: 13px;
+    color: var(--text-muted);
+    font-size: var(--text-xs);
     margin: 0;
 }
 
 .link-secondary {
-    color: #667eea;
+    color: var(--accent);
     text-decoration: none;
-    font-size: 14px;
+    font-size: var(--text-sm);
     font-weight: 500;
     transition: color 0.2s;
 }
 
 .link-secondary:hover {
-    color: #5a67d8;
+    color: var(--purple);
     text-decoration: underline;
 }
 
-/* Информационный блок */
-.auth-info {
-    display: flex;
-    justify-content: center;
-    gap: 20px;
-    margin-top: 25px;
-    flex-wrap: wrap;
-}
-
-.info-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    color: rgba(255, 255, 255, 0.85);
-    font-size: 13px;
-    background: rgba(255, 255, 255, 0.1);
-    padding: 8px 15px;
-    border-radius: 20px;
-    backdrop-filter: blur(10px);
-}
-
-.info-icon {
-    font-size: 16px;
-}
-
-/* Адаптивность */
-@media (max-width: 480px) {
-    .auth-card {
-        padding: 30px 20px;
-    }
-    
-    .auth-header h1 {
-        font-size: 22px;
-    }
-    
-    .auth-icon {
-        font-size: 48px;
-    }
-    
-    .auth-info {
-        flex-direction: column;
-        gap: 10px;
-    }
-    
-    .info-item {
-        justify-content: center;
-    }
-}
 /* ============================================================ */
-/* ===== КАРТОЧКА ПОЛЬЗОВАТЕЛЯ НА СТРАНИЦЕ СМЕНЫ ПАРОЛЯ ===== */
+/* КАРТОЧКА ПОЛЬЗОВАТЕЛЯ НА СТРАНИЦЕ СМЕНЫ ПАРОЛЯ               */
 /* ============================================================ */
 
 .user-badge-card {
     display: flex;
     align-items: center;
-    gap: 15px;
-    padding: 15px 20px;
-    background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
-    border-radius: 12px;
-    margin-top: 20px;
-    border: 1px solid #e2e8f0;
+    gap: var(--space-md);
+    padding: var(--space-md);
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    margin-top: var(--space-md);
+    border: 1px solid var(--border);
     text-align: left;
 }
 
 .user-badge-avatar {
-    width: 50px;
-    height: 50px;
+    width: 48px;
+    height: 48px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--accent) 0%, var(--purple) 100%);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 24px;
+    font-size: 20px;
     flex-shrink: 0;
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.25);
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.25);
+
+    font-weight: 700;
+    color: #fff;
 }
 
 .user-badge-info {
@@ -396,30 +363,50 @@
 
 .user-badge-name {
     font-weight: 600;
-    color: #2d3748;
-    font-size: 15px;
-    margin-bottom: 3px;
+    color: var(--text-primary);
+    font-size: var(--text-sm);
+    margin-bottom: 2px;
     word-break: break-word;
 }
 
 .user-badge-meta {
     display: flex;
-    gap: 10px;
+    gap: var(--space-sm);
     flex-wrap: wrap;
-    font-size: 12px;
-    color: #718096;
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
 }
 
 .user-badge-username {
-    font-family: 'Courier New', monospace;
-    color: #667eea;
+    font-family: var(--font-mono);
+    color: var(--accent);
     font-weight: 600;
 }
 
 .user-badge-role {
     padding: 1px 8px;
-    background: #edf2f7;
-    border-radius: 10px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-full);
     font-weight: 500;
-    color: #4a5568;
+    color: var(--text-secondary);
+}
+
+/* ============================================================ */
+/* АДАПТИВНОСТЬ                                                 */
+/* ============================================================ */
+
+@media (max-width: 480px) {
+    .auth-card {
+        padding: var(--space-lg) var(--space-md);
+    }
+
+    .auth-header h1 {
+        font-size: var(--text-xl);
+    }
+
+    .auth-logo,
+    .auth-logo-img {
+        width: 56px;
+        height: 56px;
+    }
 }

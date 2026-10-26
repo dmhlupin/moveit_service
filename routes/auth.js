@@ -47,13 +47,29 @@ function renderChangePassword(req, res) {
   const username = req.session.username || '';
   const fullName = req.session.fullName || username;
   const role = req.session.role || 'user';
-  const roleText = role === 'admin' ? 'Администратор' : 'Пользователь';
-  const roleIcon = role === 'admin' ? '👑' : '👤';
-  
+
+  // 5.11.2-auth: инициалы вместо эмодзи-иконки роли, полный набор ролей
+  const roleTexts = {
+    admin:      'Администратор',
+    supervisor: 'Супервизор',
+    mol:        'МОЛ',
+    user:       'Пользователь',
+  };
+  const roleText = roleTexts[role] || role;
+
+  const getInitials = (name) => {
+    if (!name) return '?';
+    const parts = String(name).trim().split(/\s+/).filter(p => p);
+    if (parts.length === 0) return '?';
+    if (parts.length === 1) return parts[0][0].toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
+  const userInitials = getInitials(fullName);
+
   html = html.replace(/\{\{username\}\}/g, username);
   html = html.replace(/\{\{fullName\}\}/g, fullName);
   html = html.replace(/\{\{roleText\}\}/g, roleText);
-  html = html.replace(/\{\{roleIcon\}\}/g, roleIcon);
+  html = html.replace(/\{\{userInitials\}\}/g, userInitials);
   
   res.send(html);
 }

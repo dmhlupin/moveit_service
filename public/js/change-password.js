@@ -1,17 +1,6 @@
 // public/js/change-password.js — Скрипт страницы смены пароля
 
-function togglePasswordVisibility(inputId) {
-    const input = document.getElementById(inputId);
-    const btn = event.target;
-    
-    if (input.type === 'password') {
-        input.type = 'text';
-        btn.textContent = '🙈';
-    } else {
-        input.type = 'password';
-        btn.textContent = '👁️';
-    }
-}
+
 
 function showError(message) {
     const errorEl = document.getElementById('errorMessage');
@@ -124,7 +113,7 @@ async function submitChangePassword(event) {
     
     // Блокируем кнопку
     submitBtn.disabled = true;
-    submitBtn.textContent = '⏳ Смена пароля...';
+    submitBtn.textContent = 'Смена пароля...';
     
     try {
         const response = await fetch('/api/auth/change-password', {
@@ -142,12 +131,11 @@ async function submitChangePassword(event) {
         const result = await response.json();
         
         if (result.success) {
-            submitBtn.textContent = '✅ Пароль изменён!';
-            submitBtn.style.background = '#48bb78';
+            submitBtn.textContent = 'Пароль изменён';
+            submitBtn.style.background = 'var(--success)';
             
-            // Показываем уведомление
             if (typeof showToast === 'function') {
-                showToast('✅ Пароль успешно изменён!', 'success');
+                showToast('Пароль успешно изменён', 'success');
             }
             
             // Редирект через 1.5 секунды
@@ -184,7 +172,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Скрываем ссылку "Выйти" — пользователь не должен уйти пока не сменит пароль
         const authFooter = document.getElementById('authFooter');
         if (authFooter) {
-            authFooter.innerHTML = '<p style="color: #c05621; font-size: 13px;">⚠️ Смена пароля обязательна</p>';
+            authFooter.innerHTML = '<p style="color: var(--warning); font-size: var(--text-xs);">Смена пароля обязательна</p>';
         }
     }
 });

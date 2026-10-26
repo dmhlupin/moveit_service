@@ -1,17 +1,6 @@
 // public/js/login.js — Скрипт страницы входа
 
-function togglePassword() {
-    const passwordInput = document.getElementById('password');
-    const toggleBtn = event.target;
-    
-    if (passwordInput.type === 'password') {
-        passwordInput.type = 'text';
-        toggleBtn.textContent = '🙈';
-    } else {
-        passwordInput.type = 'password';
-        toggleBtn.textContent = '👁️';
-    }
-}
+
 
 function showError(message) {
     const errorEl = document.getElementById('errorMessage');
