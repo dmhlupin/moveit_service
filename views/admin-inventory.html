@@ -55,149 +55,165 @@
         <p>Есть доступная техника без указания места хранения: <strong id="warningCount">0</strong> единиц. Рекомендуется назначить им ячейки или рабочие места.</p>
     </div>
 </div>
+<!-- ============================================================ -->
+<!-- 5.11.4: ТАБЫ (Склады / Рабочие места / Пользователи / Выборка) -->
+<!-- ============================================================ -->
+<div class="tabs" id="inventoryTabs">
+    <button class="tab-btn active" data-tab="warehouses" onclick="switchInventoryTab('warehouses', event)">
+        🏢 Склады
+    </button>
+    <button class="tab-btn" data-tab="workplaces" onclick="switchInventoryTab('workplaces', event)">
+        🏛️ Рабочие места
+    </button>
+    <button class="tab-btn" data-tab="users" onclick="switchInventoryTab('users', event)">
+        👥 Пользователи
+    </button>
+    <button class="tab-btn" data-tab="byLevel" onclick="switchInventoryTab('byLevel', event)">
+        🔎 Выборка
+    </button>
+</div>
 
-<!-- Сводка по складам -->
-<div class="inventory-section">
-    <div class="section-header">
-        <h2>🏢 Сводка по складам</h2>
-        <div class="section-actions">
-            <button onclick="loadSummary()" class="btn btn-ghost btn-sm">🔄 Обновить</button>
+<!-- ============================================================ -->
+<!-- ВКЛАДКА: СКЛАДЫ (сводка + виртуальные склады)                 -->
+<!-- ============================================================ -->
+<div id="tabWarehouses" class="tab-content active">
+    <div class="inventory-section">
+        <div class="section-header">
+            <h2>🏢 Сводка по складам</h2>
+            <div class="section-actions">
+                <button onclick="loadSummary()" class="btn btn-ghost btn-sm">🔄 Обновить</button>
+            </div>
+        </div>
+        <div id="warehouseSummary" class="warehouse-summary">
+            <div class="loading-block">⏳ Загрузка...</div>
         </div>
     </div>
 
-    <div id="warehouseSummary" class="warehouse-summary">
-        <div class="loading-block">⏳ Загрузка...</div>
+    <div class="inventory-section">
+        <div class="section-header">
+            <h2>🛠️ Виртуальные склады</h2>
+            <div class="section-actions">
+                <button onclick="loadSpecialSummary()" class="btn btn-ghost btn-sm">🔄 Обновить</button>
+            </div>
+        </div>
+        <div id="specialSummary" class="special-summary">
+            <div class="loading-block">⏳ Загрузка...</div>
+        </div>
     </div>
 </div>
 
 <!-- ============================================================ -->
-<!-- 5.9.3: Сводка по офисам                                       -->
+<!-- ВКЛАДКА: РАБОЧИЕ МЕСТА (сводка по офисам)                     -->
 <!-- ============================================================ -->
-<div class="inventory-section">
-    <div class="section-header">
-        <h2>🏛️ Сводка по офисам</h2>
-        <div class="section-actions">
-            <button onclick="loadOfficesSummary()" class="btn btn-ghost btn-sm">🔄 Обновить</button>
+<div id="tabWorkplaces" class="tab-content">
+    <div class="inventory-section">
+        <div class="section-header">
+            <h2>🏛️ Сводка по офисам</h2>
+            <div class="section-actions">
+                <button onclick="loadOfficesSummary()" class="btn btn-ghost btn-sm">🔄 Обновить</button>
+            </div>
         </div>
-    </div>
-
-    <div id="officesSummary" class="warehouse-summary">
-        <div class="loading-block">⏳ Загрузка...</div>
+        <div id="officesSummary" class="warehouse-summary">
+            <div class="loading-block">⏳ Загрузка...</div>
+        </div>
     </div>
 </div>
 
 <!-- ============================================================ -->
-<!-- 5.9.4: Сводка по пользователям                                -->
+<!-- ВКЛАДКА: ПОЛЬЗОВАТЕЛИ (сводка по пользователям)               -->
 <!-- ============================================================ -->
-<div class="inventory-section">
-    <div class="section-header">
-        <h2>👥 Сводка по пользователям</h2>
-        <div class="section-actions">
-            <button onclick="loadUsersSummary()" class="btn btn-ghost btn-sm">🔄 Обновить</button>
+<div id="tabUsers" class="tab-content">
+    <div class="inventory-section">
+        <div class="section-header">
+            <h2>👥 Сводка по пользователям</h2>
+            <div class="section-actions">
+                <button onclick="loadUsersSummary()" class="btn btn-ghost btn-sm">🔄 Обновить</button>
+            </div>
         </div>
-    </div>
-
-    <div id="usersSummary" class="users-summary">
-        <div class="loading-block">⏳ Загрузка...</div>
+        <div id="usersSummary" class="users-summary">
+            <div class="loading-block">⏳ Загрузка...</div>
+        </div>
     </div>
 </div>
 
 <!-- ============================================================ -->
-<!-- 5.9.5: Гибкая выборка по уровню (склад / офис / пользователь) -->
+<!-- ВКЛАДКА: ВЫБОРКА (гибкая по уровню)                           -->
 <!-- ============================================================ -->
-<div class="inventory-section">
-    <div class="section-header">
-        <h2>🔎 Выборка по уровню</h2>
-        <div class="section-actions">
-            <button onclick="loadByLevel()" class="btn btn-ghost btn-sm">🔄 Обновить</button>
-        </div>
-    </div>
-
-    <div class="by-level-controls">
-        <div class="filter-group">
-            <label>Уровень</label>
-            <select id="byLevelType" onchange="onByLevelTypeChange()">
-                <option value="">— Не выбрано —</option>
-                <option value="warehouse">🏢 Склад</option>
-                <option value="office">🏛️ Офис</option>
-                <option value="user">👤 Пользователь</option>
-            </select>
+<div id="tabByLevel" class="tab-content">
+    <div class="inventory-section">
+        <div class="section-header">
+            <h2>🔎 Выборка по уровню</h2>
+            <div class="section-actions">
+                <button onclick="loadByLevel()" class="btn btn-ghost btn-sm">🔄 Обновить</button>
+            </div>
         </div>
 
-        <div class="filter-group" id="byLevelObjectGroup" style="display: none;">
-            <label id="byLevelObjectLabel">Объект</label>
-            <select id="byLevelObjectId" onchange="onByLevelObjectChange()">
-                <option value="">— Выберите —</option>
-            </select>
+        <div class="by-level-controls">
+            <div class="filter-group">
+                <label>Уровень</label>
+                <select id="byLevelType" onchange="onByLevelTypeChange()">
+                    <option value="">— Не выбрано —</option>
+                    <option value="warehouse">🏢 Склад</option>
+                    <option value="office">🏛️ Офис</option>
+                    <option value="user">👤 Пользователь</option>
+                </select>
+            </div>
+
+            <div class="filter-group" id="byLevelObjectGroup" style="display: none;">
+                <label id="byLevelObjectLabel">Объект</label>
+                <select id="byLevelObjectId" onchange="onByLevelObjectChange()">
+                    <option value="">— Выберите —</option>
+                </select>
+            </div>
+
+            <div class="filter-group" id="byLevelZoneGroup" style="display: none;">
+                <label>Зона</label>
+                <select id="byLevelZoneId" onchange="onByLevelZoneChange()">
+                    <option value="">— Любая —</option>
+                </select>
+            </div>
+
+            <div class="filter-group" id="byLevelRackGroup" style="display: none;">
+                <label>Стеллаж</label>
+                <select id="byLevelRackId" onchange="onByLevelRackChange()">
+                    <option value="">— Любой —</option>
+                </select>
+            </div>
+
+            <div class="filter-group" id="byLevelCellGroup" style="display: none;">
+                <label>Ячейка</label>
+                <select id="byLevelCellId">
+                    <option value="">— Любая —</option>
+                </select>
+            </div>
+
+            <div class="filter-group" id="byLevelRoomGroup" style="display: none;">
+                <label>Кабинет</label>
+                <select id="byLevelRoomId" onchange="onByLevelRoomChange()">
+                    <option value="">— Любой —</option>
+                </select>
+            </div>
+
+            <div class="filter-group" id="byLevelWorkplaceGroup" style="display: none;">
+                <label>Рабочее место</label>
+                <select id="byLevelWorkplaceId">
+                    <option value="">— Любое —</option>
+                </select>
+            </div>
+
+            <div class="filter-group" id="byLevelActionsGroup" style="display: none;">
+                <label>&nbsp;</label>
+                <button onclick="loadByLevel()" class="btn btn-primary">🔎 Показать</button>
+            </div>
         </div>
 
-        <!-- Склад: Зона → Стеллаж → Ячейка -->
-        <div class="filter-group" id="byLevelZoneGroup" style="display: none;">
-            <label>Зона</label>
-            <select id="byLevelZoneId" onchange="onByLevelZoneChange()">
-                <option value="">— Любая —</option>
-            </select>
+        <div id="byLevelBreadcrumbs" class="by-level-breadcrumbs" style="display: none;"></div>
+
+        <div id="byLevelResult" class="by-level-result" style="display: none;">
+            <!-- Заполняется JS -->
         </div>
-
-        <div class="filter-group" id="byLevelRackGroup" style="display: none;">
-            <label>Стеллаж</label>
-            <select id="byLevelRackId" onchange="onByLevelRackChange()">
-                <option value="">— Любой —</option>
-            </select>
-        </div>
-
-        <div class="filter-group" id="byLevelCellGroup" style="display: none;">
-            <label>Ячейка</label>
-            <select id="byLevelCellId">
-                <option value="">— Любая —</option>
-            </select>
-        </div>
-
-        <!-- Офис: Кабинет → Место -->
-        <div class="filter-group" id="byLevelRoomGroup" style="display: none;">
-            <label>Кабинет</label>
-            <select id="byLevelRoomId" onchange="onByLevelRoomChange()">
-                <option value="">— Любой —</option>
-            </select>
-        </div>
-
-        <div class="filter-group" id="byLevelWorkplaceGroup" style="display: none;">
-            <label>Рабочее место</label>
-            <select id="byLevelWorkplaceId">
-                <option value="">— Любое —</option>
-            </select>
-        </div>
-
-        <div class="filter-group" id="byLevelActionsGroup" style="display: none;">
-            <label>&nbsp;</label>
-            <button onclick="loadByLevel()" class="btn btn-primary">🔎 Показать</button>
-        </div>
-    </div>
-
-    <!-- 5.9.6: хлебные крошки -->
-    <div id="byLevelBreadcrumbs" class="by-level-breadcrumbs" style="display: none;"></div>
-
-    <div id="byLevelResult" class="by-level-result" style="display: none;">
-        <!-- Заполняется JS -->
     </div>
 </div>
-
-<!-- ============================================================ -->
-<!-- ВИРТУАЛЬНЫЕ СКЛАДЫ: РЕМОНТ И СПИСАНИЕ (2.11.15)              -->
-<!-- ============================================================ -->
-<div class="inventory-section">
-    <div class="section-header">
-        <h2>🛠️ Виртуальные склады</h2>
-        <div class="section-actions">
-            <button onclick="loadSpecialSummary()" class="btn btn-ghost btn-sm">🔄 Обновить</button>
-        </div>
-    </div>
-
-    <div id="specialSummary" class="special-summary">
-        <div class="loading-block">⏳ Загрузка...</div>
-    </div>
-</div>
-
 <!-- ============================================================ -->
 <!-- МОДАЛЬНОЕ ОКНО: ДЕТАЛИ СКЛАДА                                -->
 <!-- ============================================================ -->

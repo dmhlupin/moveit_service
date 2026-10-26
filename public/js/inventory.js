@@ -27,10 +27,58 @@ let byLevelData = {
 };
 
 // ============================================================
+// 5.11.4: ВКЛАДКИ (Склады / Рабочие места / Пользователи / Выборка)
+// ============================================================
+
+const INVENTORY_TABS = ['warehouses', 'workplaces', 'users', 'byLevel'];
+
+const TAB_TO_DOM = {
+    warehouses: 'tabWarehouses',
+    workplaces: 'tabWorkplaces',
+    users: 'tabUsers',
+    byLevel: 'tabByLevel',
+};
+
+function switchInventoryTab(tab, event) {
+    if (!INVENTORY_TABS.includes(tab)) tab = 'warehouses';
+
+    // Кнопки
+    document.querySelectorAll('#inventoryTabs .tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === tab);
+    });
+
+    // Контент
+    Object.values(TAB_TO_DOM).forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.remove('active');
+    });
+    const target = document.getElementById(TAB_TO_DOM[tab]);
+    if (target) target.classList.add('active');
+
+    // Hash для прямых ссылок
+    if (location.hash !== '#' + tab) {
+        history.replaceState(null, '', '#' + tab);
+    }
+}
+
+function initInventoryTabs() {
+    const hash = (location.hash || '').replace('#', '');
+    const tab = INVENTORY_TABS.includes(hash) ? hash : 'warehouses';
+    switchInventoryTab(tab);
+
+    // Ручное изменение hash (кнопки браузера «назад/вперёд», прямые ссылки)
+    window.addEventListener('hashchange', () => {
+        const h = (location.hash || '').replace('#', '');
+        if (INVENTORY_TABS.includes(h)) switchInventoryTab(h);
+    });
+}
+
+// ============================================================
 // ИНИЦИАЛИЗАЦИЯ
 // ============================================================
 
 document.addEventListener('DOMContentLoaded', async function() {
+    initInventoryTabs();              // 🆕 5.11.4
     await loadSummary();
     await loadTotals();
     await loadSpecialSummary();
