@@ -11,6 +11,12 @@ let types = [];
 let currentFilter = ''; // ID категории для фильтрации типов
 let deleteTarget = null; // { type: 'category'|'type', id, name }
 
+// 5.11.4a: роль — для показа колонки «Ответственный МОЛ»
+function getCatalogCurrentRole() {
+    const el = document.getElementById('currentRole');
+    return el ? el.value : 'user';
+}
+
 // ============================================================
 // ИНИЦИАЛИЗАЦИЯ
 // ============================================================
@@ -572,15 +578,13 @@ function renderEquipmentTable(data) {
     if (!container) return;
 
     if (data.items.length === 0) {
-        container.innerHTML = `
-            <div class="catalog-empty">
-                <span class="empty-icon">📭</span>
-                <div class="empty-text">Техника не найдена</div>
-                <div class="empty-hint">Попробуйте изменить фильтр или поиск</div>
-            </div>
-        `;
+        container.innerHTML = `...`;   // без изменений
         return;
     }
+
+    // 🆕 5.11.4a: колонка «Ответственный МОЛ» — только для admin / supervisor
+    const currentRole = getCatalogCurrentRole();
+    const showResponsible = (currentRole === 'admin' || currentRole === 'supervisor');
 
     let html = `
         <div class="equipment-table-wrapper">
@@ -592,7 +596,7 @@ function renderEquipmentTable(data) {
                         <th class="col-model">Модель</th>
                         <th>Статус</th>
                         <th>Владелец</th>
-                        <th style="text-align: right;">Действия</th>
+                        ${showResponsible ? '<th>Ответственный МОЛ</th>' : ''}
                     </tr>
                 </thead>
                 <tbody>
@@ -626,6 +630,23 @@ function renderEquipmentTable(data) {
         } else {
             ownerHtml = '<span class="eq-owner-empty">—</span>';
         }
+                // 🆕 5.11.4a: ячейка «Ответственный МОЛ»
+        let responsibleCell = '';
+        if (showResponsible) {
+            if (eq.responsible_user_name) {
+                const respInitials = getInitials(eq.responsible_user_name);
+                responsibleCell = `<td>
+                    <div class="eq-owner">
+                        <span class="eq-owner-avatar" style="background: linear-gradient(135deg, var(--purple) 0%, var(--accent) 100%);">${respInitials}</span>
+                        <div class="eq-owner-info">
+                            <div class="eq-owner-name">${escapeHtml(eq.responsible_user_name)}</div>
+                        </div>
+                    </div>
+                </td>`;
+            } else {
+                responsibleCell = `<td><span class="eq-owner-empty">—</span></td>`;
+            }
+        }
 
         html += `
             <tr class="equipment-row-link" onclick="openEquipmentCardCatalog(${eq.id})">
@@ -640,16 +661,7 @@ function renderEquipmentTable(data) {
                     <span class="eq-status status-${eq.status}">${statusText}</span>
                 </td>
                 <td>${ownerHtml}</td>
-                <td>
-                    <div class="eq-actions" onclick="event.stopPropagation()">
-                        <button onclick="openEquipmentCardCatalog(${eq.id})" 
-                                class="eq-btn view" 
-                                title="Просмотр карточки">👁️</button>
-                        <a href="/admin/edit/${eq.id}" 
-                           class="eq-btn edit" 
-                           title="Редактировать">✏️</a>
-                    </div>
-                </td>
+                ${responsibleCell}
             </tr>
         `;
     });

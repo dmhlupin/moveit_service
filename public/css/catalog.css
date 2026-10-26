@@ -556,46 +556,6 @@
   font-style: italic;
 }
 
-/* Кнопки действий в таблице */
-.eq-actions {
-  display: flex;
-  gap: var(--space-xs);
-  justify-content: flex-end;
-}
-
-.eq-btn {
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg-secondary);
-  cursor: pointer;
-  font-size: var(--text-sm);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: all var(--transition-fast);
-  text-decoration: none;
-  color: var(--text-secondary);
-}
-
-.eq-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-sm);
-}
-
-.eq-btn.view:hover {
-  background: rgba(20, 184, 166, 0.15);
-  border-color: var(--info);
-  color: var(--info);
-}
-
-.eq-btn.edit:hover {
-  background: rgba(59, 130, 246, 0.15);
-  border-color: var(--accent);
-  color: var(--accent);
-}
 
 /* ============================================================
    ПАГИНАЦИЯ
@@ -1091,4 +1051,13 @@
 
 .equipment-row-link:hover td {
   background: var(--bg-hover);
+}
+
+/* ============================================================
+   5.11.4a: колонка «Ответственный МОЛ» — без переноса ФИО
+   ============================================================ */
+
+.equipment-table th:nth-last-child(2),
+.equipment-table td:nth-last-child(2) {
+  white-space: nowrap;
 }
