@@ -3,6 +3,7 @@ const {
   getUserById,
   getUserWithDetails,
   checkUserExists,
+  createUserWithPassword,
   deleteUserWithEquipmentReturn,
   updateUserPassword,
   setUserActive,
