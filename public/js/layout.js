@@ -163,6 +163,9 @@ function highlightActiveSection() {
     else if (path === '/admin/logs') {
         activePage = 'logs';
     }
+    else if (path === '/admin/settings') {
+        activePage = 'settings';
+    }
     else if (path === '/admin/catalog') {
         activePage = 'catalog';
     }

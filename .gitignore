@@ -25,6 +25,7 @@ data/*.backup*
 data/sessions.db
 data/sessions.db-journal
 data/backups/
+data/
 
 # ============================================================
 # Бэкапы
