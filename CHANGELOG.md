@@ -1,52 +1,47 @@
 # История изменений
 
-## [5.11.0] - 2026-10-25
+## [5.11.0] - 2026-10-26
 
-**🚧 Этап 5.11 (в работе): чистота слоёв + «Выдал» + фиксы назначения**
+**🎉 Этап 5.11 завершён: чистота слоёв + «Выдал» + карточка на /admin/catalog + 4 вкладки + бэкап БД**
 
-Подэтапы 5.11.1a–5.11.2.2. Полный финал этапа (5.11.3+) — в следующем чате
-(см. передаточную записку).
+Этап закрыт полностью. 5.11.1a–5.11.5 — все подшаги.
 
 ### Подшаги
 
-- **5.11.1a** — вынос прямых `db.all` / `db.get` из `routes/manage/users` в `database/modules/*`:
+- **5.11.1a** — вынос прямых `db.all` / `db.get` из `routes/manage/users`
+  в `database/modules/*`:
   * `database/modules/warehouses/crud.js → getWarehousesForFilter(scope)`;
   * `database/modules/workplaces.js → getOfficesForFilter(scope)`;
   * `database/modules/users.js → countActiveAdmins()`,
     `getUserWarehouseResponsibles(userId)`, `getUserOfficeResponsibles(userId)`;
-  * `routes/manage/users/pages.js → renderEditUser` — `db.all` заменены на новые функции;
+  * `routes/manage/users/pages.js → renderEditUser` — `db.all` заменены;
   * `routes/manage/users/api.js → updateUserAPI / deleteUserAPI / blockUserAPI` —
-    `db.get` заменён на `countActiveAdmins()`;
-  * `scripts/restore-admin.js` — восстановление роли `admin` (по умолчанию `admin`, `manager`);
-  * **фикс:** `updateUserAPI` — проверка «последний админ» срабатывала только при
-    `newRole === 'user'`. Теперь `newRole !== 'admin'` (покрывает `user` / `mol` /
-    `supervisor` и любые будущие роли).
+    `countActiveAdmins()`;
+  * **фикс:** `updateUserAPI` — «последний админ» теперь `newRole !== 'admin'`
+    (было `=== 'user'` — пропускало смену на mol / supervisor);
+  * `scripts/restore-admin.js` — восстановление роли admin.
 
 - **5.11.1b** — транзакция `updateUserWithResponsibles`:
   * `database/modules/users.js → updateUserWithResponsibles(id, data, responsibles)` —
-    одна транзакция: `UPDATE users` + `DELETE/INSERT` `warehouse_responsibles` /
-    `office_responsibles`. При ошибке — `ROLLBACK`;
-  * `routes/manage/users/api.js → updateUserAPI` — прямые `db.run` заменены вызовом
-    `updateUserWithResponsibles`. SQL из роут-слоя убран полностью.
+    одна транзакция: UPDATE users + DELETE/INSERT warehouse_responsibles /
+    office_responsibles. При ошибке — ROLLBACK;
+  * `routes/manage/users/api.js → updateUserAPI` — вызов функции, SQL из роута убран.
 
 - **5.11.2** — `assigned_by_user_id` («Выдал»):
-  * миграция `migrateUserEquipmentAssignedBy` — `ALTER TABLE user_equipment
-    ADD COLUMN assigned_by_user_id INTEGER NULL REFERENCES users(id)`;
-  * `database/modules/equipment.js → assignEquipment(..., assignedByUserId = null)` —
-    пишет `assigned_by_user_id`;
+  * миграция `migrateUserEquipmentAssignedBy` (идемпотентно);
+  * `database/modules/equipment.js → assignEquipment(..., assignedByUserId = null)`;
   * `routes/manage-equipment-actions.js`, `routes/manage/equipment.js` — передают
     `req.session.userId`;
   * `database/modules/profile.js → getUserEquipmentHistory` — `LEFT JOIN users ab`,
     `assigned_by_name`;
-  * `public/js/inventory.js → renderUserDetail` — колонка «Выдал» в «Истории»;
-  * `public/js/admin-users.js → viewUser` — колонка «Выдал» в «Истории получений».
+  * `public/js/inventory.js → renderUserDetail` — «Выдал» в «Истории»;
+  * `public/js/admin-users.js → viewUser` — «Выдал» в «Истории получений».
 
 - **5.11.2.1** — «Выдал» в активной технике:
   * `getUserActiveEquipment` — `LEFT JOIN users ab`, `assigned_by_name`;
-  * `renderUserDetail` — колонка «Выдал» во вкладке «Активная техника»;
-  * `viewUser` — колонка «Выдал» в блоке «Активная техника».
+  * `renderUserDetail` / `viewUser` — «Выдал» в блоке активной техники.
 
-- **5.11.2.2** — фикс назначения техники под МОЛом:
+- **5.11.2.2** — фикс назначения под МОЛом:
   * новый API `GET /api/manage/users-for-assign`
     (`routes/manage/users/api.js → getUsersForAssignAPI`, `routes/manage/index.js`,
     `server.js` под `requireRole(['admin', 'supervisor', 'mol'])`):
@@ -54,66 +49,119 @@
     `role !== 'admin'`;
   * `public/js/equipment-card/modals.js → openAssign` — запрос на новый API,
     проверка `response.ok` + `Array.isArray`, `showToast` при ошибке.
-    Раньше дёргался `/api/admin/users` (`requireAdmin` → 403 под МОЛом),
-    падало на `users.filter`.
+    Раньше дёргался `/api/admin/users` (`requireAdmin` → 403 под МОЛом).
+
+- **5.11.3** — карточка техники на `/admin/catalog` через `EquipmentCard`:
+  * `routes/catalog/pages.js → renderCatalog` — модули `equipment-card/*` в `pageJs`
+    **до** `catalog.js`; подставлены `{{current_role}}` / `{{current_user_id}}`;
+  * `routes/catalog/equipment.js → getFilteredEquipmentAPI` — **scope-фикс**
+    (передаётся `scope` в `getEquipmentWithLocation`). Под МОЛом таблица показывает
+    только его технику — как на /manage. Закрывает «Не удалось загрузить данные
+    техники» при клике по чужой строке (404 от `/api/manage/equipment/:id/details`);
+  * `views/admin-catalog.html` — скрытые `#currentRole` / `#currentUserId`,
+    удалена старая `#viewEquipmentModal` (её подставляет партиал),
+    `#deleteModal` → `#catalogDeleteModal` (коллизия ID с партиалом
+    `equipment-card.html`);
+  * `public/js/catalog.js` — удалена старая `viewEquipment` / `closeViewEquipmentModal`,
+    строки техники кликабельны → `EquipmentCard.open()`,
+    `window.openEquipmentCardCatalog` + `onClose` reload при changed,
+    `closeDeleteModal` → `closeCatalogDeleteModal`, `confirmDelete` → `confirmCatalogDelete`;
+  * `public/css/catalog.css` — `.equipment-row-link` + hover.
+
+- **5.11.4** — UX инвентаризации: четыре вкладки:
+  * `views/admin-inventory.html` — «Общие итоги» и warning над вкладками;
+    `.tabs` с 4 `.tab-btn`: 🏢 Склады (сводка + виртуальные склады) /
+    🏛️ Рабочие места (офисы) / 👥 Пользователи / 🔎 Выборка (гибкая по уровню —
+    вынесена в отдельную вкладку);
+  * `public/js/inventory.js` — `INVENTORY_TABS` + `TAB_TO_DOM` +
+    `switchInventoryTab(tab)` + `initInventoryTabs()` (location.hash +
+    hashchange); `initInventoryTabs()` первым в `DOMContentLoaded`;
+  * CSS не трогали: `.tabs` / `.tab-btn` / `.tab-content` — в `components.css`.
+
+- **5.11.4a** — колонка «Ответственный МОЛ» на `/admin/catalog`:
+  * `public/js/catalog.js` — `getCatalogCurrentRole()` + `showResponsible`
+    (admin / supervisor). Заголовок «Ответственный МОЛ» + ячейка с аватаром
+    (gradient purple → accent) + ФИО. Под mol колонка скрыта;
+  * удалена колонка «Действия» (👁️ / ✏️): строка кликабельна → карточка
+    `EquipmentCard`, кнопка «✏️ Редактировать» — внутри карточки;
+  * `public/css/catalog.css` — `.col-responsible { white-space: nowrap; }`.
+
+- **5.11.5** — системные настройки: бэкап БД:
+  * `routes/settings/` — новый домен (`pages.js` / `api.js` / `index.js`);
+  * `renderSettings` — страница `/admin/settings` (только admin);
+  * `downloadBackupAPI` — `GET /api/admin/backup/download`:
+    **`VACUUM INTO`** (SQLite 3.27+) в `data/backups/` → `res.download()`;
+    файл **остаётся** в `data/backups/` (архив), ротация — последние 30;
+    проверка `stat.size === 0`; логирование `system_backup`;
+  * **фикс:** вместо `db.backup()` — `VACUUM INTO`. На Windows `db.backup()`
+    создаёт 0-байтные файлы (баг `sqlite3` 5.x);
+  * `views/admin-settings.html` + `public/js/admin-settings.js` —
+    карточка «📦 Резервное копирование» + кнопка «📥 Скачать бэкап базы»;
+  * `server.js` — `require('./routes/settings')` + 2 роута под `requireAdmin`;
+  * `views/partials/sidebar.html` — пункт «⚙️ Настройки» (`.sidebar-link`);
+  * `routes/manage/logs.js` — `ACTION_NAMES.system_backup = '📦 Бэкап БД'`.
+
+### Техдолг (записан в `techdebt.md`, см. 5.12+)
+
+- **`/admin/catalog` — серверный рендеринг** таблицы техники (как на `/manage`).
+  Убирает дубль `renderEquipmentTable` / `equipmentRows` + рассинхрон scope
+  (стрелял в 5.11.3).
+- **`/admin/catalog` — ступень «Модель»** в иерархии (Категория → Тип → Модель →
+  Экземпляр) + CRUD моделей прямо в справочнике. После этого `/admin/models`
+  («Номенклатура») не нужен (или переименовать «Классификацию» в «Номенклатуру»).
 
 ### Файлы
 
-**Изменены:**
-- `scripts/migrate.js`
-- `database/modules/equipment.js`
-- `database/modules/profile.js`
-- `database/modules/users.js`
-- `database/modules/warehouses/crud.js`
-- `database/modules/workplaces.js`
-- `routes/manage-equipment-actions.js`
-- `routes/manage/equipment.js`
-- `routes/manage/users/api.js`
-- `routes/manage/users/index.js`
-- `routes/manage/index.js`
-- `server.js`
-- `public/js/equipment-card/modals.js`
-- `public/js/inventory.js`
-- `public/js/admin-users.js`
-- `package.json`
-- `CHANGELOG.md`
-- `README.md`
-- `techdebt.md`
-
 **Новые:**
-- `scripts/restore-admin.js`
+- `routes/settings/pages.js`
+- `routes/settings/api.js`
+- `routes/settings/index.js`
+- `views/admin-settings.html`
+- `public/js/admin-settings.js`
+- `scripts/restore-admin.js` (5.11.1a)
+
+**Изменены (5.11.x):**
+- `scripts/migrate.js`, `database/modules/equipment.js`,
+  `database/modules/profile.js`, `database/modules/users.js`,
+  `database/modules/warehouses/crud.js`, `database/modules/workplaces.js`,
+  `routes/manage-equipment-actions.js`, `routes/manage/equipment.js`,
+  `routes/manage/users/api.js`, `routes/manage/users/index.js`,
+  `routes/manage/index.js`, `routes/manage/logs.js`,
+  `routes/catalog/pages.js`, `routes/catalog/equipment.js`,
+  `server.js`, `views/admin-catalog.html`, `views/admin-inventory.html`,
+  `views/partials/sidebar.html`, `public/js/catalog.js`,
+  `public/js/inventory.js`, `public/js/admin-users.js`,
+  `public/js/equipment-card/modals.js`, `public/css/catalog.css`,
+  `package.json`, `CHANGELOG.md`, `README.md`, `techdebt.md`.
 
 ### Проверено
 
 - `npm run migrate` — зелёный, `assigned_by_user_id` добавлена (идемпотентно).
 - `npm run check-roles` / `npm run check-css` — зелёные.
-- Под admin / mol:
-  * «Назначить» из карточки техники — список пользователей заполнен (без admin);
-  * `/admin/inventory` → модалка пользователя — «Выдал» в «Активной технике» и «Истории»;
-  * `/admin/users` → карточка пользователя — «Выдал» в обоих блоках;
-  * последний админ → `mol` / `supervisor` / `user` — ошибка;
-  * при наличии второго админа — смена проходит;
-  * `/admin/user/edit/:id` — чекбоксы складов / офисов, сохранение (транзакция);
-  * `/api/admin/users` под МОЛом — 403 (не сломано);
-  * старые записи (до миграции) — «—» в «Выдал».
-
-### Техдолг (в работе, см. `techdebt.md`)
-
-- `getUserActiveEquipment` / `getUserEquipmentHistory` / `getUserWithDetails` —
-  вынести `db.all` в `database/modules/*` (осталось в `profile.js` / `users.js`).
-- Транзакции в `database/modules/equipment.js` (назначение, возврат, перемещение) —
-  сейчас без `BEGIN/COMMIT/ROLLBACK` в некоторых местах.
-- 5.11.3 — карточка техники на `/admin/catalog` через `EquipmentCard`.
-- 5.11.4 — UX инвентаризации (три вкладки).
-- 5.11.5 — системные настройки (очистка БД / переключение тестовая ↔ боевая).
+- **5.11.3:** под admin / supervisor / mol — карточка техники на `/admin/catalog`
+  открывается, кнопки действий по роли и статусу, после изменения — reload.
+  Под mol — только своя техника (scope-фикс), «Не удалось загрузить» больше нет.
+- **5.11.4:** 4 вкладки инвентаризации, прямые ссылки (`#warehouses`, `#workplaces`,
+  `#users`, `#byLevel`), F5 сохраняет вкладку.
+- **5.11.4a:** колонка «Ответственный МОЛ» (admin / supervisor), под mol —
+  скрыта; колонка «Действия» удалена.
+- **5.11.5:** `/admin/settings` → «📥 Скачать бэкап базы» → файл в `data/backups/`
+  (не 0 байт), открывается в DB Browser / `sqlite3`, ротация — 30;
+  под supervisor / mol / user — 403; `activity_log` — `system_backup`.
+- `/api/admin/users` под МОЛом — 403 (не сломано).
 
 ### Теги
 
 - v5.11.1a — вынос db.all / db.get + фикс «последний админ»
 - v5.11.1b — транзакция `updateUserWithResponsibles`
-- v5.11.2 — `assigned_by_user_id`, «Выдал» (история + активная техника)
-- v5.11.2.2 — `/api/manage/users-for-assign` (фикс назначения под МОЛом)
-- **v5.11.2-docs — документация (этот)**
+- v5.11.2 — `assigned_by_user_id`, «Выдал»
+- v5.11.2.1 — «Выдал» в активной технике
+- v5.11.2.2 — `/api/manage/users-for-assign` (фикс под МОЛом)
+- v5.11.3 — карточка техники на `/admin/catalog` + scope-фикс
+- v5.11.4 — 4 вкладки инвентаризации
+- v5.11.4a — колонка «Ответственный МОЛ» + удаление «Действия»
+- v5.11.5 — бэкап БД (`VACUUM INTO`)
+- **v5.11.0 — финал этапа (этот)**
 
 ---
 
