@@ -29,7 +29,11 @@ async function getFilteredEquipmentAPI(req, res) {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
     const offset = (page - 1) * limit;
-    
+
+    // 🆕 5.11.3: scope — как на /manage. Под МОЛом — только его техника,
+    // чтобы всё, что показано в таблице, открывалось в EquipmentCard.
+    const scope = { userId: req.session.userId, role: req.session.role };
+
     const result = await getEquipmentWithLocation({
       category_id,
       type_id,
@@ -37,7 +41,7 @@ async function getFilteredEquipmentAPI(req, res) {
       limit,
       offset,
       include_total: true,
-    });
+    }, scope);   // 🆕 scope вторым аргументом
 
     const totalPages = Math.ceil((result.total || 0) / limit);
 
@@ -49,11 +53,11 @@ async function getFilteredEquipmentAPI(req, res) {
       totalPages,
       filters: { category_id, type_id, search },
     });
-      } catch (error) {
-        console.error('❌ Ошибка получения техники:', error);
-        res.status(500).json({ error: error.message });
-      }
-    }
+  } catch (error) {
+    console.error('❌ Ошибка получения техники:', error);
+    res.status(500).json({ error: error.message });
+  }
+}
 
 /**
  * GET /api/admin/equipment/counts

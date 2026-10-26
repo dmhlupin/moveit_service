@@ -1,6 +1,10 @@
 <!-- views/admin-catalog.html -->
 <!-- Контент-шаблон страницы справочника техники -->
 
+<!-- 🆕 5.11.3: роль и userId для EquipmentCard -->
+<input type="hidden" id="currentRole" value="{{current_role}}">
+<input type="hidden" id="currentUserId" value="{{current_user_id}}">
+
 <div class="page-header">
   <div>
     <h1 class="page-title">📚 Справочник техники</h1>
@@ -228,31 +232,19 @@
 <!-- ============================================================ -->
 <!-- МОДАЛЬНОЕ ОКНО: УДАЛЕНИЕ                                      -->
 <!-- ============================================================ -->
-<div class="modal-overlay" id="deleteModal">
+<!-- 🆕 5.11.3: переименовано deleteModal → catalogDeleteModal
+     (чтобы не конфликтовать с партиалом карточки техники) -->
+<div class="modal-overlay" id="catalogDeleteModal">
   <div class="modal">
     <div class="modal-header">
       <h3>🗑️ Подтверждение удаления</h3>
-      <button onclick="closeDeleteModal()" class="modal-close">✕</button>
+      <button onclick="closeCatalogDeleteModal()" class="modal-close">✕</button>
     </div>
     <p id="deleteMessage">Вы уверены?</p>
     <div class="modal-actions">
-      <button onclick="closeDeleteModal()" class="btn btn-ghost">Отмена</button>
-      <button onclick="confirmDelete()" class="btn btn-danger">Удалить</button>
+      <button onclick="closeCatalogDeleteModal()" class="btn btn-ghost">Отмена</button>
+      <button onclick="confirmCatalogDelete()" class="btn btn-danger">Удалить</button>
     </div>
   </div>
 </div>
 
-<!-- ============================================================ -->
-<!-- МОДАЛЬНОЕ ОКНО: ПРОСМОТР ТЕХНИКИ                              -->
-<!-- ============================================================ -->
-<div class="modal-overlay" id="viewEquipmentModal">
-  <div class="modal view-user-modal">
-    <div class="modal-header">
-      <h3>🔧 Информация о технике</h3>
-      <button onclick="closeViewEquipmentModal()" class="modal-close">✕</button>
-    </div>
-    <div id="viewEquipmentBody">
-      <!-- Заполняется через JS -->
-    </div>
-  </div>
-</div>
