@@ -58,6 +58,7 @@ const ACTION_NAMES = {
   'cell_create': '📦 Создание ячейки',
   'cell_update': '📦 Редактирование ячейки',
   'cell_delete': '📦 Удаление ячейки',
+  'system_backup': '📦 Бэкап БД',          // 🆕 5.11.5
 };
 
 async function renderLogs(req, res) {

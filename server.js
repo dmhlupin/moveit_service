@@ -15,6 +15,11 @@ const renderDashboard = require('./routes/dashboard');
 const { renderPdfList, renderPdfFile } = require('./routes/pdf');
 const renderEquipmentDashboard = require('./routes/equipment');
 
+const { 
+  renderSettings, 
+  downloadBackupAPI 
+} = require('./routes/settings');
+
 const {
   // Страницы
   renderManage,
@@ -378,6 +383,13 @@ app.get('/admin/logs', requireAdmin, renderLogs);
 app.get('/api/admin/logs', requireAdmin, getLogsAPI);
 app.get('/api/admin/logs/stats', requireAdmin, getLogsStatsAPI);
 app.post('/api/admin/logs/clean', requireAdmin, cleanLogsAPI);
+
+// ============================================
+// БЭКАП БД (только admin)
+// ============================================
+
+app.get('/admin/settings', requireAdmin, renderSettings);
+app.get('/api/admin/backup/download', requireAdmin, downloadBackupAPI);
 
 // ============================================
 // СПРАВОЧНИК (просмотр — admin + supervisor + mol; правка — admin + mol)

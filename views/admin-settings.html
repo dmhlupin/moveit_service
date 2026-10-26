@@ -1,0 +1,38 @@
+<!-- views/admin-settings.html -->
+<!-- 5.11.5: Системные настройки — бэкап базы. -->
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">⚙️ Системные настройки</h1>
+    <div class="page-subtitle">Резервное копирование базы данных</div>
+  </div>
+  <div class="page-actions">
+    <a href="/manage" class="btn btn-ghost btn-sm">← Админ-панель</a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h2 class="card-title">📦 Резервное копирование</h2>
+  </div>
+  <div class="card-body">
+    <p style="color: var(--text-secondary); margin-bottom: var(--space-md);">
+      Скачать полную копию базы данных (<code>database.db</code>).
+      Копия создаётся на лету (SQLite <code>.backup()</code>) — сервер
+      останавливать не нужно.
+    </p>
+
+    <button onclick="downloadBackup()" class="btn btn-primary" id="backupBtn">
+      📥 Скачать бэкап базы
+    </button>
+
+    <div id="backupResult" style="margin-top: var(--space-md);"></div>
+
+    <hr style="margin: var(--space-lg) 0; border: none; border-top: 1px solid var(--border);">
+
+    <p style="color: var(--text-muted); font-size: var(--text-sm);">
+      💡 <strong>Восстановление:</strong> остановите сервер, замените
+      <code>data/database.db</code> на скачанный файл, запустите сервер.
+    </p>
+  </div>
+</div>
