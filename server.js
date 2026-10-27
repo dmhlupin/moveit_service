@@ -10,7 +10,7 @@ const { db, closeDatabase } = require('./database/db');
 // ИМПОРТ РОУТОВ
 // ============================================
 
-const renderUsers = require('./routes/users');
+
 const renderDashboard = require('./routes/dashboard');
 const { renderPdfList, renderPdfFile } = require('./routes/pdf');
 const renderEquipmentDashboard = require('./routes/equipment');
@@ -312,11 +312,10 @@ app.post('/api/profile/update', requireAuth, updateProfileAPI);
 // ОСНОВНЫЕ РОУТЫ
 // ============================================
 // Дашборд, ТМЦ — read-only для admin + supervisor + mol.
-// /users — read-only только для admin + supervisor (у МОЛ нет
-//          прав на список пользователей).
+
 app.get('/',          requireRole(['admin', 'supervisor', 'mol']), renderDashboard);
 app.get('/equipment', requireRole(['admin', 'supervisor', 'mol']), renderEquipmentDashboard);
-app.get('/users',     requireSupervisor, renderUsers);
+
 app.get('/pdf',        requireAuth, renderPdfList);
 app.get('/pdf/:filename', requireAuth, renderPdfFile);
 

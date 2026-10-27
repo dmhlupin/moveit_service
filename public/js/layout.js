@@ -143,10 +143,6 @@ function highlightActiveSection() {
     else if (path === '/admin/users' || path.startsWith('/admin/users/')) {
         activePage = 'admin-users';
     }
-    // 🆕 Пользователи (read-only, admin + supervisor)
-    else if (path === '/users' || path.startsWith('/users/')) {
-        activePage = 'users';
-    }
     // Конкретные /admin/*
     else if (path === '/admin/warehouses' || path.startsWith('/admin/warehouses/')) {
         activePage = 'warehouses';

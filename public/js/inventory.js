@@ -74,11 +74,55 @@ function initInventoryTabs() {
 }
 
 // ============================================================
+// 5.12: ПЕРЕКЛЮЧАТЕЛЬ ТАБЛИЦА / КАРТОЧКИ (вкладка «Пользователи»)
+// ============================================================
+
+const USER_VIEW_KEY = 'inventoryUsersView';   // localStorage
+
+function switchUserView(view, event) {
+    if (view !== 'table' && view !== 'cards') view = 'table';
+
+    // Кнопки
+    document.querySelectorAll('.view-toggle-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.view === view);
+    });
+
+    // Контейнеры
+    const tableEl = document.getElementById('usersTableContainer');
+    const cardsEl = document.getElementById('usersCardsContainer');
+    if (tableEl) tableEl.style.display = (view === 'table') ? '' : 'none';
+    if (cardsEl) cardsEl.style.display = (view === 'cards') ? '' : 'none';
+
+    // Поиск — только для таблицы
+    const searchWrap = document.getElementById('usersSearchWrap');
+    if (searchWrap) searchWrap.style.display = (view === 'table') ? '' : 'none';
+
+    // localStorage
+    try { localStorage.setItem(USER_VIEW_KEY, view); } catch (e) {}
+
+    // Если переключились на таблицу — применить текущий поиск
+    if (view === 'table') {
+        const input = document.getElementById('usersSearchInput');
+        if (input && input.value) filterUsersTable(input.value);
+    }
+}
+
+function initUserView() {
+    let view = 'table';
+    try {
+        const saved = localStorage.getItem(USER_VIEW_KEY);
+        if (saved === 'table' || saved === 'cards') view = saved;
+    } catch (e) {}
+    switchUserView(view);
+}
+
+// ============================================================
 // ИНИЦИАЛИЗАЦИЯ
 // ============================================================
 
 document.addEventListener('DOMContentLoaded', async function() {
     initInventoryTabs();              // 🆕 5.11.4
+    initUserView();                   // 5.12
     await loadSummary();
     await loadTotals();
     await loadSpecialSummary();
@@ -261,10 +305,13 @@ function renderOfficeCard(o) {
 // ============================================================
 
 async function loadUsersSummary() {
-    const container = document.getElementById('usersSummary');
-    if (!container) return;
+    const tableEl = document.getElementById('usersTableContainer');
+    const cardsEl = document.getElementById('usersCardsContainer');
+    if (!tableEl && !cardsEl) return;
 
-    container.innerHTML = '<div class="loading-block">⏳ Загрузка...</div>';
+    const loadingHtml = '<div class="loading-block">⏳ Загрузка...</div>';
+    if (tableEl) tableEl.innerHTML = loadingHtml;
+    if (cardsEl) cardsEl.innerHTML = loadingHtml;
 
     try {
         const response = await fetch('/api/admin/inventory/users-summary');
@@ -276,32 +323,107 @@ async function loadUsersSummary() {
         renderUsersSummary();
     } catch (error) {
         console.error('❌ Ошибка загрузки сводки по пользователям:', error);
-        container.innerHTML = `
+        const errHtml = `
             <div class="empty-state">
                 <span class="emoji">❌</span>
                 <h3>Ошибка загрузки</h3>
                 <p>Не удалось получить сводку по пользователям</p>
             </div>
         `;
+        if (tableEl) tableEl.innerHTML = errHtml;
+        if (cardsEl) cardsEl.innerHTML = errHtml;
     }
 }
 
 function renderUsersSummary() {
-    const container = document.getElementById('usersSummary');
-    if (!container) return;
+    const tableEl = document.getElementById('usersTableContainer');
+    const cardsEl = document.getElementById('usersCardsContainer');
 
     if (usersSummary.length === 0) {
-        container.innerHTML = `
+        const emptyHtml = `
             <div class="empty-state">
                 <span class="emoji">📭</span>
                 <h3>Нет пользователей с активной техникой</h3>
                 <p>Назначьте технику пользователям в /manage</p>
             </div>
         `;
+        if (tableEl) tableEl.innerHTML = emptyHtml;
+        if (cardsEl) cardsEl.innerHTML = emptyHtml;
         return;
     }
 
-    container.innerHTML = usersSummary.map(u => renderUserCard(u)).join('');
+    if (tableEl) tableEl.innerHTML = renderUsersTable();
+    if (cardsEl) cardsEl.innerHTML = usersSummary.map(u => renderUserCard(u)).join('');
+}
+
+function renderUsersTable() {
+    const rows = usersSummary.map(u => {
+        const initials = typeof getInitials === 'function'
+            ? getInitials(u.full_name || u.username)
+            : (u.username || '?').slice(0, 2).toUpperCase();
+        const count = u.active_equipment_count || 0;
+
+        // 5.12: строка для клиентского поиска
+        const searchHaystack = [
+            u.full_name,
+            u.username,
+            u.department,
+            u.email,
+        ].filter(Boolean).join(' ').toLowerCase();
+
+        return `
+            <tr class="equipment-row-link" data-search="${escapeHtml(searchHaystack)}" 
+                onclick="openUserDetail(${u.id})">
+                <td>
+                    <div class="user-table-cell">
+                        <span class="user-table-avatar">${escapeHtml(initials)}</span>
+                        <div class="user-table-info">
+                            <div class="user-table-name">${escapeHtml(u.full_name || u.username)}</div>
+                            <div class="user-table-login">@${escapeHtml(u.username)}</div>
+                        </div>
+                    </div>
+                </td>
+                <td>${escapeHtml(u.department || '—')}</td>
+                <td>
+                    <span class="user-table-count">${count}</span>
+                </td>
+                <td>
+                    <button onclick="event.stopPropagation(); openUserDetail(${u.id})" 
+                            class="btn btn-primary btn-sm">📋 Открыть</button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    return `
+        <table class="inventory-table">
+            <thead>
+                <tr>
+                    <th>Пользователь</th>
+                    <th>Отдел</th>
+                    <th style="width: 100px; text-align: center;">Техника</th>
+                    <th style="width: 140px; text-align: right;">Действия</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>
+    `;
+}
+
+function filterUsersTable(query) {
+    const table = document.querySelector('#usersTableContainer table');
+    if (!table) return;
+
+    const q = (query || '').trim().toLowerCase();
+    const rows = table.querySelectorAll('tbody tr');
+
+    rows.forEach(row => {
+        // Пропускаем строку с пустым состоянием
+        if (row.querySelector('.empty-state')) return;
+
+        const haystack = (row.dataset.search || '').toLowerCase();
+        row.style.display = (!q || haystack.includes(q)) ? '' : 'none';
+    });
 }
 
 function renderUserCard(u) {
@@ -310,17 +432,20 @@ function renderUserCard(u) {
         ? getInitials(u.full_name || u.username)
         : (u.username || '?').slice(0, 2).toUpperCase();
 
+    const fullName = u.full_name || u.username;
+    const login = u.username ? `@${u.username}` : '';
+    const dept = u.department ? ` · ${u.department}` : '';
+
     return `
         <div class="warehouse-summary-card user-summary-card" onclick="openUserDetail(${u.id})">
             <div class="ws-header">
                 <div class="ws-title">
                     <div class="ws-name">
                         <span class="user-summary-avatar">${escapeHtml(initials)}</span>
-                        ${escapeHtml(u.full_name || u.username)}
-                    </div>
-                    <div class="ws-address">
-                        @${escapeHtml(u.username)}
-                        ${u.department ? ` · ${escapeHtml(u.department)}` : ''}
+                        <div class="user-summary-name-text">
+                            <div>${escapeHtml(fullName)}</div>
+                            <div class="user-summary-login">${escapeHtml(login)}${escapeHtml(dept)}</div>
+                        </div>
                     </div>
                 </div>
             </div>

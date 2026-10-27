@@ -127,10 +127,26 @@
         <div class="section-header">
             <h2>👥 Сводка по пользователям</h2>
             <div class="section-actions">
+                <div class="users-search" id="usersSearchWrap">
+                    <input type="text" id="usersSearchInput"
+                        placeholder="🔍 Поиск по ФИО / логину / отделу..."
+                        oninput="filterUsersTable(this.value)">
+                </div>
+                <div class="view-toggle">
+                    <button class="view-toggle-btn active" data-view="table"
+                            onclick="switchUserView('table', event)">📋 Таблица</button>
+                    <button class="view-toggle-btn" data-view="cards"
+                            onclick="switchUserView('cards', event)">🗂️ Карточки</button>
+                </div>
                 <button onclick="loadUsersSummary()" class="btn btn-ghost btn-sm">🔄 Обновить</button>
             </div>
         </div>
-        <div id="usersSummary" class="users-summary">
+
+        <div id="usersTableContainer">
+            <div class="loading-block">⏳ Загрузка...</div>
+        </div>
+
+        <div id="usersCardsContainer" class="users-summary" style="display: none;">
             <div class="loading-block">⏳ Загрузка...</div>
         </div>
     </div>
