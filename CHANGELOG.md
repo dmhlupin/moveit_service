@@ -1,5 +1,156 @@
 # История изменений
 
+## [5.13] - 2026-10-27
+
+**🎉 Этап 5.13: удалён раздел `/equipment` (ТМЦ) — дублирует `/manage`**
+
+`/equipment` («ТМЦ») дублировал `/manage` («Учёт ТМЦ») по данным и
+функциям. Роль `/equipment` выполняет `/manage` (с фильтрами,
+пагинацией, сортировкой, групповым перемещением). Раздел удалён,
+все ссылки перенаправлены на `/manage`.
+
+### Удалено
+
+- `routes/equipment.js` (`renderEquipmentDashboard`);
+- `views/equipment.html`;
+- `public/js/equipment-filter.js`;
+- `public/css/equipment.css`.
+
+### Изменено
+
+- **`server.js`** — убран `require('./routes/equipment')` +
+  `app.get('/equipment', ...)`.
+- **`views/partials/sidebar.html`** — убран пункт «📦 ТМЦ»
+  (admin / supervisor / mol).
+- **`public/js/layout.js`** — убран `activePage = 'equipment'`;
+  убран `loadCounters` (бейдж `#equipmentCount` больше не существует).
+- **`views/dashboard.html`** — 6 ссылок `/equipment[?status=...]` →
+  `/manage[?status=...]`:
+  * «Всего техники» → `/manage`;
+  * «Доступно» → `/manage?status=available`;
+  * «Назначено» → `/manage?status=assigned`;
+  * «В ремонте» → `/manage?status=maintenance`;
+  * «Списано» → `/manage?status=retired`.
+- **`public/js/inventory.js` → `renderSpecialCard`** — 2 ссылки
+  `/equipment` → `/manage`:
+  * «В ремонте / Списано» (итог) → `/manage?status=...`;
+  * «По складам» → `/manage?status=...&warehouse_id=...`.
+- **`routes/manage/pages.js` → `renderManage`** — добавлен
+  `filters.warehouse_id` (`getEquipmentWithLocation` уже принимает
+  `warehouse_id`) — чтобы ссылки
+  `/manage?status=...&warehouse_id=...` работали (виртуальные склады).
+- **`routes/dashboard.js` → `cardUsers`** — `href="/users"` →
+  `"/admin/inventory#users"` (если ещё оставалось после 5.12).
+- **`scripts/check-css.js`** — убраны `equipment.css` / `equipment.html`
+  из проверки (файлы удалены).
+
+### Документация
+
+- `README.md` — убран раздел про `/equipment`, обновлена таблица прав.
+- `CHANGELOG.md` — этот раздел.
+- `techdebt.md` — закрыт пункт «переработка наполнения разделов»
+  (`/equipment` vs `/manage` — удалением `/equipment`). «Отчёты в Обзор»
+  остаётся отдельным пунктом.
+
+### Проверено
+
+- `/equipment` → 404.
+- `/manage?status=maintenance` — работает (фильтр по статусу).
+- `/manage?status=maintenance&warehouse_id=1` — работает
+  (виртуальные склады).
+- Дашборд — карточки ведут на `/manage?status=...`.
+- Инвентаризация → виртуальные склады — ссылки на `/manage?status=...`.
+- Sidebar — нет «📦 ТМЦ».
+- `npm run check-roles` / `npm run check-css` — зелёные.
+
+### Теги
+
+- **v5.13 — удалён раздел `/equipment` (этот)**
+
+---
+
+## [5.12] - 2026-10-27
+
+**🎉 Этап 5.12: удалена `/users`, `/admin/inventory#users` — таблица/карточки + поиск**
+
+Удалена устаревшая `/users` (дублировала `/admin/inventory#users`).
+В `/admin/inventory` → вкладка «Пользователи» — переключатель
+«Таблица / Карточки» + клиентский поиск. Карточки компактнее,
+кнопки на одном уровне.
+
+### Удалено
+
+- `routes/users.js` (`renderUsers`);
+- `views/users.html`;
+- `public/js/users.js` (клиентский поиск);
+- `public/css/users.css`.
+
+### Изменено
+
+- **`server.js`** — убран `require('./routes/users')` +
+  `app.get('/users', requireSupervisor, renderUsers)`.
+- **`views/partials/sidebar.html`** — убраны пункты «Пользователи»
+  (admin + supervisor).
+- **`public/js/layout.js`** — убран `activePage = 'users'`.
+- **`scripts/check-css.js`** — убраны `users.css` / `users.html` из проверки.
+
+### `/admin/inventory` → вкладка «Пользователи»
+
+- **Переключатель** «📋 Таблица / 🗂️ Карточки»:
+  * `views/admin-inventory.html` — два контейнера
+    (`#usersTableContainer` / `#usersCardsContainer`) + `.view-toggle`;
+  * `public/js/inventory.js` — `switchUserView(view)` (localStorage
+    `inventoryUsersView`), `initUserView()`;
+  * `loadUsersSummary` / `renderUsersSummary` — рендерят оба контейнера;
+  * `renderUsersTable()` — новая (Пользователь / Отдел / Техника /
+    Действия, строки кликабельные → `openUserDetail`).
+- **Компактные карточки** (5.12.1):
+  * `.users-summary`: `minmax(320px → 260px)`, ~20% компактнее;
+  * `.user-summary-card`: `flex-column`, `min-height: 180px`,
+    `padding` меньше;
+  * `.ws-actions`: `margin-top: auto` — кнопки прижаты к низу
+    (не «пляшут»);
+  * `.user-summary-avatar`: 28 → 32px;
+  * `.user-summary-name-text` / `.user-summary-login` — новые классы
+    (аватар + имя в одной строке, логин/отдел под именем, ellipsis);
+  * `.user-summary-count-number`: 28 → 22px;
+  * `renderUserCard` — две строки (имя + логин/отдел).
+- **Поиск по таблице** (5.12.2):
+  * `views/admin-inventory.html` — поле `#usersSearchInput`
+    (`oninput="filterUsersTable(this.value)"`), обёрнуто в `#usersSearchWrap`;
+  * `public/js/inventory.js` — `filterUsersTable(query)` (по `data-search`:
+    ФИО / логин / отдел / email, case-insensitive);
+  * `renderUsersTable` — `data-search` в `<tr>`;
+  * `switchUserView` — скрывает/показывает `#usersSearchWrap`
+    (поиск только для таблицы), при возврате применяет текущий поиск;
+  * `public/css/inventory.css` — `.users-search` + `input`.
+
+### Модалка пользователя (`/admin/inventory`)
+
+Своя, независимая от `/admin/users`. В inventory может обрастать
+новыми функциями, не нужными админу. Уже включает: активная техника
+(таблица, кликабельные строки → карточка техники); история (таблица,
+«Выдал», «МОЛ»); статистика (активных / всего / возвратов).
+
+### Проверено
+
+- `/users` → 404, sidebar без «Пользователи».
+- `/admin/inventory#users` под admin / supervisor / mol:
+  * по умолчанию — таблица (4 колонки: Пользователь / Отдел / Техника /
+    Действия);
+  * строки кликабельны → модалка;
+  * переключатель «Таблица / Карточки» работает, F5 сохраняет вид
+    (`localStorage`);
+  * поиск фильтрует строки мгновенно (ФИО / логин / отдел / email);
+  * карточки — компактные, кнопки на одном уровне.
+- `npm run check-roles` / `npm run check-css` — зелёные.
+
+### Теги
+
+- **v5.12 — удалена `/users`, `/admin/inventory#users` — таблица/карточки + поиск (этот)**
+
+---
+
 ## [5.11.0] - 2026-10-26
 
 **🎉 Этап 5.11 завершён: чистота слоёв + «Выдал» + карточка на /admin/catalog + 4 вкладки + бэкап БД**
