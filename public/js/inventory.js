@@ -495,7 +495,7 @@ function renderSpecialCard(key, bucket, icon, title, statusSlug) {
         warehouseList = `<div class="special-empty">Нет техники на складах</div>`;
     } else {
         warehouseList = byWarehouse.map(w => `
-            <a href="/equipment?status=${statusSlug}&warehouse_id=${w.warehouse_id}"
+            <a href="/manage?status=${statusSlug}&warehouse_id=${w.warehouse_id}"
                class="special-warehouse-link"
                title="Показать всю технику этого статуса на складе «${escapeHtml(w.warehouse_name)}»">
                 <span class="special-warehouse-name">🏢 ${escapeHtml(w.warehouse_name)}</span>
@@ -514,7 +514,7 @@ function renderSpecialCard(key, bucket, icon, title, statusSlug) {
             </div>
 
             <div class="special-card-total">
-                <a href="/equipment?status=${statusSlug}" class="special-total-link">
+                <a href="/manage?status=${statusSlug}" class="special-total-link">
                     <span class="special-total-number">${total}</span>
                     <span class="special-total-label">единиц</span>
                 </a>

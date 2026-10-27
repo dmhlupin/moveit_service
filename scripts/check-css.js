@@ -451,27 +451,7 @@ const placeholderChecks = [
                '{{total_cells}}', '{{equipment_on_stock}}'],
   },
 
-  {
-    file: 'equipment.html',
-    expected: [
-              'id="filterCategory"', 'id="filterType"', 'id="filterWarehouse"',
-              'id="filterWorkplace"',
-              'id="filterStatus"', 'id="equipmentTableBody"',
-              'id="viewEquipmentModal"', 'id="viewEquipmentBody"',
-              '{{category_options}}', '{{type_options}}',           // 🆕
-              '{{warehouse_options}}',
-              '{{workplace_options}}',
-              '{{status_options}}',                                 // 🆕
-              '{{search_value}}',                                   // 🆕
-              '{{equipment_rows}}',
-              '{{pagination}}',                                     // 🆕
-              '{{placed_equipment}}',
-              '{{unplaced_equipment}}',
-              'onchange="applyFilters()"',
-              'onclick="resetFilters()"',
-              'onclick="filterUnplaced()"',                         // 🆕
-    ],
-  },
+
   {
     file: 'admin-warehouse-details.html',
     expected: ['id="pageData"', 'id="warehouseSubtitle"', 'id="warehouseBadges"',

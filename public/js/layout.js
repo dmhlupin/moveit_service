@@ -130,9 +130,6 @@ function highlightActiveSection() {
     if (path === '/') {
         activePage = 'dashboard';
     }
-    else if (path === '/equipment' || path.startsWith('/equipment/')) {
-        activePage = 'equipment';
-    }
     else if (path === '/profile') {
         activePage = 'profile';
     }

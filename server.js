@@ -13,7 +13,6 @@ const { db, closeDatabase } = require('./database/db');
 
 const renderDashboard = require('./routes/dashboard');
 const { renderPdfList, renderPdfFile } = require('./routes/pdf');
-const renderEquipmentDashboard = require('./routes/equipment');
 
 const { 
   renderSettings, 
@@ -314,7 +313,6 @@ app.post('/api/profile/update', requireAuth, updateProfileAPI);
 // Дашборд, ТМЦ — read-only для admin + supervisor + mol.
 
 app.get('/',          requireRole(['admin', 'supervisor', 'mol']), renderDashboard);
-app.get('/equipment', requireRole(['admin', 'supervisor', 'mol']), renderEquipmentDashboard);
 
 app.get('/pdf',        requireAuth, renderPdfList);
 app.get('/pdf/:filename', requireAuth, renderPdfFile);

@@ -40,7 +40,7 @@ async function renderDashboard(req, res) {
 
     // Карточка «Пользователей» — admin, supervisor
     const cardUsers = (role === 'admin' || role === 'supervisor')
-      ? `<a href="/users" class="stat-card">
+      ? `<a href="/admin/inventory#users" class="stat-card">
             <span class="icon">👥</span>
             <div class="number">${stats.active_users || 0}</div>
             <div class="label">Пользователей</div>

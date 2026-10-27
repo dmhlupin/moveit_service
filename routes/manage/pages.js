@@ -59,6 +59,7 @@ async function renderManage(req, res) {
       only_mine:    q.only_mine === '1',   // 🆕 5.6.3
       sort, order,
       limit: pageSize, offset, include_total: true,
+      warehouse_id: q.warehouse_id ? parseInt(q.warehouse_id, 10) : null,   // 🆕 5.13
     };
 
     const [stats, result, categories, types, mols] = await Promise.all([
