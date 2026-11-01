@@ -343,8 +343,9 @@
 
 .manage-table th.th-model,
 .manage-table td.th-model {
-    width: 200px;
-    max-width: 200px;
+    min-width: 240px;      /* больше 200 */
+    max-width: 240px;
+    width: 240px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -452,4 +453,10 @@
     padding-top: var(--space-xs);
     margin-top: var(--space-xs);
     border-top: 1px solid var(--border);
+}
+
+/* 5.11.3.2: table-layout: fixed — фиксированные ширины колонок */
+.manage-table {
+    table-layout: fixed;
+    width: 100%;
 }

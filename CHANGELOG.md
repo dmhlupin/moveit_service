@@ -151,6 +151,28 @@
 
 ---
 
+## [5.11.3-hotfix] - 2026-11-01
+
+**🎛️ `/manage` (таблица) + Auth UI + фиксы (параллельно с 5.11.3 «catalog»)**
+
+- **`/manage`** — колонка «Описание», фильтр «Без места хранения»,
+  sticky-заголовки (`<thead>` + `.table-container`), управление
+  видимостью колонок (⚙️ + `localStorage`), `table-layout: fixed`
+  + фикс «Модель» (240px).
+- **`/manage`** — рефакторинг `renderManage` (`getManageColumns`,
+  `renderTableHead`, `renderEquipmentRow`, `renderEmptyRow`).
+- **Auth UI** — `/login` и `/change-password` на `theme.css`, без
+  эмодзи и «глаз», инициалы пользователя, 4 роли.
+- **Фиксы:** `createUserWithPassword`, «последний админ»
+  (`newRole !== 'admin'`), назначение техники под МОЛом
+  (`/api/manage/users-for-assign`), пустая «Активная техника»
+  (`responsible_user_id` в SELECT), «Выдал» (`assigned_by_user_id`).
+
+Теги: v5.11.3, v5.11.3.2, v5.11.3.3 (в git — «параллельные» к 5.11.3
+«catalog»; в README/CHANGELOG — разведены как 5.11.3-hotfix).
+
+---
+
 ## [5.11.0] - 2026-10-26
 
 **🎉 Этап 5.11 завершён: чистота слоёв + «Выдал» + карточка на /admin/catalog + 4 вкладки + бэкап БД**

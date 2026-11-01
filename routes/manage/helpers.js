@@ -143,26 +143,24 @@ function getManageColumns(currentRole) {
   if (showCheckbox) {
     cols.push({
       key: 'checkbox',
-      th: '<th style="width: 40px; text-align: center;">'
-        + '<input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)">'
-        + '</th>',
-      td: null,   // ячейка формируется в renderEquipmentRow отдельно (disabled для locked)
+      width: '40px',
+      th: '<th style="width: 40px; text-align: center;">...'
     });
   }
 
-  cols.push({ key: 'id',         th: null, td: 'id' });          // th через sortableTh
-  cols.push({ key: 'inventory',  th: null, td: 'inventory' });
-  cols.push({ key: 'model',      th: null, td: 'model',      cls: 'th-model' });
-  cols.push({ key: 'corporate',  th: null, td: 'corporate' });
-  cols.push({ key: 'category',   th: null, td: 'category' });
-  cols.push({ key: 'type',       th: null, td: 'type' });
-  cols.push({ key: 'description', th: '<th class="th-description">Описание</th>', td: 'description' });
-  cols.push({ key: 'location',   th: null, td: 'location' });
-  cols.push({ key: 'status',     th: null, td: 'status' });
-  cols.push({ key: 'assigned',   th: '<th style="width: 170px;">Назначена</th>', td: 'assigned' });
+  cols.push({ key: 'id',         width: '60px',  th: null, td: 'id' });
+  cols.push({ key: 'inventory',  width: '130px', th: null, td: 'inventory' });
+  cols.push({ key: 'model',      width: '240px', th: null, td: 'model',      cls: 'th-model' });
+  cols.push({ key: 'corporate',  width: '120px', th: null, td: 'corporate' });
+  cols.push({ key: 'category',   width: '140px', th: null, td: 'category' });
+  cols.push({ key: 'type',       width: '140px', th: null, td: 'type' });
+  cols.push({ key: 'description', width: '240px', th: '<th class="th-description">Описание</th>', td: 'description' });
+  cols.push({ key: 'location',   width: '180px', th: null, td: 'location' });
+  cols.push({ key: 'status',     width: '130px', th: null, td: 'status' });
+  cols.push({ key: 'assigned',   width: '170px', th: '<th style="width: 170px;">Назначена</th>', td: 'assigned' });
 
   if (showResponsible) {
-    cols.push({ key: 'responsible', th: null, td: 'responsible' });
+    cols.push({ key: 'responsible', width: '160px', th: null, td: 'responsible' });
   }
 
   return cols;
@@ -190,10 +188,18 @@ function renderTableHead(cols, th) {
         default: return '';
       }
     }
+    // 5.11.3.2: data-col + width
+    const widthStyle = c.width ? ` style="width: ${c.width}"` : '';
     if (inner.startsWith('<th')) {
-      return inner.replace('<th', `<th data-col="${c.key}"`);
+      // replace('<th', ...) вставляет атрибуты сразу после <th
+      // при этом style уже может быть внутри inner — тогда объединим
+      if (inner.includes('style=')) {
+        // если style уже есть (checkbox, assigned, description) — оставляем
+        return inner.replace('<th', `<th data-col="${c.key}"`);
+      }
+      return inner.replace('<th', `<th data-col="${c.key}"${widthStyle}`);
     }
-    return `<th data-col="${c.key}">${inner}</th>`;
+    return `<th data-col="${c.key}"${widthStyle}>${inner}</th>`;
   }).join('\n');
 }
 
