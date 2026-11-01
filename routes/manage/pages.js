@@ -157,6 +157,7 @@ async function renderManage(req, res) {
         '/js/manage/bulk-actions.js',
         '/js/manage/filters.js',
         '/js/manage/init.js',
+        '/js/manage/columns.js',   // 🆕 5.11.3.2
       ],
     });
 

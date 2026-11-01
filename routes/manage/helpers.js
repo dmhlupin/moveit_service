@@ -175,19 +175,25 @@ function getManageColumns(currentRole) {
  */
 function renderTableHead(cols, th) {
   return cols.map(c => {
-    if (c.th) return c.th;
-    switch (c.key) {
-      case 'id':         return th('id', 'ID');
-      case 'inventory':  return th('inventory_number', 'Инв. №');
-      case 'model':      return th('model_name', 'Модель', 'th-model');
-      case 'corporate':  return th('corporate_id', 'Корп. ИД');
-      case 'category':   return th('category', 'Категория');
-      case 'type':       return th('type', 'Тип');
-      case 'location':   return th('location', 'Место хранения');
-      case 'status':     return th('status', 'Статус');
-      case 'responsible': return th('responsible', 'Ответственный МОЛ');
-      default: return '';
+    let inner = c.th;
+    if (!inner) {
+      switch (c.key) {
+        case 'id':          inner = th('id', 'ID'); break;
+        case 'inventory':   inner = th('inventory_number', 'Инв. №'); break;
+        case 'model':       inner = th('model_name', 'Модель', 'th-model'); break;
+        case 'corporate':   inner = th('corporate_id', 'Корп. ИД'); break;
+        case 'category':    inner = th('category', 'Категория'); break;
+        case 'type':        inner = th('type', 'Тип'); break;
+        case 'location':    inner = th('location', 'Место хранения'); break;
+        case 'status':      inner = th('status', 'Статус'); break;
+        case 'responsible': inner = th('responsible', 'Ответственный МОЛ'); break;
+        default: return '';
+      }
     }
+    if (inner.startsWith('<th')) {
+      return inner.replace('<th', `<th data-col="${c.key}"`);
+    }
+    return `<th data-col="${c.key}">${inner}</th>`;
   }).join('\n');
 }
 
@@ -203,33 +209,32 @@ function renderEquipmentRow(item, ctx) {
   return `
     <tr class="${ctx.rowClass}" onclick="openEquipmentCard(${item.id})">
       ${ctx.canBulkMove ? `
-        <td onclick="event.stopPropagation()" style="text-align: center;">
+        <td data-col="checkbox" onclick="event.stopPropagation()" style="text-align: center;">
           ${ctx.isLocked
             ? '<input type="checkbox" class="row-checkbox" disabled title="Техника закреплена за другим МОЛом — нельзя переместить" style="opacity: 0.3; cursor: not-allowed;">'
             : `<input type="checkbox" class="row-checkbox" value="${item.id}" onclick="event.stopPropagation(); updateSelectedCount()">`}
         </td>
       ` : ''}
-      <td>${item.id}</td>
-      <td>${ctx.lockIcon}<strong>${escapeHtml(item.inventory_number || '—')}</strong></td>
-      <td class="th-model" title="${escapeHtml(item.model_name || '')}">${escapeHtml(item.model_name || '—')}</td>
-      <td>${escapeHtml(item.model_corporate_id || '—')}</td>
-      <td>${ctx.categoryCell}</td>
-      <td>${ctx.typeCell}</td>
-      <td class="cell-description" title="${escapeHtml(item.description || '')}">${escapeHtml(item.description || '—')}</td>
-      <td>${ctx.cellInfo}</td>
-      <td><span class="status-badge ${ctx.statusClass}">${ctx.statusLabel}</span></td>
-      <td>${ctx.assignedInfo}</td>
-      ${ctx.responsibleCell}
+      <td data-col="id">${item.id}</td>
+      <td data-col="inventory">${ctx.lockIcon}<strong>${escapeHtml(item.inventory_number || '—')}</strong></td>
+      <td data-col="model" class="th-model" title="${escapeHtml(item.model_name || '')}">${escapeHtml(item.model_name || '—')}</td>
+      <td data-col="corporate">${escapeHtml(item.model_corporate_id || '—')}</td>
+      <td data-col="category">${ctx.categoryCell}</td>
+      <td data-col="type">${ctx.typeCell}</td>
+      <td data-col="description" class="cell-description" title="${escapeHtml(item.description || '')}">${escapeHtml(item.description || '—')}</td>
+      <td data-col="location">${ctx.cellInfo}</td>
+      <td data-col="status"><span class="status-badge ${ctx.statusClass}">${ctx.statusLabel}</span></td>
+      <td data-col="assigned">${ctx.assignedInfo}</td>
+      ${(ctx.responsibleCell || '').replace('<td>', '<td data-col="responsible">')}
     </tr>
   `;
 }
-
 /**
  * Пустая строка (ничего не найдено).
  */
 function renderEmptyRow(cols) {
   return `
-    <tr>
+    <tr class="empty-row">
       <td colspan="${cols.length}" style="text-align: center; padding: 40px; color: var(--text-muted);">
         <div style="font-size: 40px; margin-bottom: 10px;">🔍</div>
         <div>Ничего не найдено</div>

@@ -386,3 +386,70 @@
     background: var(--bg-tertiary);   /* важно: фон перекрывает строки под шапкой */
     /* иначе строки будут «просвечивать» под sticky-шапкой */
 }
+
+/* ============================================================
+   5.11.3.2: меню «Колонки»
+   ============================================================ */
+
+.columns-menu-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.columns-menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 4px);
+    z-index: 50;
+    min-width: 240px;
+    max-height: 360px;
+    overflow-y: auto;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    padding: var(--space-sm);
+}
+
+.columns-menu-title {
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    padding: var(--space-xs) var(--space-sm);
+    margin-bottom: var(--space-xs);
+    border-bottom: 1px solid var(--border);
+}
+
+.columns-menu-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    padding: var(--space-xs) var(--space-sm);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+    user-select: none;
+}
+
+.columns-menu-item:hover {
+    background: var(--bg-hover);
+}
+
+.columns-menu-item input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: var(--accent);
+    flex-shrink: 0;
+    cursor: pointer;
+}
+
+.columns-menu-actions {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: var(--space-xs);
+    margin-top: var(--space-xs);
+    border-top: 1px solid var(--border);
+}
