@@ -88,6 +88,12 @@
             {{filter_mol_options}}
         </select>
     </div>
+    <div class="filter-group filter-group--checkbox">
+        <label class="checkbox-label">
+            <input type="checkbox" id="filterUnplaced" value="1" {{filter_unplaced_checked}}>
+            <span>Без места хранения</span>
+        </label>
+    </div>
     {{filter_only_mine_block}}
     <div class="filter-group filter-group--narrow">
         <label>Показывать по</label>
@@ -126,21 +132,9 @@
             <a href="/manage/add" class="btn btn-success btn-sm">➕ Добавить технику</a>
         </div>
     </div>
-    <table>
+    <table class="manage-table">
         <thead>
-            <tr>
-                {{th_checkbox}}
-                {{th_id}}
-                {{th_inventory}}
-                {{th_model}}
-                {{th_corporate}}
-                {{th_category}}
-                {{th_type}}
-                {{th_location}}
-                {{th_status}}
-                {{th_assigned}}
-                {{th_responsible}}
-            </tr>
+            <tr>{{table_head}}</tr>
         </thead>
         <tbody id="equipmentTableBody">
             {{equipment_rows}}

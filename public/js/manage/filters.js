@@ -21,6 +21,9 @@ function applyFilters() {
     
     const onlyMine = document.getElementById('filterOnlyMine')?.value;
     if (onlyMine) params.set('only_mine', onlyMine);
+
+    const unplaced = document.getElementById('filterUnplaced')?.checked;
+    if (unplaced) params.set('unplaced', '1');
     
     if (pageSize) params.set('limit', pageSize);
 
@@ -34,6 +37,8 @@ function applyFilters() {
 }
 
 function resetFilters() {
+    const unplaced = document.getElementById('filterUnplaced');
+    if (unplaced) unplaced.checked = false;
     window.location.href = '/manage';
 }
 

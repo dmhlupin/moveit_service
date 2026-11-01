@@ -335,3 +335,54 @@
     font-size: 12px;
     opacity: 0.8;
 }
+
+/* ============================================================
+   5.11.3-fix: фикс ширины «Модель» / «Описание», чтобы высота
+   строк не «ползла» от длинных названий.
+   ============================================================ */
+
+.manage-table th.th-model,
+.manage-table td.th-model {
+    width: 200px;
+    max-width: 200px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.manage-table th.th-description {
+    width: 240px;
+}
+
+.manage-table td.cell-description {
+    max-width: 240px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ============================================================
+   5.11.3-view: таблица /manage — свой вертикальный скролл,
+   шапка таблицы sticky, пагинация вне скролла.
+   ============================================================ */
+
+.table-container {
+    /* ограничиваем высоту, чтобы таблица скроллилась внутри */
+    max-height: calc(100vh - 320px);   /* подгони: header + фильтры + пагинация */
+    overflow-y: auto;
+    overflow-x: auto;
+    /* закрепляем шапку таблицы */
+    position: relative;
+}
+
+.table-container thead {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--bg-tertiary);
+}
+
+.table-container thead th {
+    background: var(--bg-tertiary);   /* важно: фон перекрывает строки под шапкой */
+    /* иначе строки будут «просвечивать» под sticky-шапкой */
+}

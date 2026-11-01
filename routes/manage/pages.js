@@ -21,6 +21,10 @@ const {
   getInitials,
   sortableTh,
   renderManagePagination,
+  getManageColumns,
+  renderTableHead,
+  renderEquipmentRow,
+  renderEmptyRow,
 } = require('./helpers');
 
 // ============================================================
@@ -29,10 +33,12 @@ const {
 
 async function renderManage(req, res) {
   try {
-    const scope = { userId: req.session.userId, role: req.session.role };
-    const currentRole = req.session.role;
+    const currentRole = req.session.role || 'user';
+    const currentUserId = req.session.userId || 0;
+    const scope = { userId: currentUserId, role: currentRole };
     const q = req.query || {};
 
+    // ---------- Пагинация / сортировка ----------
     const ALLOWED_PAGE_SIZES = [10, 20, 50, 100];
     const DEFAULT_PAGE_SIZE = 10;
     const requestedLimit = parseInt(q.limit, 10);
@@ -48,6 +54,7 @@ async function renderManage(req, res) {
     const sort = ALLOWED_SORTS.includes(q.sort) ? q.sort : 'id';
     const order = (String(q.order).toLowerCase() === 'desc') ? 'desc' : 'asc';
 
+    // ---------- Фильтры ----------
     const filters = {
       category_id:  q.category_id  ? parseInt(q.category_id, 10)  : null,
       type_id:      q.type_id      ? parseInt(q.type_id, 10)      : null,
@@ -56,12 +63,14 @@ async function renderManage(req, res) {
       corporate_id: (q.corporate_id || '').trim() || null,
       model_name:   (q.model_name   || '').trim() || null,
       search:       (q.search       || '').trim() || null,
-      only_mine:    q.only_mine === '1',   // 🆕 5.6.3
+      only_mine:    q.only_mine === '1',
+      unplaced:     q.unplaced === '1' || q.unplaced === 'true',
+      warehouse_id: q.warehouse_id ? parseInt(q.warehouse_id, 10) : null,
       sort, order,
       limit: pageSize, offset, include_total: true,
-      warehouse_id: q.warehouse_id ? parseInt(q.warehouse_id, 10) : null,   // 🆕 5.13
     };
 
+    // ---------- Данные ----------
     const [stats, result, categories, types, mols] = await Promise.all([
       getStats(scope),
       getEquipmentWithLocation(filters, scope),
@@ -74,249 +83,58 @@ async function renderManage(req, res) {
     const totalFiltered = result.total || 0;
     const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
 
+    // ---------- Шаблон ----------
     const htmlPath = path.join(__dirname, '..', '..', 'views', 'manage.html');
     let html = fs.readFileSync(htmlPath, 'utf8');
 
-    // 🆕 5.8.1.4: партиал карточки техники (вынесен из manage.html)
     const partialPath = path.join(__dirname, '..', '..', 'views', 'partials', 'equipment-card.html');
     const equipmentCardPartial = fs.readFileSync(partialPath, 'utf8');
 
+    // ---------- Скаляры ----------
     html = html.replace(/\{\{total_equipment\}\}/g, stats.total_equipment || 0);
     html = html.replace(/\{\{available_equipment\}\}/g, stats.available_equipment || 0);
     html = html.replace(/\{\{assigned_equipment\}\}/g, stats.assigned_equipment || 0);
     html = html.replace(/\{\{total_users\}\}/g, stats.total_users || 0);
+    html = html.replace(/\{\{current_role\}\}/g, currentRole);
+    html = html.replace(/\{\{current_user_id\}\}/g, currentUserId);
 
-    html = html.replace(/\{\{current_role\}\}/g, currentRole || 'user');
-    html = html.replace(/\{\{current_user_id\}\}/g, req.session.userId || 0);
+    // ---------- page_actions ----------
+    html = html.replace('{{page_actions}}', buildPageActions(currentRole));
 
-    let pageActions = '';
-    if (currentRole === 'admin' || currentRole === 'supervisor') {
-      pageActions += `<a href="/admin/catalog" class="btn btn-ghost btn-sm" title="Управление категориями и типами">📚 Справочник</a>`;
-      pageActions += `<a href="/admin/warehouses" class="btn btn-ghost btn-sm" title="Управление складами">🏢 Склады</a>`;
-      pageActions += `<a href="/admin/inventory" class="btn btn-ghost btn-sm" title="Инвентаризация">📊 Инвентаризация</a>`;
-    }
-    if (currentRole === 'admin') {
-      pageActions += `<a href="/manage/import" class="btn btn-success btn-sm">📥 Импорт</a>`;
-      pageActions += `<a href="/admin/logs" class="btn btn-ghost btn-sm">📈 Логи</a>`;
-    }
-    html = html.replace('{{page_actions}}', pageActions);
-
-    const responsibleTh = (currentRole === 'admin' || currentRole === 'supervisor')
-      ? '<th style="width: 150px;">Ответственный МОЛ</th>'
-      : '';
-    html = html.replace('{{responsible_th}}', responsibleTh);
-
-    let categoryOptions = '<option value="">Все категории</option>';
-    categories.forEach(c => {
-      const sel = String(c.id) === String(filters.category_id) ? 'selected' : '';
-      categoryOptions += `<option value="${c.id}" ${sel}>${c.icon || '📁'} ${escapeHtml(c.name)}</option>`;
-    });
-    html = html.replace('{{filter_category_options}}', categoryOptions);
-
-    let typeOptions = '<option value="">Все типы</option>';
-    const filteredTypes = filters.category_id
-      ? types.filter(t => Number(t.category_id) === filters.category_id)
-      : types;
-    filteredTypes.forEach(t => {
-      const sel = String(t.id) === String(filters.type_id) ? 'selected' : '';
-      typeOptions += `<option value="${t.id}" ${sel}>${t.icon || '📦'} ${escapeHtml(t.name)}</option>`;
-    });
-    html = html.replace('{{filter_type_options}}', typeOptions);
-
-    let molOptions = '';
-    if (currentRole === 'admin') {
-      molOptions = '<option value="">Все МОЛы</option>';
-      mols.forEach(m => {
-        const sel = String(m.id) === String(filters.mol_id) ? 'selected' : '';
-        molOptions += `<option value="${m.id}" ${sel}>${escapeHtml(m.full_name || m.username)}</option>`;
-      });
-    }
-    html = html.replace('{{filter_mol_options}}', molOptions);
-
-    // 🆕 5.6.3: селект «Показать: все / свои» — только для МОЛа
-    let onlyMineBlock = '';
-    if (currentRole === 'mol') {
-      const onlyMineOptions = `
-        <option value="">Все ТМЦ</option>
-        <option value="1" ${filters.only_mine ? 'selected' : ''}>Только мои</option>
-      `;
-      onlyMineBlock = `
-        <div class="filter-group">
-          <label>Показать</label>
-          <select id="filterOnlyMine">
-            ${onlyMineOptions}
-          </select>
-        </div>
-      `;
-    }
-    html = html.replace('{{filter_only_mine_block}}', onlyMineBlock);
+    // ---------- Фильтры: опции ----------
+    html = html.replace('{{filter_category_options}}', buildCategoryOptions(categories, filters.category_id));
+    html = html.replace('{{filter_type_options}}',     buildTypeOptions(types, filters));
+    html = html.replace('{{filter_mol_options}}',      buildMolOptions(mols, filters, currentRole));
+    html = html.replace('{{filter_only_mine_block}}',  buildOnlyMineBlock(filters, currentRole));
 
     html = html.replace(/\{\{filter_corporate_id\}\}/g, escapeHtml(filters.corporate_id || ''));
-    html = html.replace(/\{\{filter_model_name\}\}/g, escapeHtml(filters.model_name || ''));
-    html = html.replace(/\{\{filter_search\}\}/g, escapeHtml(filters.search || ''));
+    html = html.replace(/\{\{filter_model_name\}\}/g,   escapeHtml(filters.model_name || ''));
+    html = html.replace(/\{\{filter_search\}\}/g,       escapeHtml(filters.search || ''));
+    html = html.replace(/\{\{filter_unplaced_checked\}\}/g, filters.unplaced ? 'checked' : '');
 
-    let pageSizeOptions = '';
-    ALLOWED_PAGE_SIZES.forEach(size => {
-      const sel = size === pageSize ? 'selected' : '';
-      pageSizeOptions += `<option value="${size}" ${sel}>${size}</option>`;
-    });
-    html = html.replace('{{page_size_options}}', pageSizeOptions);
+    html = html.replace('{{page_size_options}}', buildPageSizeOptions(ALLOWED_PAGE_SIZES, pageSize));
 
-    const th = (col, label) => sortableTh(col, label, sort, order, q);
+    // ---------- Таблица: колонки / шапка / строки ----------
+    const cols = getManageColumns(currentRole);
+    const th = (col, label, extraClass) => sortableTh(col, label, sort, order, q, extraClass || '');
 
-    const thCheckbox = (currentRole === 'admin' || currentRole === 'mol')
-      ? `<th style="width: 40px; text-align: center;">
-          <input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)">
-        </th>`
-      : '';
-    html = html.replace('{{th_checkbox}}', thCheckbox);
-
-    html = html.replace('{{th_id}}',          th('id', 'ID'));
-    html = html.replace('{{th_inventory}}',   th('inventory_number', 'Инв. №'));
-    html = html.replace('{{th_model}}',       th('model_name', 'Модель'));
-    html = html.replace('{{th_corporate}}',   th('corporate_id', 'Корп. ИД'));
-    html = html.replace('{{th_category}}',    th('category', 'Категория'));
-    html = html.replace('{{th_type}}',        th('type', 'Тип'));
-    html = html.replace('{{th_location}}',    th('location', 'Место хранения'));
-    html = html.replace('{{th_status}}',      th('status', 'Статус'));
-    html = html.replace('{{th_assigned}}',    '<th style="width: 170px;">Назначена</th>');
-    html = html.replace('{{th_responsible}}',
-      (currentRole === 'admin' || currentRole === 'supervisor')
-        ? th('responsible', 'Ответственный МОЛ')
-        : ''
-    );
+    html = html.replace('{{table_head}}', renderTableHead(cols, th));
 
     let equipmentRows = '';
-
     if (equipment.length === 0) {
-      const colspan = (currentRole === 'admin' || currentRole === 'supervisor') ? 10 : 9;
-      equipmentRows = `
-        <tr>
-          <td colspan="${colspan}" style="text-align: center; padding: 40px; color: var(--text-muted);">
-            <div style="font-size: 40px; margin-bottom: 10px;">🔍</div>
-            <div>Ничего не найдено</div>
-            <div style="font-size: 12px; margin-top: 5px;">Попробуйте изменить фильтры</div>
-          </td>
-        </tr>
-      `;
+      equipmentRows = renderEmptyRow(cols);
     } else {
       equipment.forEach(item => {
-        const canBulkMove = (currentRole === 'admin' || currentRole === 'mol');
-        const statusClass = `status-${item.status}`;
-
-        // 🆕 5.6.1: может ли текущий пользователь редактировать этот экземпляр
-        const canEditThis = currentRole === 'admin'
-          || (currentRole === 'mol' && Number(item.responsible_user_id) === Number(req.session.userId));
-
-        // 🆕 5.6.1: заблокированная строка для МОЛа (чужая техника)
-        const isLocked = currentRole === 'mol' && !canEditThis;
-        const rowClass = `equipment-row-clickable${isLocked ? ' row-locked' : ''}`;
-        const lockIcon = isLocked
-          ? '<span class="lock-icon" title="Техника закреплена за другим МОЛом — только просмотр">🔒</span>'
-          : '';
-
-        let assignedInfo = '—';
-        if (item.status === 'assigned' && item.user_name) {
-          const initials = getInitials(item.user_name);
-          assignedInfo = `
-            <div class="assigned-cell">
-              <span class="assigned-avatar">${initials}</span>
-              <div class="assigned-info">
-                <div class="assigned-name">${item.user_name}</div>
-                ${item.user_department ? `<div class="assigned-dept">${item.user_department}</div>` : ''}
-              </div>
-            </div>
-          `;
-        } else if (item.status === 'assigned') {
-          assignedInfo = '<span style="color: #a0aec0; font-size: 12px;">не найдено</span>';
-        }
-
-        const categoryCell = item.category_name
-          ? `<span class="catalog-badge">${item.category_icon || '📁'} ${item.category_name}</span>`
-          : '<span style="color: #cbd5e0;">—</span>';
-
-        const typeCell = item.type_name
-          ? `<span class="catalog-badge type">${item.type_icon || '📦'} ${item.type_name}</span>`
-          : '<span style="color: #cbd5e0;">—</span>';
-
-        let cellInfo = '<span style="color: #cbd5e0;">—</span>';
-        if (item.cell_id) {
-          cellInfo = `<div class="location-cell" title="${item.warehouse_name} → ${item.zone_name} → ${item.rack_name} → ${item.cell_name}">
-              <div class="location-cell-code">${item.cell_code || item.cell_name}</div>
-              <div class="location-path" style="font-size: 10px;">${item.warehouse_name}</div>
-            </div>`;
-        } else if (item.workplace_id) {
-          const wpLabel = `${item.workplace_name || 'Место'}${item.workplace_code ? ` [${item.workplace_code}]` : ''}`;
-          const officeLabel = item.office_name || '';
-          const link = item.office_id
-            ? `/admin/workplaces/${item.office_id}?highlightWorkplace=${item.workplace_id}`
-            : '#';
-          cellInfo = `<div class="location-cell">
-              <a href="${link}" class="location-cell-code" style="background: var(--purple-bg); color: var(--purple); text-decoration: none;" title="Открыть в дереве офиса">🪑 ${wpLabel}</a>
-              <div class="location-path" style="font-size: 10px;">${officeLabel}</div>
-            </div>`;
-        }
-
-        const statusLabels = {
-          'available':   '✅ Доступна',
-          'placed':      '🪑 На рабочем месте',
-          'assigned':    '👤 Назначена',
-          'maintenance': '🔧 В ремонте',
-          'retired':     '❌ Списана',
-        };
-        const statusLabel = statusLabels[item.status] || item.status;
-
-        let responsibleCell = '';
-        if (currentRole === 'admin' || currentRole === 'supervisor') {
-          if (item.responsible_user_name) {
-            const initials = getInitials(item.responsible_user_name);
-            responsibleCell = `<td>
-              <div class="assigned-cell">
-                <span class="assigned-avatar" style="background: linear-gradient(135deg, var(--purple) 0%, var(--accent) 100%);">${initials}</span>
-                <div class="assigned-info">
-                  <div class="assigned-name">${item.responsible_user_name}</div>
-                </div>
-              </div>
-            </td>`;
-          } else {
-            responsibleCell = `<td><span style="color: #cbd5e0;">—</span></td>`;
-          }
-        }
-
-        equipmentRows += `
-          <tr class="${rowClass}" onclick="openEquipmentCard(${item.id})">
-            ${canBulkMove ? `
-              <td onclick="event.stopPropagation()" style="text-align: center;">
-                ${isLocked
-                  ? '<input type="checkbox" class="row-checkbox" disabled title="Техника закреплена за другим МОЛом — нельзя переместить" style="opacity: 0.3; cursor: not-allowed;">'
-                  : `<input type="checkbox" class="row-checkbox" value="${item.id}" onclick="event.stopPropagation(); updateSelectedCount()">`
-                }
-              </td>
-            ` : ''}
-            <td>${item.id}</td>
-            <td>${lockIcon}<strong>${item.inventory_number || '—'}</strong></td>
-            <td>${item.model_name || '—'}</td>
-            <td>${item.model_corporate_id || '—'}</td>
-            <td>${categoryCell}</td>
-            <td>${typeCell}</td>
-            <td>${cellInfo}</td>
-            <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
-            <td>${assignedInfo}</td>
-            ${responsibleCell}
-          </tr>
-        `;
+        equipmentRows += renderEquipmentRow(item, buildRowContext(item, currentRole, currentUserId));
       });
     }
     html = html.replace('{{equipment_rows}}', equipmentRows);
 
+    // ---------- Пагинация / прочее ----------
     html = html.replace('{{pagination}}', renderManagePagination({
       page, totalPages, totalFiltered, query: q,
     }));
-
-        // 🆕 5.7.1: если перешли с ?open_equipment=ID — открыть карточку
     html = html.replace('{{open_equipment_id}}', q.open_equipment ? parseInt(q.open_equipment, 10) || '' : '');
-
-    // 🆕 5.8.1.4: подставляем партиал карточки техники
     html = html.replace('{{equipment_card_partial}}', equipmentCardPartial);
 
     renderPageFor(req, res, {
@@ -346,6 +164,172 @@ async function renderManage(req, res) {
     console.error('❌ Ошибка загрузки страницы учёта ТМЦ:', error);
     res.status(500).send('Ошибка при загрузке страницы учёта ТМЦ');
   }
+}
+
+// ============================================================
+// view-хелперы для renderManage (5.11.3-view)
+// ============================================================
+
+function buildPageActions(currentRole) {
+  let html = '';
+  if (currentRole === 'admin' || currentRole === 'supervisor') {
+    html += `<a href="/admin/catalog" class="btn btn-ghost btn-sm" title="Управление категориями и типами">📚 Справочник</a>`;
+    html += `<a href="/admin/warehouses" class="btn btn-ghost btn-sm" title="Управление складами">🏢 Склады</a>`;
+    html += `<a href="/admin/inventory" class="btn btn-ghost btn-sm" title="Инвентаризация">📊 Инвентаризация</a>`;
+  }
+  if (currentRole === 'admin') {
+    html += `<a href="/manage/import" class="btn btn-success btn-sm">📥 Импорт</a>`;
+    html += `<a href="/admin/logs" class="btn btn-ghost btn-sm">📈 Логи</a>`;
+  }
+  return html;
+}
+
+function buildCategoryOptions(categories, selectedId) {
+  let html = '<option value="">Все категории</option>';
+  categories.forEach(c => {
+    const sel = String(c.id) === String(selectedId) ? 'selected' : '';
+    html += `<option value="${c.id}" ${sel}>${c.icon || '📁'} ${escapeHtml(c.name)}</option>`;
+  });
+  return html;
+}
+
+function buildTypeOptions(types, filters) {
+  let html = '<option value="">Все типы</option>';
+  const filteredTypes = filters.category_id
+    ? types.filter(t => Number(t.category_id) === filters.category_id)
+    : types;
+  filteredTypes.forEach(t => {
+    const sel = String(t.id) === String(filters.type_id) ? 'selected' : '';
+    html += `<option value="${t.id}" ${sel}>${t.icon || '📦'} ${escapeHtml(t.name)}</option>`;
+  });
+  return html;
+}
+
+function buildMolOptions(mols, filters, currentRole) {
+  if (currentRole !== 'admin') return '';
+  let html = '<option value="">Все МОЛы</option>';
+  mols.forEach(m => {
+    const sel = String(m.id) === String(filters.mol_id) ? 'selected' : '';
+    html += `<option value="${m.id}" ${sel}>${escapeHtml(m.full_name || m.username)}</option>`;
+  });
+  return html;
+}
+
+function buildOnlyMineBlock(filters, currentRole) {
+  if (currentRole !== 'mol') return '';
+  const onlyMineOptions = `
+    <option value="">Все ТМЦ</option>
+    <option value="1" ${filters.only_mine ? 'selected' : ''}>Только мои</option>
+  `;
+  return `
+    <div class="filter-group">
+      <label>Показать</label>
+      <select id="filterOnlyMine">
+        ${onlyMineOptions}
+      </select>
+    </div>
+  `;
+}
+
+function buildPageSizeOptions(sizes, currentPageSize) {
+  let html = '';
+  sizes.forEach(size => {
+    const sel = size === currentPageSize ? 'selected' : '';
+    html += `<option value="${size}" ${sel}>${size}</option>`;
+  });
+  return html;
+}
+
+function buildRowContext(item, currentRole, currentUserId) {
+  const canBulkMove = (currentRole === 'admin' || currentRole === 'mol');
+
+  const canEditThis = currentRole === 'admin'
+    || (currentRole === 'mol' && Number(item.responsible_user_id) === Number(currentUserId));
+
+  const isLocked = currentRole === 'mol' && !canEditThis;
+  const rowClass = `equipment-row-clickable${isLocked ? ' row-locked' : ''}`;
+  const lockIcon = isLocked
+    ? '<span class="lock-icon" title="Техника закреплена за другим МОЛом — только просмотр">🔒</span>'
+    : '';
+
+  // Назначена
+  let assignedInfo = '—';
+  if (item.status === 'assigned' && item.user_name) {
+    const initials = getInitials(item.user_name);
+    assignedInfo = `
+      <div class="assigned-cell">
+        <span class="assigned-avatar">${initials}</span>
+        <div class="assigned-info">
+          <div class="assigned-name">${escapeHtml(item.user_name)}</div>
+          ${item.user_department ? `<div class="assigned-dept">${escapeHtml(item.user_department)}</div>` : ''}
+        </div>
+      </div>
+    `;
+  } else if (item.status === 'assigned') {
+    assignedInfo = '<span style="color: #a0aec0; font-size: 12px;">не найдено</span>';
+  }
+
+  // Категория / Тип
+  const categoryCell = item.category_name
+    ? `<span class="catalog-badge">${item.category_icon || '📁'} ${escapeHtml(item.category_name)}</span>`
+    : '<span style="color: #cbd5e0;">—</span>';
+  const typeCell = item.type_name
+    ? `<span class="catalog-badge type">${item.type_icon || '📦'} ${escapeHtml(item.type_name)}</span>`
+    : '<span style="color: #cbd5e0;">—</span>';
+
+  // Место хранения
+  let cellInfo = '<span style="color: #cbd5e0;">—</span>';
+  if (item.cell_id) {
+    cellInfo = `<div class="location-cell" title="${escapeHtml(item.warehouse_name || '')} → ${escapeHtml(item.zone_name || '')} → ${escapeHtml(item.rack_name || '')} → ${escapeHtml(item.cell_name || '')}">
+        <div class="location-cell-code">${escapeHtml(item.cell_code || item.cell_name || '')}</div>
+        <div class="location-path" style="font-size: 10px;">${escapeHtml(item.warehouse_name || '')}</div>
+      </div>`;
+  } else if (item.workplace_id) {
+    const wpLabel = `${escapeHtml(item.workplace_name || 'Место')}${item.workplace_code ? ` [${escapeHtml(item.workplace_code)}]` : ''}`;
+    const officeLabel = escapeHtml(item.office_name || '');
+    const link = item.office_id
+      ? `/admin/workplaces/${item.office_id}?highlightWorkplace=${item.workplace_id}`
+      : '#';
+    cellInfo = `<div class="location-cell">
+        <a href="${link}" class="location-cell-code" style="background: var(--purple-bg); color: var(--purple); text-decoration: none;" title="Открыть в дереве офиса">🪑 ${wpLabel}</a>
+        <div class="location-path" style="font-size: 10px;">${officeLabel}</div>
+      </div>`;
+  }
+
+  // Статус
+  const statusLabels = {
+    available:   '✅ Доступна',
+    placed:      '🪑 На рабочем месте',
+    assigned:    '👤 Назначена',
+    maintenance: '🔧 В ремонте',
+    retired:     '❌ Списана',
+  };
+  const statusLabel = statusLabels[item.status] || item.status;
+  const statusClass = `status-${item.status}`;
+
+  // Ответственный МОЛ (для admin / supervisor)
+  let responsibleCell = '';
+  if (currentRole === 'admin' || currentRole === 'supervisor') {
+    if (item.responsible_user_name) {
+      const initials = getInitials(item.responsible_user_name);
+      responsibleCell = `<td>
+        <div class="assigned-cell">
+          <span class="assigned-avatar" style="background: linear-gradient(135deg, var(--purple) 0%, var(--accent) 100%);">${initials}</span>
+          <div class="assigned-info">
+            <div class="assigned-name">${escapeHtml(item.responsible_user_name)}</div>
+          </div>
+        </div>
+      </td>`;
+    } else {
+      responsibleCell = `<td><span style="color: #cbd5e0;">—</span></td>`;
+    }
+  }
+
+  return {
+    canBulkMove, isLocked, rowClass, lockIcon,
+    assignedInfo, categoryCell, typeCell, cellInfo,
+    statusLabel, statusClass, responsibleCell,
+  };
 }
 
 // ============================================================
