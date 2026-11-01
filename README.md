@@ -6,7 +6,7 @@
 [![Express](https://img.shields.io/badge/Express-4.18-000000?logo=express&logoColor=white)](https://expressjs.com/)
 [![SQLite](https://img.shields.io/badge/SQLite-5.1-003B57?logo=sqlite&logoColor=white)](https://www.sqlite.org/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-5.11.0-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-5.13.0-blue.svg)](CHANGELOG.md)
 
 ---
 
@@ -918,7 +918,7 @@ moveit_service/
   фикс «Модель»), Auth UI (`/login`, `/change-password` на тёмную тему),
   фиксы (`createUserWithPassword`, «последний админ», назначение под
   МОЛом, «Выдал»).
-  
+
 Подробности — в [CHANGELOG.md](CHANGELOG.md).
 
 ## [5.10.0] - 2026-10-23
