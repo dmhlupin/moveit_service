@@ -1,7 +1,6 @@
 <!-- views/admin-catalog.html -->
-<!-- Контент-шаблон страницы справочника техники -->
+<!-- Контент-шаблон страницы справочника техники (серверный рендер 5.14.1) -->
 
-<!-- 🆕 5.11.3: роль и userId для EquipmentCard -->
 <input type="hidden" id="currentRole" value="{{current_role}}">
 <input type="hidden" id="currentUserId" value="{{current_user_id}}">
 
@@ -60,8 +59,8 @@
     </div>
 
     <div class="types-filter">
-      <select id="categoryFilter" onchange="filterTypes()">
-        <option value="">Все категории</option>
+      <select id="categoryFilter" onchange="applyFilters()">
+        {{filter_category_options}}
       </select>
     </div>
 
@@ -80,7 +79,7 @@
     <div>
       <h2>🔧 Техника в выбранной категории</h2>
       <div class="equipment-section-subtitle" id="equipmentSubtitle">
-        Выберите категорию или тип, чтобы увидеть технику
+        {{equipment_subtitle}}
       </div>
     </div>
     <div class="equipment-search">
@@ -88,17 +87,18 @@
         type="text"
         id="equipmentSearch"
         placeholder="🔍 Поиск по технике или владельцу..."
+        value="{{filter_search}}"
         onkeydown="onEquipmentSearchKeydown(event)"
       >
       <button
         type="button"
-        onclick="applyEquipmentSearch()"
+        onclick="applyFilters()"
         class="btn btn-primary btn-sm"
         title="Найти"
       >🔍 Найти</button>
       <button
         type="button"
-        onclick="resetEquipmentSearch()"
+        onclick="resetFilters()"
         class="btn btn-ghost btn-sm"
         title="Сбросить поиск"
       >✕</button>
@@ -106,11 +106,23 @@
   </div>
 
   <div id="equipmentTableContainer">
-    <div class="catalog-empty">
-      <span class="empty-icon">👆</span>
-      <div class="empty-text">Выберите категорию слева или тип справа</div>
-      <div class="empty-hint">Техника появится здесь</div>
-    </div>
+    <table class="equipment-table">
+      <thead>
+        <tr>
+          <th>Инв. номер</th>
+          <th>Название</th>
+          <th class="col-model">Модель</th>
+          <th>Статус</th>
+          <th>Владелец</th>
+          <!-- Ответственный МОЛ добавляется только для admin/supervisor, но для простоты оставим заголовок, скроем через CSS при необходимости -->
+          <th class="col-responsible">Ответственный МОЛ</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{equipment_rows}}
+      </tbody>
+    </table>
+    {{pagination}}
   </div>
 </div>
 
@@ -232,8 +244,6 @@
 <!-- ============================================================ -->
 <!-- МОДАЛЬНОЕ ОКНО: УДАЛЕНИЕ                                      -->
 <!-- ============================================================ -->
-<!-- 🆕 5.11.3: переименовано deleteModal → catalogDeleteModal
-     (чтобы не конфликтовать с партиалом карточки техники) -->
 <div class="modal-overlay" id="catalogDeleteModal">
   <div class="modal">
     <div class="modal-header">
@@ -247,4 +257,3 @@
     </div>
   </div>
 </div>
-

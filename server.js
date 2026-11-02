@@ -91,7 +91,6 @@ const {
   updateTypeAPI,
   deleteTypeAPI,
   reorderTypesAPI,
-  getFilteredEquipmentAPI,
   getEquipmentCountsAPI,
 } = require('./routes/catalog');
 
@@ -342,7 +341,7 @@ app.get('/admin/user/edit/:id',  requireAdmin, renderEditUser);
 
 app.get('/api/manage/users-for-assign', requireRole(['admin', 'supervisor', 'mol']), getUsersForAssignAPI);
 app.get('/api/manage/equipment',          requireRole(['admin', 'supervisor', 'mol']), getEquipmentAPI);
-app.get('/api/manage/equipment/filtered', requireRole(['admin', 'supervisor', 'mol']), getFilteredEquipmentAPI);
+
 app.get('/api/manage/equipment/counts',   requireRole(['admin', 'supervisor', 'mol']), getEquipmentCountsAPI);
 
 app.post('/api/manage/equipment/:id/move-to-workplace', requireMol, moveToWorkplaceFromCardAPI);
