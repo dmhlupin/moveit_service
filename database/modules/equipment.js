@@ -931,129 +931,124 @@ module.exports = ({ db, run, get, all }) => {
   // ============================================================
   // НАЗНАЧЕНИЯ
   // ============================================================
-
+  
   /**
    * Назначить технику пользователю.
    * - Закрывает предыдущее активное назначение (если есть).
    * - Ставит status = 'assigned', обнуляет cell_id и workplace_id.
+   * 🆕 5.14.3: обёрнуто в транзакцию (BEGIN / COMMIT / ROLLBACK).
    */
-  assignEquipment(userId, equipmentId, condition, notes, assignedByUserId = null) {
-    return new Promise((resolve, reject) => {
-      db.get('SELECT id, is_active FROM users WHERE id = ?', [userId], (err, user) => {
-        if (err) { reject(err); return; }
-        if (!user) { reject(new Error('Пользователь не найден')); return; }
-        if (!user.is_active) { reject(new Error('Пользователь заблокирован')); return; }
+  async assignEquipment(userId, equipmentId, condition, notes, assignedByUserId = null) {
+    await run('BEGIN');
+    try {
+      // 1. Проверяем пользователя
+      const user = await get('SELECT id, is_active FROM users WHERE id = ?', [userId]);
+      if (!user) throw new Error('Пользователь не найден');
+      if (!user.is_active) throw new Error('Пользователь заблокирован');
 
-        db.get('SELECT id, status FROM equipment WHERE id = ?', [equipmentId], (err, eq) => {
-          if (err) { reject(err); return; }
-          if (!eq) { reject(new Error('Техника не найдена')); return; }
-          if (eq.status !== 'available') {
-            reject(new Error(`Техника не может быть назначена (текущий статус: ${eq.status})`));
-            return;
-          }
+      // 2. Проверяем технику
+      const eq = await get('SELECT id, status FROM equipment WHERE id = ?', [equipmentId]);
+      if (!eq) throw new Error('Техника не найдена');
+      if (eq.status !== 'available') {
+        throw new Error(`Техника не может быть назначена (текущий статус: ${eq.status})`);
+      }
 
-          db.get(
-            `SELECT id FROM user_equipment
-             WHERE equipment_id = ? AND returned_date IS NULL`,
-            [equipmentId],
-            (err, activeAssignment) => {
-              if (err) { reject(err); return; }
+      // 3. Закрываем предыдущее активное назначение (если есть)
+      const activeAssignment = await get(
+        `SELECT id FROM user_equipment
+         WHERE equipment_id = ? AND returned_date IS NULL`,
+        [equipmentId]
+      );
+      if (activeAssignment) {
+        await run(`
+          UPDATE user_equipment
+          SET returned_date = CURRENT_TIMESTAMP,
+              condition_on_return = 'Автовозврат: переназначение',
+              notes = COALESCE(notes, '') || ' | Автовозврат при переназначении'
+          WHERE id = ?
+        `, [activeAssignment.id]);
+      }
 
-              const createNewAssignment = () => {
-              db.run(`
-                INSERT INTO user_equipment
-                  (user_id, equipment_id, condition_on_assign, notes, assigned_by_user_id)
-                VALUES (?, ?, ?, ?, ?)
-              `, [userId, equipmentId, condition || 'В хорошем состоянии', notes, assignedByUserId || null], function(err) {
-                  if (err) { reject(err); return; }
-                  const assignmentId = this.lastID;
+      // 4. Создаём новое назначение
+      const insertResult = await run(`
+        INSERT INTO user_equipment
+          (user_id, equipment_id, condition_on_assign, notes, assigned_by_user_id)
+        VALUES (?, ?, ?, ?, ?)
+      `, [userId, equipmentId, condition || 'В хорошем состоянии', notes, assignedByUserId || null]);
 
-                  db.run(`
-                    UPDATE equipment
-                    SET status = 'assigned',
-                        cell_id = NULL,
-                        workplace_id = NULL,
-                        updated_at = CURRENT_TIMESTAMP
-                    WHERE id = ?
-                  `, [equipmentId], function(err) {
-                    if (err) { reject(err); return; }
-                    resolve({
-                      assignment_id: assignmentId,
-                      user_id: userId,
-                      equipment_id: equipmentId,
-                      previous_returned: false,
-                    });
-                  });
-                });
-              };
+      // 5. Обновляем статус техники
+      await run(`
+        UPDATE equipment
+        SET status = 'assigned',
+            cell_id = NULL,
+            workplace_id = NULL,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `, [equipmentId]);
 
-              if (activeAssignment) {
-                db.run(`
-                  UPDATE user_equipment
-                  SET returned_date = CURRENT_TIMESTAMP,
-                      condition_on_return = 'Автовозврат: переназначение',
-                      notes = COALESCE(notes, '') || ' | Автовозврат при переназначении'
-                  WHERE id = ?
-                `, [activeAssignment.id], (err) => {
-                  if (err) console.error('Ошибка закрытия старого назначения:', err.message);
-                  createNewAssignment();
-                });
-              } else {
-                createNewAssignment();
-              }
-            }
-          );
-        });
-      });
-    });
+      await run('COMMIT');
+      return {
+        assignment_id: insertResult.lastID,
+        user_id: userId,
+        equipment_id: equipmentId,
+        previous_returned: !!activeAssignment,
+      };
+    } catch (error) {
+      await run('ROLLBACK');
+      throw error;
+    }
   },
 
   /**
    * Вернуть технику по equipmentId.
    * Ставит returned_date, status = 'available', обнуляет cell_id и workplace_id.
+   * 🆕 5.14.3: обёрнуто в транзакцию.
    */
-  returnEquipmentByEquipmentId(equipmentId, condition = 'В хорошем состоянии', notes = '') {
-    return new Promise((resolve, reject) => {
-      db.get(
+  async returnEquipmentByEquipmentId(equipmentId, condition = 'В хорошем состоянии', notes = '') {
+    await run('BEGIN');
+    try {
+      // 1. Ищем активное назначение
+      const assignment = await get(
         `SELECT id, user_id FROM user_equipment
          WHERE equipment_id = ? AND returned_date IS NULL`,
-        [equipmentId],
-        (err, assignment) => {
-          if (err) { reject(err); return; }
-          if (!assignment) {
-            resolve({ success: false, message: 'Активное назначение не найдено' });
-            return;
-          }
-
-          db.run(`
-            UPDATE user_equipment
-            SET returned_date = CURRENT_TIMESTAMP,
-                condition_on_return = ?,
-                notes = COALESCE(notes, '') || CASE WHEN ? != '' THEN ' | ' || ? ELSE '' END
-            WHERE id = ?
-          `, [condition, notes, notes, assignment.id], function(err) {
-            if (err) { reject(err); return; }
-
-            db.run(`
-              UPDATE equipment
-              SET status = 'available',
-                  cell_id = NULL,
-                  workplace_id = NULL,
-                  updated_at = CURRENT_TIMESTAMP
-              WHERE id = ?
-            `, [equipmentId], function(err) {
-              if (err) { reject(err); return; }
-              resolve({
-                success: true,
-                assignment_id: assignment.id,
-                user_id: assignment.user_id,
-                equipment_id: equipmentId,
-              });
-            });
-          });
-        }
+        [equipmentId]
       );
-    });
+
+      if (!assignment) {
+        await run('ROLLBACK'); // откатываем, т.к. нечего делать
+        return { success: false, message: 'Активное назначение не найдено' };
+      }
+
+      // 2. Закрываем назначение
+      await run(`
+        UPDATE user_equipment
+        SET returned_date = CURRENT_TIMESTAMP,
+            condition_on_return = ?,
+            notes = COALESCE(notes, '') || CASE WHEN ? != '' THEN ' | ' || ? ELSE '' END
+        WHERE id = ?
+      `, [condition, notes, notes, assignment.id]);
+
+      // 3. Обновляем статус техники
+      await run(`
+        UPDATE equipment
+        SET status = 'available',
+            cell_id = NULL,
+            workplace_id = NULL,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `, [equipmentId]);
+
+      await run('COMMIT');
+      return {
+        success: true,
+        assignment_id: assignment.id,
+        user_id: assignment.user_id,
+        equipment_id: equipmentId,
+      };
+    } catch (error) {
+      await run('ROLLBACK');
+      throw error;
+    }
   },
 
   // ============================================================
@@ -1064,10 +1059,13 @@ module.exports = ({ db, run, get, all }) => {
    * Переместить технику в ячейку (расширенная версия).
    * Проверяет capacity/is_full через checkCellAvailability,
    * обновляет статус, возвращает старую и новую ячейки.
+   * 🆕 5.14.3: обёрнуто в транзакцию.
    */
-  moveEquipmentToCellDetailed(equipmentId, cellId, userId = null, userName = null) {
-    return new Promise((resolve, reject) => {
-      db.get(`
+  async moveEquipmentToCellDetailed(equipmentId, cellId, userId = null, userName = null) {
+    await run('BEGIN');
+    try {
+      // 1. Получаем информацию о технике
+      const eq = await get(`
         SELECT
           e.id, e.inventory_number, e.cell_id, e.status,
           m.name AS model_name,
@@ -1076,88 +1074,87 @@ module.exports = ({ db, run, get, all }) => {
         JOIN equipment_models m ON m.id = e.model_id
         LEFT JOIN cells cell ON e.cell_id = cell.id
         WHERE e.id = ?
-      `, [equipmentId], (err, eq) => {
-        if (err) { reject(err); return; }
-        if (!eq) { reject(new Error('Техника не найдена')); return; }
+      `, [equipmentId]);
 
-        // Убрать из ячейки
-        if (!cellId) {
-          db.run(`
-            UPDATE equipment
-            SET cell_id = NULL,
-                status = CASE WHEN status IN ('available', 'placed') THEN 'available' ELSE status END,
-                updated_at = CURRENT_TIMESTAMP
-            WHERE id = ?
-          `, [equipmentId], function(err) {
-            if (err) { reject(err); return; }
-            resolve({
-              success: true,
-              equipment_id: equipmentId,
-              inventory_number: eq.inventory_number,
-              model_name: eq.model_name,
-              from_cell_id: eq.cell_id,
-              from_cell_name: eq.cell_name,
-              from_cell_code: eq.cell_code,
-              to_cell_id: null,
-              to_cell_name: null,
-              to_cell_code: null,
-            });
-          });
-          return;
-        }
+      if (!eq) throw new Error('Техника не найдена');
 
-        // Уже в этой ячейке
-        if (eq.cell_id === parseInt(cellId, 10)) {
-          resolve({
-            success: true,
-            already_there: true,
-            equipment_id: equipmentId,
-            inventory_number: eq.inventory_number,
-          });
-          return;
-        }
+      // 2. Случай: убрать из ячейки
+      if (!cellId) {
+        await run(`
+          UPDATE equipment
+          SET cell_id = NULL,
+              status = CASE WHEN status IN ('available', 'placed') THEN 'available' ELSE status END,
+              updated_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `, [equipmentId]);
 
-        // Проверка ячейки
-        checkCellAvailability(db, cellId, equipmentId)
-          .then(({ ok, reason, cell, label }) => {
-            if (!ok) {
-              if (reason === 'cell_not_found') return reject(new Error('Ячейка не найдена'));
-              if (reason === 'is_full')       return reject(new Error(`Ячейка ${label} отмечена как заполненная`));
-              if (reason === 'over_capacity') return reject(new Error(`Ячейка ${label} переполнена (${cell.current_count}/${cell.capacity})`));
-              return reject(new Error(`Ячейка недоступна (${reason})`));
-            }
+        await run('COMMIT');
+        return {
+          success: true,
+          equipment_id: equipmentId,
+          inventory_number: eq.inventory_number,
+          model_name: eq.model_name,
+          from_cell_id: eq.cell_id,
+          from_cell_name: eq.cell_name,
+          from_cell_code: eq.cell_code,
+          to_cell_id: null,
+          to_cell_name: null,
+          to_cell_code: null,
+        };
+      }
 
-            db.run(`
-              UPDATE equipment
-              SET cell_id = ?,
-                  workplace_id = NULL,
-                  status = CASE WHEN status IN ('available', 'placed') THEN 'available' ELSE status END,
-                  updated_at = CURRENT_TIMESTAMP
-              WHERE id = ?
-            `, [cellId, equipmentId], function(err) {
-              if (err) { reject(err); return; }
-              resolve({
-                success: true,
-                equipment_id: equipmentId,
-                inventory_number: eq.inventory_number,
-                model_name: eq.model_name,
-                from_cell_id: eq.cell_id,
-                from_cell_name: eq.cell_name,
-                from_cell_code: eq.cell_code,
-                to_cell_id: cell.id,
-                to_cell_name: cell.name,
-                to_cell_code: cell.code,
-                to_warehouse_name: cell.warehouse_name,
-                to_zone_name: cell.zone_name,
-                to_rack_name: cell.rack_name,
-              });
-            });
-          })
-          .catch(reject);
-      });
-    });
+      // 3. Случай: уже в этой ячейке
+      if (eq.cell_id === parseInt(cellId, 10)) {
+        await run('ROLLBACK'); // или COMMIT — изменений нет
+        return {
+          success: true,
+          already_there: true,
+          equipment_id: equipmentId,
+          inventory_number: eq.inventory_number,
+        };
+      }
+
+      // 4. Проверка доступности ячейки
+      const check = await checkCellAvailability(db, cellId, equipmentId);
+      if (!check.ok) {
+        if (check.reason === 'cell_not_found') throw new Error('Ячейка не найдена');
+        if (check.reason === 'is_full')       throw new Error(`Ячейка ${check.label} отмечена как заполненная`);
+        if (check.reason === 'over_capacity') throw new Error(`Ячейка ${check.label} переполнена (${check.cell.current_count}/${check.cell.capacity})`);
+        throw new Error(`Ячейка недоступна (${check.reason})`);
+      }
+
+      // 5. Перемещаем в ячейку
+      await run(`
+        UPDATE equipment
+        SET cell_id = ?,
+            workplace_id = NULL,
+            status = CASE WHEN status IN ('available', 'placed') THEN 'available' ELSE status END,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `, [cellId, equipmentId]);
+
+      await run('COMMIT');
+      return {
+        success: true,
+        equipment_id: equipmentId,
+        inventory_number: eq.inventory_number,
+        model_name: eq.model_name,
+        from_cell_id: eq.cell_id,
+        from_cell_name: eq.cell_name,
+        from_cell_code: eq.cell_code,
+        to_cell_id: check.cell.id,
+        to_cell_name: check.cell.name,
+        to_cell_code: check.cell.code,
+        to_warehouse_name: check.cell.warehouse_name,
+        to_zone_name: check.cell.zone_name,
+        to_rack_name: check.cell.rack_name,
+      };
+    } catch (error) {
+      await run('ROLLBACK');
+      throw error;
+    }
   },
-
+  
   /**
    * История перемещений экземпляра (из activity_log).
    */
