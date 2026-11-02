@@ -20,7 +20,8 @@
     "fix-assignments": "node scripts/fix-double-assignments.js",
     "clean-test-data": "node scripts/clean-test-data.js",
     "backup": "node scripts/backup-db.js",
-    "backup:gz": "node scripts/backup-db.js --compress --keep 30"
+    "backup:gz": "node scripts/backup-db.js --compress --keep 30",
+    "check-css-classes": "node scripts/check-css-classes.js"
   },
   "dependencies": {
     "express": "^4.18.2",
