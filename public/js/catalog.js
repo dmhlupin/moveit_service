@@ -16,6 +16,7 @@ let deleteTarget = null;
 document.addEventListener('DOMContentLoaded', async function() {
   await loadAll();
   initAddModelButton();
+  bindCatalogModelModal();   // 🆕 5.14.2.2
 });
 
 async function loadAll() {
@@ -67,8 +68,12 @@ function renderCategories() {
         </div>
       </div>
       <div class="category-actions" onclick="event.stopPropagation()">
-        <button onclick="openCategoryModal(${cat.id})" class="btn-action btn-edit" title="Редактировать">✏️</button>
-        <button onclick="deleteCategoryItem(${cat.id}, '${escapeAttr(cat.name)}')" class="btn-action btn-delete" title="Удалить">🗑️</button>
+        <button onclick="openCategoryModal(${cat.id})" 
+                class="btn btn-ghost btn-xs" 
+                title="Редактировать">Изменить</button>
+        <button onclick="deleteCategoryItem(${cat.id}, '${escapeAttr(cat.name)}')" 
+                class="btn btn-ghost btn-xs btn-danger-text" 
+                title="Удалить">Удалить</button>
       </div>
     </div>
   `).join('');
@@ -109,9 +114,13 @@ function renderTypes() {
         <span class="type-category">${escapeHtml(type.category_name)}</span>
         <div class="type-stats">${type.equipment_count || 0} техники</div>
       </div>
-      <div class="type-actions">
-        <button onclick="openTypeModal(${type.id})" class="btn-action btn-edit" title="Редактировать">✏️</button>
-        <button onclick="deleteTypeItem(${type.id}, '${escapeAttr(type.name)}')" class="btn-action btn-delete" title="Удалить">🗑️</button>
+      <div class="type-actions" onclick="event.stopPropagation()">
+        <button onclick="openTypeModal(${type.id})" 
+                class="btn btn-ghost btn-xs" 
+                title="Редактировать">Изменить</button>
+        <button onclick="deleteTypeItem(${type.id}, '${escapeAttr(type.name)}')" 
+                class="btn btn-ghost btn-xs btn-danger-text" 
+                title="Удалить">Удалить</button>
       </div>
     </div>
   `).join('');
@@ -391,16 +400,395 @@ async function confirmCatalogDelete() {
 }
 
 // ============================================================
-// МОДЕЛИ: кнопка «Добавить модель» (CRUD — в 5.14.2.2)
+// МОДЕЛИ: CRUD (5.14.2.2)
 // ============================================================
+
+let duplicateTimer = null;
+let modelDeleteTargetId = null;
+
+function getCatalogRole() {
+  const el = document.getElementById('currentRole');
+  return el ? el.value : 'user';
+}
 
 function initAddModelButton() {
   const btn = document.getElementById('btnAddModelCatalog');
   if (!btn) return;
-  btn.addEventListener('click', () => {
-    // Заглушка до 5.14.2.2
-    showToast('CRUD моделей будет в 5.14.2.2', 'info');
+
+  // supervisor не может добавлять модели — скрываем кнопку
+  if (getCatalogRole() === 'supervisor') {
+    btn.style.display = 'none';
+    return;
+  }
+
+  btn.addEventListener('click', () => openModelModalCatalog());
+}
+
+function bindCatalogModelModal() {
+  const form = document.getElementById('catalogModelForm');
+  if (!form) return;
+  form.addEventListener('submit', saveModelCatalog);
+
+  const categorySel = document.getElementById('catalogModelCategory');
+  categorySel.addEventListener('change', () => {
+    fillCatalogTypeSelect(categorySel.value);
   });
+
+  // Проверка дубликата по name + manufacturer (дебаунс)
+  ['catalogModelName', 'catalogModelManufacturer'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', () => {
+      clearTimeout(duplicateTimer);
+      duplicateTimer = setTimeout(checkCatalogDuplicate, 500);
+    });
+  });
+}
+
+function fillCatalogCategorySelect(selectedId = null) {
+  const sel = document.getElementById('catalogModelCategory');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— Выберите категорию —</option>' +
+    categories.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+  if (selectedId) sel.value = selectedId;
+}
+
+function fillCatalogTypeSelect(categoryId, selectedId = null) {
+  const sel = document.getElementById('catalogModelType');
+  if (!sel) return;
+
+  if (!categoryId) {
+    sel.innerHTML = '<option value="">— Сначала выберите категорию —</option>';
+    return;
+  }
+
+  const filtered = types.filter(t => String(t.category_id) === String(categoryId));
+  sel.innerHTML = '<option value="">— Выберите тип —</option>' +
+    filtered.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
+  if (selectedId) sel.value = selectedId;
+}
+
+function openModelModalCatalog(id = null) {
+  const modal = document.getElementById('catalogModelModal');
+  const form = document.getElementById('catalogModelForm');
+  const title = document.getElementById('catalogModelModalTitle');
+  form.reset();
+  fillCatalogCategorySelect();
+
+  const idField = document.getElementById('catalogModelId');
+  const corpId = document.getElementById('catalogModelCorporateId');
+  const name = document.getElementById('catalogModelName');
+  const manufacturer = document.getElementById('catalogModelManufacturer');
+  const categorySel = document.getElementById('catalogModelCategory');
+  const typeSel = document.getElementById('catalogModelType');
+  const description = document.getElementById('catalogModelDescription');
+
+  typeSel.innerHTML = '<option value="">— Сначала выберите категорию —</option>';
+
+  if (id) {
+    title.textContent = 'Редактировать модель';
+    idField.value = id;
+
+    fetch(`/api/admin/models/${id}`)
+      .then(r => r.json())
+      .then(m => {
+        if (m.error) throw new Error(m.error);
+        corpId.value = m.corporate_id || '';
+        name.value = m.name || '';
+        manufacturer.value = m.manufacturer || '';
+        categorySel.value = m.category_id || '';
+        fillCatalogTypeSelect(m.category_id, m.type_id);
+        description.value = m.description || '';
+      })
+      .catch(err => {
+        showToast('Не удалось загрузить модель: ' + err.message, 'error');
+        closeModelModalCatalog();
+      });
+  } else {
+    title.textContent = 'Добавить модель';
+    idField.value = '';
+
+    // Предзаполнение из текущих фильтров
+    const params = new URLSearchParams(window.location.search);
+    const catId = params.get('category_id');
+    const typeId = params.get('type_id');
+    if (catId) {
+      categorySel.value = catId;
+      fillCatalogTypeSelect(catId, typeId || null);
+    }
+  }
+
+  modal.classList.add('active');
+  setTimeout(() => name.focus(), 100);
+}
+
+function closeModelModalCatalog() {
+  document.getElementById('catalogModelModal').classList.remove('active');
+}
+
+async function saveModelCatalog(e) {
+  e.preventDefault();
+
+  const id = document.getElementById('catalogModelId').value;
+  const isEdit = !!id;
+
+  const payload = {
+    corporate_id: document.getElementById('catalogModelCorporateId').value.trim(),
+    name: document.getElementById('catalogModelName').value.trim(),
+    manufacturer: document.getElementById('catalogModelManufacturer').value.trim() || null,
+    category_id: document.getElementById('catalogModelCategory').value,
+    type_id: document.getElementById('catalogModelType').value,
+    description: document.getElementById('catalogModelDescription').value.trim() || null,
+  };
+
+  if (!payload.corporate_id) return showToast('Corporate ID обязателен', 'error');
+  if (!payload.name) return showToast('Название модели обязательно', 'error');
+  if (!payload.category_id) return showToast('Выберите категорию', 'error');
+  if (!payload.type_id) return showToast('Выберите тип', 'error');
+
+  const btn = document.getElementById('catalogModelSaveBtn');
+  btn.disabled = true;
+  btn.textContent = 'Сохранение...';
+
+  try {
+    const url = isEdit ? `/api/admin/models/${id}` : '/api/admin/models';
+    const method = isEdit ? 'PUT' : 'POST';
+
+    const res = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Ошибка сохранения');
+    }
+
+    showToast(`Модель ${isEdit ? 'обновлена' : 'создана'}`, 'success');
+    closeModelModalCatalog();
+    window.location.reload();
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Сохранить';
+  }
+}
+
+async function checkCatalogDuplicate() {
+  const name = document.getElementById('catalogModelName').value.trim();
+  const manufacturer = document.getElementById('catalogModelManufacturer').value.trim();
+  const id = document.getElementById('catalogModelId').value;
+
+  if (!name) return;
+
+  const params = new URLSearchParams({ name });
+  if (manufacturer) params.set('manufacturer', manufacturer);
+  if (id) params.set('exclude_id', id);
+
+  try {
+    const res = await fetch(`/api/admin/models/check-duplicate?${params}`);
+    const data = await res.json();
+    if (data.similar) {
+      showToast(`Возможно, уже есть похожая модель: ${data.similar.corporate_id} — ${data.similar.name}`, 'warning');
+    }
+  } catch (err) {
+    console.warn('Проверка дубликата не удалась:', err);
+  }
+}
+
+function deleteModelItemCatalog(id, name) {
+  modelDeleteTargetId = id;
+
+  fetch(`/api/admin/models/${id}`)
+    .then(r => r.json())
+    .then(m => {
+      const msg = document.getElementById('catalogModelDeleteMessage');
+      msg.innerHTML = `Удалить модель <strong>«${escapeHtml(m.corporate_id)} — ${escapeHtml(m.name)}»</strong>?<br><br>
+        <span style="color: var(--warning); font-size: 13px;">
+          Если у модели есть экземпляры, удаление невозможно.
+        </span>`;
+      document.getElementById('catalogModelDeleteModal').classList.add('active');
+    })
+    .catch(err => {
+      showToast('Не удалось получить модель: ' + err.message, 'error');
+    });
+}
+
+function closeModelDeleteModalCatalog() {
+  document.getElementById('catalogModelDeleteModal').classList.remove('active');
+  modelDeleteTargetId = null;
+}
+
+async function confirmModelDeleteCatalog() {
+  if (!modelDeleteTargetId) return;
+
+  try {
+    const res = await fetch(`/api/admin/models/${modelDeleteTargetId}`, { method: 'DELETE' });
+    const data = await res.json();
+
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Ошибка удаления');
+    }
+
+    showToast('Модель удалена', 'success');
+    closeModelDeleteModalCatalog();
+    window.location.reload();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+// ============================================================
+// КАРТОЧКА МОДЕЛИ (просмотр)
+// ============================================================
+
+async function openViewModelCatalog(id) {
+  const body = document.getElementById('catalogViewModelBody');
+  body.innerHTML = '<div class="loading-block">Загрузка...</div>';
+  document.getElementById('catalogViewModelModal').classList.add('active');
+
+  try {
+    const res = await fetch(`/api/admin/models/${id}`);
+    const m = await res.json();
+    if (!res.ok || m.error) throw new Error(m.error || 'Ошибка');
+
+    const instances = Array.isArray(m.instances) ? m.instances : [];
+
+    const badges = [];
+    if (m.category_name) badges.push(`<span class="badge">${escapeHtml(m.category_name)}</span>`);
+    if (m.type_name) badges.push(`<span class="badge">${escapeHtml(m.type_name)}</span>`);
+
+    body.innerHTML = `
+      <div class="model-header-card">
+        <div class="model-header-info">
+          <h2>${escapeHtml(m.name)}</h2>
+          <div class="model-header-corporate">${escapeHtml(m.corporate_id)}</div>
+          <div class="model-header-badges">${badges.join('')}</div>
+        </div>
+      </div>
+
+      <div class="model-detail-section">
+        <h4>Общая информация</h4>
+        <div class="detail-grid">
+          <div class="detail-item">
+            <label>Производитель</label>
+            <div class="value">${escapeHtml(m.manufacturer || '—')}</div>
+          </div>
+          <div class="detail-item">
+            <label>Экземпляров</label>
+            <div class="value">${m.equipment_count || 0}</div>
+          </div>
+          <div class="detail-item">
+            <label>Создано</label>
+            <div class="value">${formatDateCatalog(m.created_at)}</div>
+          </div>
+          <div class="detail-item">
+            <label>Обновлено</label>
+            <div class="value">${formatDateCatalog(m.updated_at)}</div>
+          </div>
+        </div>
+        ${m.description ? `
+          <div class="detail-item" style="margin-top: 12px;">
+            <label>Описание</label>
+            <div class="value">${escapeHtml(m.description)}</div>
+          </div>
+        ` : ''}
+      </div>
+
+      <div class="model-detail-section">
+        <div class="model-instances-header">
+          <h4>Экземпляры</h4>
+          <span class="model-instances-count">${instances.length}</span>
+        </div>
+        ${renderModelInstancesCatalog(instances)}
+      </div>
+    `;
+  } catch (err) {
+    body.innerHTML = `
+      <div class="models-empty">
+        <h3>Ошибка загрузки</h3>
+        <p>${escapeHtml(err.message)}</p>
+      </div>`;
+  }
+}
+
+function closeViewModelCatalog() {
+  document.getElementById('catalogViewModelModal').classList.remove('active');
+}
+
+function renderModelInstancesCatalog(instances) {
+  if (!instances || instances.length === 0) {
+    return `<div class="model-instances-empty">У этой модели пока нет экземпляров.</div>`;
+  }
+
+  const statusLabels = {
+    available: 'Доступна',
+    placed: 'На рабочем месте',
+    assigned: 'Назначена',
+    maintenance: 'В ремонте',
+    retired: 'Списана',
+  };
+
+  let rows = '';
+  for (const eq of instances) {
+    const location = formatModelInstanceLocation(eq);
+    const inv = eq.inventory_number
+      ? `<span class="inst-inv">${escapeHtml(eq.inventory_number)}</span>`
+      : `<span class="inst-inv inst-empty">—</span>`;
+    const serial = eq.serial_number
+      ? `<span class="inst-inv">${escapeHtml(eq.serial_number)}</span>`
+      : `<span class="inst-inv inst-empty">—</span>`;
+    const status = statusLabels[eq.status] || eq.status;
+
+    rows += `
+      <tr>
+        <td>${inv}</td>
+        <td>${serial}</td>
+        <td><span class="inst-status status-${eq.status}">${escapeHtml(status)}</span></td>
+        <td class="inst-location">${location}</td>
+      </tr>
+    `;
+  }
+
+  return `
+    <table class="model-instances-table">
+      <thead>
+        <tr>
+          <th>Инв. №</th>
+          <th>Серийный №</th>
+          <th>Статус</th>
+          <th>Место хранения</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+function formatModelInstanceLocation(eq) {
+  if (eq.status === 'assigned') return 'Назначена пользователю';
+  if (eq.workplace_id) {
+    const parts = [eq.office_name, eq.room_name, eq.workplace_name].filter(Boolean).map(escapeHtml);
+    if (parts.length === 0) return '—';
+    return parts.join(' / ');
+  }
+  if (eq.cell_id) {
+    const warehouse = eq.warehouse_name ? escapeHtml(eq.warehouse_name) : null;
+    const cell = eq.cell_code ? escapeHtml(eq.cell_code) : (eq.cell_name ? escapeHtml(eq.cell_name) : null);
+    const parts = [warehouse, cell].filter(Boolean);
+    if (parts.length === 0) return '—';
+    return parts.join(' / ');
+  }
+  return '—';
+}
+
+function formatDateCatalog(dt) {
+  if (!dt) return '—';
+  try {
+    return new Date(dt).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  } catch { return dt; }
 }
 
 // ============================================================
@@ -445,6 +833,9 @@ document.addEventListener('click', function(e) {
     if (e.target.id === 'categoryModal') closeCategoryModal();
     if (e.target.id === 'typeModal') closeTypeModal();
     if (e.target.id === 'catalogDeleteModal') closeCatalogDeleteModal();
+    if (e.target.id === 'catalogModelModal') closeModelModalCatalog();           // 🆕
+    if (e.target.id === 'catalogModelDeleteModal') closeModelDeleteModalCatalog(); // 🆕
+    if (e.target.id === 'catalogViewModelModal') closeViewModelCatalog();        // 🆕
   }
 });
 
@@ -453,5 +844,8 @@ document.addEventListener('keydown', function(e) {
     closeCategoryModal();
     closeTypeModal();
     closeCatalogDeleteModal();
+    closeModelModalCatalog();           // 🆕
+    closeModelDeleteModalCatalog();     // 🆕
+    closeViewModelCatalog();            // 🆕
   }
 });

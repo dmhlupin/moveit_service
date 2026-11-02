@@ -243,44 +243,6 @@
 }
 
 /* ============================================================
-   КНОПКИ ДЕЙСТВИЙ (edit / delete) — специфика справочника
-   ============================================================ */
-
-.btn-action {
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  font-size: var(--text-sm);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-}
-
-.btn-action:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-sm);
-}
-
-.btn-action.btn-edit:hover {
-  background: rgba(59, 130, 246, 0.15);
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.btn-action.btn-delete:hover {
-  background: rgba(239, 68, 68, 0.15);
-  border-color: var(--danger);
-  color: var(--danger);
-}
-
-/* ============================================================
    СОСТОЯНИЯ (loading / empty)
    ============================================================ */
 
@@ -327,6 +289,46 @@
 .input-emoji {
   font-size: 20px;
   text-align: center;
+}
+
+
+/* ============================================================
+   5.14.2.2: маленькие текстовые кнопки действий
+   ============================================================ */
+
+.btn-xs {
+  padding: 4px 12px;
+  font-size: var(--text-xs);
+  line-height: 1.2;
+  min-height: 28px;
+  white-space: nowrap;
+  background: var(--bg-secondary); /* Явный фон */
+  border: 1px solid var(--border);  /* Явный контур */
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+}
+
+.btn-xs:hover:not(:disabled) {
+  background: var(--bg-tertiary);
+  border-color: var(--border-light);
+  color: var(--text-primary);
+}
+
+/* Кнопка "Удалить" (красный текст) */
+.btn-danger-text {
+  color: var(--danger);
+}
+
+.btn-danger-text:hover:not(:disabled) {
+  background: var(--danger-bg);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.btn-danger-text:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 /* ============================================================
@@ -511,11 +513,6 @@
 .model-card-actions {
   display: flex;
   gap: var(--space-xs);
-}
-
-.model-card-actions .btn-action:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
 }
 
 @media (max-width: 768px) {
@@ -1138,12 +1135,6 @@
   .category-actions,
   .type-actions {
     flex-direction: column;
-  }
-
-  .btn-action {
-    width: 28px;
-    height: 28px;
-    font-size: var(--text-xs);
   }
 
   .catalog-list {

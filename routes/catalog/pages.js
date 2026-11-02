@@ -197,8 +197,16 @@ function renderModelsList(models, filters, currentRole, currentUserId) {
         <div class="model-card-meta">
           <span class="model-card-count">${eqCount} экз.</span>
           <div class="model-card-actions" onclick="event.stopPropagation()">
-            ${canEdit ? `<button onclick="openModelModalCatalog(${m.id})" class="btn-action btn-edit" title="Редактировать">✏️</button>` : ''}
-            ${canDelete ? `<button onclick="deleteModelItemCatalog(${m.id}, '${escapeAttr(m.name)}')" class="btn-action btn-delete" title="Удалить" ${eqCount > 0 ? 'disabled' : ''}>🗑️</button>` : ''}
+            <button onclick="openViewModelCatalog(${m.id})" 
+                    class="btn btn-ghost btn-xs" 
+                    title="Карточка модели">Просмотр</button>
+            ${canEdit ? `<button onclick="openModelModalCatalog(${m.id})" 
+                    class="btn btn-ghost btn-xs" 
+                    title="Редактировать">Изменить</button>` : ''}
+            ${canDelete ? `<button onclick="deleteModelItemCatalog(${m.id}, '${escapeAttr(m.name)}')" 
+                    class="btn btn-ghost btn-xs btn-danger-text" 
+                    title="Удалить" 
+                    ${eqCount > 0 ? 'disabled' : ''}>Удалить</button>` : ''}
           </div>
         </div>
       </div>

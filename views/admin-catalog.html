@@ -218,6 +218,109 @@
 </div>
 
 <!-- ============================================================ -->
-<!-- МОДАЛЬНЫЕ ОКНА: МОДЕЛИ (5.14.2.2 — CRUD) — пока заглушки     -->
+<!-- МОДАЛЬНОЕ ОКНО: МОДЕЛЬ (создание / редактирование)            -->
 <!-- ============================================================ -->
-<!-- Будут добавлены в 5.14.2.2 -->
+<div class="modal-overlay" id="catalogModelModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="catalogModelModalTitle">Добавить модель</h3>
+      <button type="button" class="modal-close" onclick="closeModelModalCatalog()">✕</button>
+    </div>
+    <form id="catalogModelForm" onsubmit="saveModelCatalog(event)">
+      <input type="hidden" id="catalogModelId">
+
+      <div class="form-group">
+        <label>Corporate ID <span class="required">*</span></label>
+        <input
+          type="text"
+          id="catalogModelCorporateId"
+          required
+          placeholder="Например: M-00001 или *0001"
+          autocomplete="off"
+        >
+        <div class="help-text">Может содержать любые символы, включая <code>*</code>. Должен быть уникальным.</div>
+      </div>
+
+      <div class="form-group">
+        <label>Название модели <span class="required">*</span></label>
+        <input
+          type="text"
+          id="catalogModelName"
+          required
+          placeholder="Например: Ноутбук Dell Latitude 1440"
+          autocomplete="off"
+        >
+      </div>
+
+      <div class="form-group">
+        <label>Производитель</label>
+        <input
+          type="text"
+          id="catalogModelManufacturer"
+          placeholder="Например: Dell"
+          autocomplete="off"
+        >
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Категория <span class="required">*</span></label>
+          <select id="catalogModelCategory" required>
+            <option value="">— Выберите категорию —</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Тип <span class="required">*</span></label>
+          <select id="catalogModelType" required>
+            <option value="">— Сначала выберите категорию —</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Описание модели</label>
+        <textarea
+          id="catalogModelDescription"
+          placeholder="Краткое описание модели, особенности линейки..."
+        ></textarea>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" id="catalogModelSaveBtn">Сохранить</button>
+        <button type="button" class="btn btn-ghost" onclick="closeModelModalCatalog()">Отмена</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- МОДАЛЬНОЕ ОКНО: УДАЛЕНИЕ МОДЕЛИ                                -->
+<!-- ============================================================ -->
+<div class="modal-overlay" id="catalogModelDeleteModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Подтверждение удаления</h3>
+      <button type="button" class="modal-close" onclick="closeModelDeleteModalCatalog()">✕</button>
+    </div>
+    <p id="catalogModelDeleteMessage">Вы уверены?</p>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" onclick="closeModelDeleteModalCatalog()">Отмена</button>
+      <button type="button" class="btn btn-danger" onclick="confirmModelDeleteCatalog()">Удалить</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- МОДАЛЬНОЕ ОКНО: КАРТОЧКА МОДЕЛИ                                 -->
+<!-- ============================================================ -->
+<div class="modal-overlay" id="catalogViewModelModal">
+  <div class="modal view-user-modal">
+    <div class="modal-header">
+      <h3>Карточка модели</h3>
+      <button type="button" class="modal-close" onclick="closeViewModelCatalog()">✕</button>
+    </div>
+    <div id="catalogViewModelBody" class="modal-body">
+      <!-- Заполняется через JS -->
+    </div>
+  </div>
+</div>
