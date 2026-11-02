@@ -71,9 +71,6 @@ function renderCategories() {
         <button onclick="openCategoryModal(${cat.id})" 
                 class="btn btn-ghost btn-xs" 
                 title="Редактировать">Изменить</button>
-        <button onclick="deleteCategoryItem(${cat.id}, '${escapeAttr(cat.name)}')" 
-                class="btn btn-ghost btn-xs btn-danger-text" 
-                title="Удалить">Удалить</button>
       </div>
     </div>
   `).join('');
@@ -118,9 +115,6 @@ function renderTypes() {
         <button onclick="openTypeModal(${type.id})" 
                 class="btn btn-ghost btn-xs" 
                 title="Редактировать">Изменить</button>
-        <button onclick="deleteTypeItem(${type.id}, '${escapeAttr(type.name)}')" 
-                class="btn btn-ghost btn-xs btn-danger-text" 
-                title="Удалить">Удалить</button>
       </div>
     </div>
   `).join('');
@@ -213,6 +207,7 @@ function openCategoryModal(id = null) {
   const modal = document.getElementById('categoryModal');
   const title = document.getElementById('categoryModalTitle');
   const form = document.getElementById('categoryForm');
+  const deleteBtn = document.getElementById('categoryDeleteBtn'); // 🆕
   form.reset();
 
   if (id) {
@@ -222,9 +217,24 @@ function openCategoryModal(id = null) {
     document.getElementById('categoryId').value = cat.id;
     document.getElementById('categoryName').value = cat.name || '';
     document.getElementById('categoryDescription').value = cat.description || '';
+
+    // 🆕 Логика кнопки «Удалить»
+    const isEmpty = (!cat.types_count || cat.types_count === 0) && (!cat.equipment_count || cat.equipment_count === 0);
+    const isAdmin = (getCatalogRole() === 'admin');
+
+    if (isEmpty && isAdmin) {
+      deleteBtn.style.display = 'inline-block';
+      deleteBtn.onclick = () => {
+        closeCategoryModal();
+        deleteCategoryItem(cat.id, cat.name);
+      };
+    } else {
+      deleteBtn.style.display = 'none';
+    }
   } else {
     title.textContent = 'Добавить категорию';
     document.getElementById('categoryId').value = '';
+    deleteBtn.style.display = 'none'; // 🆕
   }
 
   modal.classList.add('active');
@@ -285,6 +295,7 @@ function openTypeModal(id = null) {
   const modal = document.getElementById('typeModal');
   const title = document.getElementById('typeModalTitle');
   const form = document.getElementById('typeForm');
+  const deleteBtn = document.getElementById('typeDeleteBtn'); // 🆕
   form.reset();
   updateCategorySelectInTypeModal();
 
@@ -296,11 +307,26 @@ function openTypeModal(id = null) {
     document.getElementById('typeCategory').value = type.category_id;
     document.getElementById('typeName').value = type.name || '';
     document.getElementById('typeDescription').value = type.description || '';
+
+    // 🆕 Логика кнопки «Удалить»
+    const isEmpty = (!type.equipment_count || type.equipment_count === 0);
+    const isAdmin = (getCatalogRole() === 'admin');
+
+    if (isEmpty && isAdmin) {
+      deleteBtn.style.display = 'inline-block';
+      deleteBtn.onclick = () => {
+        closeTypeModal();
+        deleteTypeItem(type.id, type.name);
+      };
+    } else {
+      deleteBtn.style.display = 'none';
+    }
   } else {
     title.textContent = 'Добавить тип';
     document.getElementById('typeId').value = '';
     const currentFilter = document.getElementById('categoryFilter').value;
     if (currentFilter) document.getElementById('typeCategory').value = currentFilter;
+    deleteBtn.style.display = 'none'; // 🆕
   }
 
   modal.classList.add('active');
@@ -472,6 +498,7 @@ function openModelModalCatalog(id = null) {
   const modal = document.getElementById('catalogModelModal');
   const form = document.getElementById('catalogModelForm');
   const title = document.getElementById('catalogModelModalTitle');
+  const deleteBtn = document.getElementById('catalogModelDeleteBtn'); // 🆕
   form.reset();
   fillCatalogCategorySelect();
 
@@ -499,6 +526,20 @@ function openModelModalCatalog(id = null) {
         categorySel.value = m.category_id || '';
         fillCatalogTypeSelect(m.category_id, m.type_id);
         description.value = m.description || '';
+
+        // 🆕 Логика кнопки «Удалить»
+        const isEmpty = (!m.equipment_count || m.equipment_count === 0);
+        const isAdmin = (getCatalogRole() === 'admin');
+
+        if (isEmpty && isAdmin) {
+          deleteBtn.style.display = 'inline-block';
+          deleteBtn.onclick = () => {
+            closeModelModalCatalog();
+            deleteModelItemCatalog(m.id, m.name);
+          };
+        } else {
+          deleteBtn.style.display = 'none';
+        }
       })
       .catch(err => {
         showToast('Не удалось загрузить модель: ' + err.message, 'error');
@@ -507,6 +548,7 @@ function openModelModalCatalog(id = null) {
   } else {
     title.textContent = 'Добавить модель';
     idField.value = '';
+    deleteBtn.style.display = 'none'; // 🆕
 
     // Предзаполнение из текущих фильтров
     const params = new URLSearchParams(window.location.search);

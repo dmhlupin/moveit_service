@@ -157,9 +157,16 @@
         <textarea id="categoryDescription" placeholder="Краткое описание категории..."></textarea>
       </div>
 
-      <div class="form-actions">
-        <button type="submit" class="btn btn-primary" id="categorySaveBtn">Сохранить</button>
-        <button type="button" class="btn btn-ghost" onclick="closeCategoryModal()">Отмена</button>
+      <div class="form-actions" style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-top: var(--space-lg);">
+        <div>
+          <button type="button" id="categoryDeleteBtn" class="btn btn-danger" style="display: none;">
+            Удалить категорию
+          </button>
+        </div>
+        <div style="display: flex; gap: var(--space-sm);">
+          <button type="submit" class="btn btn-primary" id="categorySaveBtn">Сохранить</button>
+          <button type="button" class="btn btn-ghost" onclick="closeCategoryModal()">Отмена</button>
+        </div>
       </div>
     </form>
   </div>
@@ -192,9 +199,16 @@
         <textarea id="typeDescription" placeholder="Краткое описание типа..."></textarea>
       </div>
 
-      <div class="form-actions">
-        <button type="submit" class="btn btn-primary" id="typeSaveBtn">Сохранить</button>
-        <button type="button" class="btn btn-ghost" onclick="closeTypeModal()">Отмена</button>
+      <div class="form-actions" style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-top: var(--space-lg);">
+        <div>
+          <button type="button" id="typeDeleteBtn" class="btn btn-danger" style="display: none;">
+            Удалить тип
+          </button>
+        </div>
+        <div style="display: flex; gap: var(--space-sm);">
+          <button type="submit" class="btn btn-primary" id="typeSaveBtn">Сохранить</button>
+          <button type="button" class="btn btn-ghost" onclick="closeTypeModal()">Отмена</button>
+        </div>
       </div>
     </form>
   </div>
@@ -285,9 +299,16 @@
         ></textarea>
       </div>
 
-      <div class="form-actions">
-        <button type="submit" class="btn btn-primary" id="catalogModelSaveBtn">Сохранить</button>
-        <button type="button" class="btn btn-ghost" onclick="closeModelModalCatalog()">Отмена</button>
+      <div class="form-actions" style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-top: var(--space-lg);">
+        <div>
+          <button type="button" id="catalogModelDeleteBtn" class="btn btn-danger" style="display: none;">
+            Удалить модель
+          </button>
+        </div>
+        <div style="display: flex; gap: var(--space-sm);">
+          <button type="submit" class="btn btn-primary" id="catalogModelSaveBtn">Сохранить</button>
+          <button type="button" class="btn btn-ghost" onclick="closeModelModalCatalog()">Отмена</button>
+        </div>
       </div>
     </form>
   </div>

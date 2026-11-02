@@ -203,10 +203,6 @@ function renderModelsList(models, filters, currentRole, currentUserId) {
             ${canEdit ? `<button onclick="openModelModalCatalog(${m.id})" 
                     class="btn btn-ghost btn-xs" 
                     title="Редактировать">Изменить</button>` : ''}
-            ${canDelete ? `<button onclick="deleteModelItemCatalog(${m.id}, '${escapeAttr(m.name)}')" 
-                    class="btn btn-ghost btn-xs btn-danger-text" 
-                    title="Удалить" 
-                    ${eqCount > 0 ? 'disabled' : ''}>Удалить</button>` : ''}
           </div>
         </div>
       </div>
