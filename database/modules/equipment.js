@@ -295,6 +295,7 @@ module.exports = ({ db, run, get, all }) => {
       const {
         category_id  = null,
         type_id      = null,
+        model_id     = null,       // 🆕 5.14.2
         status       = null,
         search       = null,
         warehouse_id = null,
@@ -318,6 +319,7 @@ module.exports = ({ db, run, get, all }) => {
 
       if (category_id) { where.push('m.category_id = ?'); whereParams.push(category_id); }
       if (type_id)     { where.push('m.type_id = ?');     whereParams.push(type_id); }
+      if (model_id)    { where.push('m.id = ?');          whereParams.push(model_id); }   // 🆕 5.14.2
       if (status)      { where.push('e.status = ?');      whereParams.push(status); }
       if (warehouse_id){ where.push('wh.id = ?');         whereParams.push(warehouse_id); }
       if (workplace_id){ where.push('e.workplace_id = ?');whereParams.push(workplace_id); }

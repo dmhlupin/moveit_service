@@ -137,14 +137,6 @@
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
 }
 
-.category-icon {
-  font-size: 32px;
-  flex-shrink: 0;
-  line-height: 1;
-  width: 40px;
-  text-align: center;
-}
-
 .category-info {
   flex: 1;
   min-width: 0;
@@ -213,14 +205,6 @@
   background: var(--bg-hover);
   border-color: var(--success);
   box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.25);
-}
-
-.type-icon {
-  font-size: 24px;
-  flex-shrink: 0;
-  line-height: 1;
-  width: 32px;
-  text-align: center;
 }
 
 .type-info {
@@ -406,6 +390,142 @@
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+/* ============================================================
+   5.14.2: Секция «Модели»
+   ============================================================ */
+
+.models-section {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg) var(--space-xl);
+  margin-bottom: var(--space-xl);
+  box-shadow: var(--shadow-sm);
+}
+
+.models-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-lg);
+  margin-bottom: var(--space-lg);
+  padding-bottom: var(--space-md);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.models-section-header h2 {
+  color: var(--text-primary);
+  font-size: var(--text-lg);
+  margin: 0 0 var(--space-xs) 0;
+  font-weight: 600;
+}
+
+.models-section-subtitle {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.models-section-actions {
+  display: flex;
+  gap: var(--space-sm);
+  flex-shrink: 0;
+}
+
+.models-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.model-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--purple);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.model-card:hover {
+  background: var(--bg-hover);
+  border-color: var(--purple);
+  transform: translateX(3px);
+  box-shadow: var(--shadow-sm);
+}
+
+.model-card.selected {
+  background: var(--bg-hover);
+  border-color: var(--purple);
+  box-shadow: 0 0 0 2px rgba(159, 122, 234, 0.25);
+}
+
+.model-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.model-card-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  margin-bottom: var(--space-xs);
+  word-break: break-word;
+}
+
+.model-card-corporate {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  margin-bottom: 2px;
+}
+
+.model-card-manufacturer {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.model-card-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-shrink: 0;
+}
+
+.model-card-count {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+}
+
+.model-card-actions {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.model-card-actions .btn-action:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .models-section-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .models-section-actions {
+    justify-content: flex-end;
+  }
 }
 
 /* ============================================================
@@ -1005,16 +1125,6 @@
   .type-item {
     padding: var(--space-sm) var(--space-md);
     gap: var(--space-sm);
-  }
-
-  .category-icon {
-    font-size: 24px;
-    width: 32px;
-  }
-
-  .type-icon {
-    font-size: 20px;
-    width: 26px;
   }
 
   .category-name {

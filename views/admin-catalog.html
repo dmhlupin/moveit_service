@@ -1,13 +1,13 @@
 <!-- views/admin-catalog.html -->
-<!-- Контент-шаблон страницы справочника техники (серверный рендер 5.14.1) -->
+<!-- Контент-шаблон страницы справочника техники (5.14.2) -->
 
 <input type="hidden" id="currentRole" value="{{current_role}}">
 <input type="hidden" id="currentUserId" value="{{current_user_id}}">
 
 <div class="page-header">
   <div>
-    <h1 class="page-title">📚 Справочник техники</h1>
-    <div class="page-subtitle">Управление категориями и типами</div>
+    <h1 class="page-title">Справочник техники</h1>
+    <div class="page-subtitle">Категории, типы и модели ТМЦ</div>
   </div>
   <div class="page-actions">
     <a href="/manage" class="btn btn-ghost btn-sm">← Админ-панель</a>
@@ -17,17 +17,14 @@
 <!-- Статистика -->
 <div class="stats-grid">
   <div class="stat-card">
-    <span class="icon">📁</span>
     <div class="number accent" id="statCategories">{{total_categories}}</div>
     <div class="label">Категорий</div>
   </div>
   <div class="stat-card">
-    <span class="icon">📦</span>
     <div class="number success" id="statTypes">{{total_types}}</div>
     <div class="label">Типов</div>
   </div>
   <div class="stat-card">
-    <span class="icon">🔧</span>
     <div class="number warning" id="statEquipment">{{total_equipment}}</div>
     <div class="label">Единиц техники</div>
   </div>
@@ -39,22 +36,22 @@
   <!-- КАТЕГОРИИ -->
   <div class="catalog-panel">
     <div class="panel-header">
-      <h2>📁 Категории</h2>
+      <h2>Категории</h2>
       <button onclick="openCategoryModal()" class="btn btn-success btn-sm">
-        ➕ Добавить
+        Добавить
       </button>
     </div>
     <div id="categoriesList" class="catalog-list">
-      <div class="loading-block">⏳ Загрузка...</div>
+      <div class="loading-block">Загрузка...</div>
     </div>
   </div>
 
   <!-- ТИПЫ -->
   <div class="catalog-panel">
     <div class="panel-header">
-      <h2>📦 Типы</h2>
+      <h2>Типы</h2>
       <button onclick="openTypeModal()" class="btn btn-success btn-sm" id="addTypeBtn">
-        ➕ Добавить
+        Добавить
       </button>
     </div>
 
@@ -65,19 +62,42 @@
     </div>
 
     <div id="typesList" class="catalog-list">
-      <div class="loading-block">⏳ Загрузка...</div>
+      <div class="loading-block">Загрузка...</div>
     </div>
   </div>
 
 </div>
 
 <!-- ============================================================ -->
-<!-- ТЕХНИКА В ВЫБРАННОЙ КАТЕГОРИИ/ТИПЕ                            -->
+<!-- МОДЕЛИ ВЫБРАННОГО ТИПА                                        -->
+<!-- ============================================================ -->
+<div class="models-section" id="modelsSection">
+  <div class="models-section-header">
+    <div>
+      <h2>Модели</h2>
+      <div class="models-section-subtitle" id="modelsSubtitle">
+        {{models_subtitle}}
+      </div>
+    </div>
+    <div class="models-section-actions">
+      <button type="button" class="btn btn-success btn-sm" id="btnAddModelCatalog">
+        Добавить модель
+      </button>
+    </div>
+  </div>
+
+  <div id="modelsList" class="models-list">
+    {{models_list}}
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- ТЕХНИКА В ВЫБРАННОЙ КАТЕГОРИИ/ТИПЕ/МОДЕЛИ                     -->
 <!-- ============================================================ -->
 <div class="equipment-section" id="equipmentSection">
   <div class="equipment-section-header">
     <div>
-      <h2>🔧 Техника в выбранной категории</h2>
+      <h2>Техника</h2>
       <div class="equipment-section-subtitle" id="equipmentSubtitle">
         {{equipment_subtitle}}
       </div>
@@ -86,22 +106,12 @@
       <input
         type="text"
         id="equipmentSearch"
-        placeholder="🔍 Поиск по технике или владельцу..."
+        placeholder="Поиск по технике или владельцу..."
         value="{{filter_search}}"
         onkeydown="onEquipmentSearchKeydown(event)"
       >
-      <button
-        type="button"
-        onclick="applyFilters()"
-        class="btn btn-primary btn-sm"
-        title="Найти"
-      >🔍 Найти</button>
-      <button
-        type="button"
-        onclick="resetFilters()"
-        class="btn btn-ghost btn-sm"
-        title="Сбросить поиск"
-      >✕</button>
+      <button type="button" onclick="applyFilters()" class="btn btn-primary btn-sm" title="Найти">Найти</button>
+      <button type="button" onclick="resetFilters()" class="btn btn-ghost btn-sm" title="Сбросить поиск">Сбросить</button>
     </div>
   </div>
 
@@ -114,7 +124,6 @@
           <th class="col-model">Модель</th>
           <th>Статус</th>
           <th>Владелец</th>
-          <!-- Ответственный МОЛ добавляется только для admin/supervisor, но для простоты оставим заголовок, скроем через CSS при необходимости -->
           <th class="col-responsible">Ответственный МОЛ</th>
         </tr>
       </thead>
@@ -139,42 +148,18 @@
       <input type="hidden" id="categoryId">
 
       <div class="form-group">
-        <label>Иконка (эмодзи)</label>
-        <input
-          type="text"
-          id="categoryIcon"
-          placeholder="💻"
-          maxlength="4"
-          class="input-emoji"
-        >
-        <div class="help-text">Один эмодзи: 💻 📱 🖨️ 🖱️ 📎</div>
-      </div>
-
-      <div class="form-group">
         <label>Название <span class="required">*</span></label>
-        <input
-          type="text"
-          id="categoryName"
-          required
-          placeholder="Например: Компьютерная техника"
-        >
+        <input type="text" id="categoryName" required placeholder="Например: Компьютерная техника">
       </div>
 
       <div class="form-group">
         <label>Описание</label>
-        <textarea
-          id="categoryDescription"
-          placeholder="Краткое описание категории..."
-        ></textarea>
+        <textarea id="categoryDescription" placeholder="Краткое описание категории..."></textarea>
       </div>
 
       <div class="form-actions">
-        <button type="submit" class="btn btn-primary" id="categorySaveBtn">
-          💾 Сохранить
-        </button>
-        <button type="button" class="btn btn-ghost" onclick="closeCategoryModal()">
-          Отмена
-        </button>
+        <button type="submit" class="btn btn-primary" id="categorySaveBtn">Сохранить</button>
+        <button type="button" class="btn btn-ghost" onclick="closeCategoryModal()">Отмена</button>
       </div>
     </form>
   </div>
@@ -194,60 +179,34 @@
 
       <div class="form-group">
         <label>Категория <span class="required">*</span></label>
-        <select id="typeCategory" required>
-          <!-- Заполняется через JS -->
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label>Иконка (эмодзи)</label>
-        <input
-          type="text"
-          id="typeIcon"
-          placeholder="💻"
-          maxlength="4"
-          class="input-emoji"
-        >
-        <div class="help-text">Один эмодзи: 💻 🖥️ 📱 ⌨️ 🖱️</div>
+        <select id="typeCategory" required></select>
       </div>
 
       <div class="form-group">
         <label>Название <span class="required">*</span></label>
-        <input
-          type="text"
-          id="typeName"
-          required
-          placeholder="Например: Ноутбук"
-        >
+        <input type="text" id="typeName" required placeholder="Например: Ноутбук">
       </div>
 
       <div class="form-group">
         <label>Описание</label>
-        <textarea
-          id="typeDescription"
-          placeholder="Краткое описание типа..."
-        ></textarea>
+        <textarea id="typeDescription" placeholder="Краткое описание типа..."></textarea>
       </div>
 
       <div class="form-actions">
-        <button type="submit" class="btn btn-primary" id="typeSaveBtn">
-          💾 Сохранить
-        </button>
-        <button type="button" class="btn btn-ghost" onclick="closeTypeModal()">
-          Отмена
-        </button>
+        <button type="submit" class="btn btn-primary" id="typeSaveBtn">Сохранить</button>
+        <button type="button" class="btn btn-ghost" onclick="closeTypeModal()">Отмена</button>
       </div>
     </form>
   </div>
 </div>
 
 <!-- ============================================================ -->
-<!-- МОДАЛЬНОЕ ОКНО: УДАЛЕНИЕ                                      -->
+<!-- МОДАЛЬНОЕ ОКНО: УДАЛЕНИЕ                                       -->
 <!-- ============================================================ -->
 <div class="modal-overlay" id="catalogDeleteModal">
   <div class="modal">
     <div class="modal-header">
-      <h3>🗑️ Подтверждение удаления</h3>
+      <h3>Подтверждение удаления</h3>
       <button onclick="closeCatalogDeleteModal()" class="modal-close">✕</button>
     </div>
     <p id="deleteMessage">Вы уверены?</p>
@@ -257,3 +216,8 @@
     </div>
   </div>
 </div>
+
+<!-- ============================================================ -->
+<!-- МОДАЛЬНЫЕ ОКНА: МОДЕЛИ (5.14.2.2 — CRUD) — пока заглушки     -->
+<!-- ============================================================ -->
+<!-- Будут добавлены в 5.14.2.2 -->
