@@ -367,7 +367,9 @@ module.exports = ({ db, run, get, all }) => {
         corporate_id:     'm.corporate_id',
         category:         'c.name',
         type:             't.name',
+        description:      'e.description',          // 🆕
         status:           'e.status',
+        assigned:         'u.full_name',            // 🆕 сортировка по имени пользователя
         responsible:      'ru.full_name',
         location:         `COALESCE(cell.code, wp.name)`,
         created_at:       'e.created_at',

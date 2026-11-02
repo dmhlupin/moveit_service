@@ -154,10 +154,10 @@ function getManageColumns(currentRole) {
   cols.push({ key: 'corporate',  width: '120px', th: null, td: 'corporate' });
   cols.push({ key: 'category',   width: '140px', th: null, td: 'category' });
   cols.push({ key: 'type',       width: '140px', th: null, td: 'type' });
-  cols.push({ key: 'description', width: '240px', th: '<th class="th-description">Описание</th>', td: 'description' });
+  cols.push({ key: 'description', width: '240px', th: null, td: 'description' });
   cols.push({ key: 'location',   width: '180px', th: null, td: 'location' });
   cols.push({ key: 'status',     width: '130px', th: null, td: 'status' });
-  cols.push({ key: 'assigned',   width: '170px', th: '<th style="width: 170px;">Назначена</th>', td: 'assigned' });
+  cols.push({ key: 'assigned',   width: '170px', th: null, td: 'assigned' });
 
   if (showResponsible) {
     cols.push({ key: 'responsible', width: '160px', th: null, td: 'responsible' });
@@ -182,8 +182,10 @@ function renderTableHead(cols, th) {
         case 'corporate':   inner = th('corporate_id', 'Корп. ИД'); break;
         case 'category':    inner = th('category', 'Категория'); break;
         case 'type':        inner = th('type', 'Тип'); break;
+        case 'description': inner = th('description', 'Описание'); break; // 🆕
         case 'location':    inner = th('location', 'Место хранения'); break;
         case 'status':      inner = th('status', 'Статус'); break;
+        case 'assigned':    inner = th('assigned', 'Назначена'); break;   // 🆕
         case 'responsible': inner = th('responsible', 'Ответственный МОЛ'); break;
         default: return '';
       }
