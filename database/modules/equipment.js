@@ -330,26 +330,26 @@ module.exports = ({ db, run, get, all }) => {
       if (unplaced)    { where.push(`(e.status = 'available' AND e.cell_id IS NULL AND e.workplace_id IS NULL)`); }
 
       if (corporate_id) {
-        where.push('m.corporate_id LIKE ?');
+        where.push('m.corporate_id COLLATE NOCASE LIKE ?');
         whereParams.push(`%${corporate_id}%`);
       }
       if (model_name) {
-        where.push('m.name LIKE ?');
+        where.push('m.name COLLATE NOCASE LIKE ?');
         whereParams.push(`%${model_name}%`);
       }
 
       if (search) {
         where.push(`(
-          e.inventory_number LIKE ? OR
-          e.serial_number    LIKE ? OR
-          m.name             LIKE ? OR
-          m.corporate_id     LIKE ? OR
-          m.manufacturer     LIKE ? OR
-          u.full_name        LIKE ? OR
-          u.username         LIKE ? OR
-          cell.code          LIKE ? OR
-          wp.name            LIKE ? OR
-          wp.code            LIKE ?
+          e.inventory_number COLLATE NOCASE LIKE ? OR
+          e.serial_number    COLLATE NOCASE LIKE ? OR
+          m.name             COLLATE NOCASE LIKE ? OR
+          m.corporate_id     COLLATE NOCASE LIKE ? OR
+          m.manufacturer     COLLATE NOCASE LIKE ? OR
+          u.full_name        COLLATE NOCASE LIKE ? OR
+          u.username         COLLATE NOCASE LIKE ? OR
+          cell.code          COLLATE NOCASE LIKE ? OR
+          wp.name            COLLATE NOCASE LIKE ? OR
+          wp.code            COLLATE NOCASE LIKE ?
         )`);
         const term = `%${search}%`;
         for (let i = 0; i < 10; i++) whereParams.push(term);
