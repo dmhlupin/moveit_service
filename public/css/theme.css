@@ -1,65 +1,23 @@
-/* public/css/theme.css — Цветовая тема и переменные */
-
 /* ============================================================
-   ТЁМНАЯ ТЕМА (Сине-золотая палитра)
+   public/css/theme.css — Темы оформления
+   
+   Темы: 
+     - autumn (осень) — сине-золотая (по умолчанию)
+     - night (ночь)  — темно-серая с золотом
+     - light (день)  — светлая, теплая
    ============================================================ */
 
-[data-theme="dark"] {
-    /* ===== ФОНЫ (Глубокий синий/ночной) ===== */
-    --bg-primary: #0a111a;          /* Самый темный — фон body (почти черный с синевой) */
-    --bg-secondary: #121c29;        /* Панели, sidebar */
-    --bg-tertiary: #1a2638;         /* Карточки, input */
-    --bg-hover: #243447;            /* Hover на элементах */
-    --bg-active: #2d4059;           /* Активный элемент */
-    --bg-header: #0d141f;           /* Хедер (чуть темнее панелей) */
-    
-    /* ===== ГРАНИЦЫ ===== */
-    --border: #3a506b;              /* Основная граница (средний синий) */
-    --border-light: #2d4059;        /* Тонкая граница */
-    --border-focus: #d4af37;        /* Граница при фокусе (золото) */
-    
-    /* ===== ТЕКСТ ===== */
-    --text-primary: #e2e8f0;        /* Основной текст (светло-серый/голубоватый) */
-    --text-secondary: #94a3b8;      /* Второстепенный */
-    --text-muted: #64748b;          /* Приглушённый */
-    --text-inverse: #1a2332;        /* Текст на светлом фоне */
-    
-    /* ===== АКЦЕНТЫ (Золото/Беж) ===== */
-    --accent: #d4af37;              /* Основной золотой */
-    --accent-hover: #e5c158;        /* Hover (светлее) */
-    --accent-active: #b8962e;       /* Active (темнее) */
-    --accent-bg: rgba(212, 175, 55, 0.1);  /* Фон с прозрачностью */
-    --accent-border: rgba(212, 175, 55, 0.3);
-    
-    /* ===== СТАТУСЫ (Приглушенные) ===== */
-    --success: #6b9e7a;             /* Приглушенный изумруд */
-    --success-bg: rgba(107, 158, 122, 0.15);
-    
-    --warning: #d4af37;             /* Золото (как акцент) */
-    --warning-bg: rgba(212, 175, 55, 0.15);
-    
-    --danger: #b85c5c;              /* Терракота */
-    --danger-bg: rgba(184, 92, 92, 0.15);
-    
-    --info: #5c8a9e;                /* Пыльный синий */
-    --info-bg: rgba(92, 138, 158, 0.15);
-    
-    --purple: #8a7c9e;              /* Лаванда (приглушенный) */
-    --purple-hover: #7a6c8e;
-    --purple-bg: rgba(138, 124, 158, 0.15);
-    
-    /* ===== ТЕНИ ===== */
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
-    --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.6);
-    --shadow-xl: 0 20px 60px rgba(0, 0, 0, 0.7);
-    
+/* ============================================================
+   ОБЩИЕ ПЕРЕМЕННЫЕ (не зависят от темы)
+   ============================================================ */
+
+:root {
     /* ===== РАЗМЕРЫ ===== */
     --header-height: 56px;
     --sidebar-width: 220px;
     --sidebar-collapsed-width: 56px;
     --footer-height: 36px;
-    
+
     /* ===== ОТСТУПЫ ===== */
     --space-xs: 4px;
     --space-sm: 8px;
@@ -67,18 +25,18 @@
     --space-lg: 20px;
     --space-xl: 24px;
     --space-2xl: 32px;
-    
-    /* ===== РАДИУСЫ (СТРОГИЙ СТИЛЬ = 0) ===== */
+
+    /* ===== РАДИУСЫ (строгий стиль = 0) ===== */
     --radius-sm: 0px;
     --radius-md: 0px;
     --radius-lg: 0px;
     --radius-xl: 0px;
     --radius-full: 0px;
-    
+
     /* ===== ШРИФТЫ ===== */
     --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     --font-mono: 'JetBrains Mono', 'SF Mono', Monaco, 'Cascadia Code', monospace;
-    
+
     --text-xs: 11px;
     --text-sm: 12px;
     --text-base: 13px;
@@ -86,12 +44,12 @@
     --text-lg: 16px;
     --text-xl: 20px;
     --text-2xl: 24px;
-    
+
     /* ===== ПЕРЕХОДЫ ===== */
     --transition-fast: 0.1s ease;
     --transition-base: 0.15s ease;
     --transition-slow: 0.2s ease;
-    
+
     /* ===== Z-INDEX ===== */
     --z-dropdown: 1000;
     --z-sticky: 1020;
@@ -100,6 +58,168 @@
     --z-popover: 1060;
     --z-tooltip: 1070;
     --z-toast: 1080;
+}
+
+/* ============================================================
+   ТЕМА "ОСЕНЬ" (сине-золотая) — по умолчанию
+   ============================================================ */
+
+[data-theme="autumn"] {
+    /* ===== ФОНЫ ===== */
+    --bg-primary: #0a111a;
+    --bg-secondary: #121c29;
+    --bg-tertiary: #1a2638;
+    --bg-hover: #243447;
+    --bg-active: #2d4059;
+    --bg-header: #0d141f;
+
+    /* ===== ГРАНИЦЫ ===== */
+    --border: #2a3a4d;
+    --border-light: #1f2c3d;
+    --border-focus: #d4af37;
+
+    /* ===== ТЕКСТ ===== */
+    --text-primary: #e2e8f0;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    --text-inverse: #0a111a;
+
+    /* ===== АКЦЕНТЫ ===== */
+    --accent: #d4af37;
+    --accent-hover: #e5c158;
+    --accent-active: #b8962e;
+    --accent-bg: rgba(212, 175, 55, 0.1);
+    --accent-border: rgba(212, 175, 55, 0.3);
+
+    /* ===== СТАТУСЫ ===== */
+    --success: #6b9e7a;
+    --success-bg: rgba(107, 158, 122, 0.15);
+
+    --warning: #d4af37;
+    --warning-bg: rgba(212, 175, 55, 0.15);
+
+    --danger: #b85c5c;
+    --danger-bg: rgba(184, 92, 92, 0.15);
+
+    --info: #5c8a9e;
+    --info-bg: rgba(92, 138, 158, 0.15);
+
+    --purple: #8a7c9e;
+    --purple-bg: rgba(138, 124, 158, 0.15);
+
+    /* ===== ТЕНИ ===== */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+    --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.6);
+    --shadow-xl: 0 20px 60px rgba(0, 0, 0, 0.7);
+}
+
+/* ============================================================
+   ТЕМА "НОЧЬ" (темно-серая с золотом)
+   ============================================================ */
+
+[data-theme="night"] {
+    /* ===== ФОНЫ ===== */
+    --bg-primary: #121212;
+    --bg-secondary: #1e1e1e;
+    --bg-tertiary: #252525;
+    --bg-hover: #2a2a2a;
+    --bg-active: #333333;
+    --bg-header: #181818;
+
+    /* ===== ГРАНИЦЫ ===== */
+    --border: #333333;
+    --border-light: #262626;
+    --border-focus: #d4af37;
+
+    /* ===== ТЕКСТ ===== */
+    --text-primary: #f3f4f6;
+    --text-secondary: #a1a1aa;
+    --text-muted: #71717a;
+    --text-inverse: #121212;
+
+    /* ===== АКЦЕНТЫ ===== */
+    --accent: #d4af37;
+    --accent-hover: #e5c158;
+    --accent-active: #b8962e;
+    --accent-bg: rgba(212, 175, 55, 0.1);
+    --accent-border: rgba(212, 175, 55, 0.3);
+
+    /* ===== СТАТУСЫ ===== */
+    --success: #6b9e7a;
+    --success-bg: rgba(107, 158, 122, 0.15);
+
+    --warning: #d4af37;
+    --warning-bg: rgba(212, 175, 55, 0.15);
+
+    --danger: #b85c5c;
+    --danger-bg: rgba(184, 92, 92, 0.15);
+
+    --info: #5c8a9e;
+    --info-bg: rgba(92, 138, 158, 0.15);
+
+    --purple: #8a7c9e;
+    --purple-bg: rgba(138, 124, 158, 0.15);
+
+    /* ===== ТЕНИ ===== */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+    --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.6);
+    --shadow-xl: 0 20px 60px rgba(0, 0, 0, 0.7);
+}
+
+/* ============================================================
+   ТЕМА "ДЕНЬ" (светлая, теплая)
+   ============================================================ */
+
+[data-theme="light"] {
+    /* ===== ФОНЫ ===== */
+    --bg-primary: #f4f1ea;
+    --bg-secondary: #faf8f5;
+    --bg-tertiary: #e8e4db;
+    --bg-hover: #ded9cf;
+    --bg-active: #d3cdc1;
+    --bg-header: #ffffff;
+
+    /* ===== ГРАНИЦЫ ===== */
+    --border: #d1ccc2;
+    --border-light: #e5e1d8;
+    --border-focus: #b8860b;
+
+    /* ===== ТЕКСТ ===== */
+    --text-primary: #2c2a26;
+    --text-secondary: #5c594f;
+    --text-muted: #8a857a;
+    --text-inverse: #ffffff;
+
+    /* ===== АКЦЕНТЫ ===== */
+    --accent: #b8860b;
+    --accent-hover: #a07609;
+    --accent-active: #8a6508;
+    --accent-bg: rgba(184, 134, 11, 0.1);
+    --accent-border: rgba(184, 134, 11, 0.3);
+
+    /* ===== СТАТУСЫ ===== */
+    --success: #4a7c59;
+    --success-bg: rgba(74, 124, 89, 0.12);
+
+    --warning: #b8860b;
+    --warning-bg: rgba(184, 134, 11, 0.12);
+
+    --danger: #a84a4a;
+    --danger-bg: rgba(168, 74, 74, 0.12);
+
+    --info: #4a6d7c;
+    --info-bg: rgba(74, 109, 124, 0.12);
+
+    --purple: #6b5b7a;
+    --purple-bg: rgba(107, 91, 122, 0.12);
+
+    /* ===== ТЕНИ ===== */
+    --shadow-sm: 0 1px 2px rgba(44, 42, 38, 0.05);
+    --shadow-md: 0 4px 12px rgba(44, 42, 38, 0.08);
+    --shadow-lg: 0 10px 30px rgba(44, 42, 38, 0.12);
+    --shadow-xl: 0 20px 60px rgba(44, 42, 38, 0.15);
 }
 
 /* ============================================================
@@ -125,6 +245,7 @@ body {
     color: var(--text-primary);
     background: var(--bg-primary);
     min-height: 100vh;
+    transition: background-color var(--transition-base), color var(--transition-base);
 }
 
 /* ============================================================
@@ -132,7 +253,7 @@ body {
    ============================================================ */
 
 ::-webkit-scrollbar {
-    width: 6px;                     /* Уже скроллбар */
+    width: 6px;
     height: 6px;
 }
 
@@ -142,7 +263,6 @@ body {
 
 ::-webkit-scrollbar-thumb {
     background: var(--border);
-    /* border-radius убран */
 }
 
 ::-webkit-scrollbar-thumb:hover {

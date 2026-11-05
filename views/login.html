@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ru" data-theme="dark"> <!-- 🆕 Добавили атрибут -->
+<html lang="ru"> <!-- 🆕 Добавили атрибут -->
 <head>
     <meta charset="UTF-8">
     <title>Вход в систему</title>
@@ -86,5 +86,12 @@
 
     <script src="/js/main.js"></script>
     <script src="/js/login.js"></script>
+    <script>
+    // Устанавливаем тему из localStorage (по умолчанию — autumn)
+    (function() {
+        const savedTheme = localStorage.getItem('theme') || 'autumn';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+    })();
+</script>
 </body>
 </html>

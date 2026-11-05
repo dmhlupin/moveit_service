@@ -400,6 +400,36 @@ function setupEventListeners() {
         mobileToggle.addEventListener('click', toggleMobileSidebar);
     }
 }
+// ============================================================
+// Переключатель тем 
+// ============================================================
+
+const THEMES = ['autumn', 'night', 'light'];
+
+function initTheme() {
+    const savedTheme = localStorage.getItem('theme') || 'autumn';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    updateThemeIcon(savedTheme);
+}
+
+function toggleTheme() {
+    const currentTheme = document.documentElement.getAttribute('data-theme') || 'autumn';
+    const currentIndex = THEMES.indexOf(currentTheme);
+    const nextIndex = (currentIndex + 1) % THEMES.length;
+    const newTheme = THEMES[nextIndex];
+    
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+    updateThemeIcon(newTheme);
+}
+
+function updateThemeIcon(theme) {
+    const icon = document.getElementById('themeIcon');
+    if (!icon) return;
+    if (theme === 'autumn') icon.textContent = '🍂';
+    else if (theme === 'night') icon.textContent = '🌙';
+    else if (theme === 'light') icon.textContent = '☀️';
+}
 
 // ============================================================
 // ЭКСПОРТ (для использования в других скриптах)
