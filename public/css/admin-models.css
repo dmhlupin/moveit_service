@@ -302,7 +302,7 @@
   display: flex;
   gap: var(--space-md);
   padding: var(--space-md);
-  background: linear-gradient(135deg, var(--accent-bg), var(--bg-tertiary));
+  background: var(--bg-tertiary);
   border-radius: var(--radius-lg);
   margin-bottom: var(--space-md);
   align-items: center;

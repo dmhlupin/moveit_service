@@ -29,7 +29,7 @@
     width: 64px;
     height: 64px;
     border-radius: var(--radius-lg);
-    background: linear-gradient(135deg, var(--accent) 0%, var(--purple) 100%);
+    background: var(--bg-tertiary); border: 1px solid var(--accent);
     color: white;
     display: flex;
     align-items: center;
@@ -405,7 +405,7 @@
 }
 
 .workplace-view-header {
-    background: linear-gradient(135deg, var(--success) 0%, #10b981 100%);
+    background: var(--bg-tertiary); border: 1px solid var(--success);
     border-radius: var(--radius-lg);
     padding: var(--space-lg);
     color: white;

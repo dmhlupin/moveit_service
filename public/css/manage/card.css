@@ -14,7 +14,7 @@
     gap: var(--space-md);
     align-items: center;
     padding: var(--space-md) var(--space-lg);
-    background: linear-gradient(135deg, var(--success) 0%, #38a169 100%);
+    background: var(--bg-tertiary); border: 1px solid var(--success);
     border-radius: var(--radius-lg);
     margin-bottom: var(--space-md);
     color: white;
@@ -407,7 +407,8 @@
     gap: var(--space-lg);
     align-items: center;
     padding: var(--space-lg);
-    background: linear-gradient(135deg, var(--accent) 0%, var(--purple) 100%);
+    background: var(--bg-tertiary); 
+    border: 1px solid var(--success);
     border-radius: var(--radius-lg);
     margin-bottom: var(--space-lg);
     color: white;

@@ -53,6 +53,8 @@
     font-size: 36px; /* Увеличили с 24px */
     font-weight: 700;
     letter-spacing: -0.5px;
+    color: var(--text-primary);
+    
 }
 
 /* Строка с логотипом и названием */
@@ -63,6 +65,7 @@
     gap: 5px; /* Увеличили расстояние с 10px для баланса */
     margin-bottom: var(--space-xs); 
     color: var(--text-primary);
+    color: var(--accent); /* Желтый цвет для fill="currentColor" */
 }
 
 /* Стилизация подзаголовка */

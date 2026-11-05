@@ -315,13 +315,13 @@ function buildRowContext(item, currentRole, currentUserId) {
       const initials = getInitials(item.responsible_user_name);
       responsibleCell = `<td>
         <div class="assigned-cell">
-          <span class="assigned-avatar" style="background: linear-gradient(135deg, var(--purple) 0%, var(--accent) 100%);">${initials}</span>
+          <span class="assigned-avatar">${initials}</span>
           <div class="assigned-info">
             <div class="assigned-name">${escapeHtml(item.responsible_user_name)}</div>
           </div>
         </div>
       </td>`;
-    } else {
+    }else {
       responsibleCell = `<td><span style="color: #cbd5e0;">—</span></td>`;
     }
   }

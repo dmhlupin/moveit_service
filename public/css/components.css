@@ -1,7 +1,7 @@
 /* public/css/components.css — Общие компоненты UI */
 
 /* ============================================================
-   КНОПКИ — СТРОГИЙ СТИЛЬ
+   КНОПКИ — СТРОГИЙ СТИЛЬ (ТЕМНЫЕ С РАМКОЙ)
    ============================================================ */
 
 .btn {
@@ -10,11 +10,11 @@
     justify-content: center;
     gap: var(--space-sm);
     padding: 8px 16px;
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md); /* Будет 0 */
-    font-size: var(--text-sm);       /* Чуть меньше */
+    background: var(--bg-tertiary); /* Темный фон */
+    color: var(--text-primary);     /* Светлый текст */
+    border: 1px solid var(--border); /* Серая рамка по умолчанию */
+    border-radius: var(--radius-md); /* 0 */
+    font-size: var(--text-sm);
     font-weight: 500;
     font-family: inherit;
     cursor: pointer;
@@ -26,7 +26,7 @@
 
 .btn:hover {
     background: var(--bg-hover);
-    border-color: var(--border-light);
+    border-color: var(--text-muted); /* Рамка чуть светлее при наведении */
 }
 
 .btn:active {
@@ -39,46 +39,44 @@
     transform: none;
 }
 
-/* ===== ГЛАВНАЯ КНОПКА (ЖЕЛТАЯ) ===== */
+/* ===== ГЛАВНАЯ КНОПКА (ЖЕЛТАЯ РАМКА) ===== */
 .btn-primary {
-    background: var(--accent);
-    color: var(--text-inverse); /* Темный текст для контраста с желтым */
+    background: transparent;
+    color: var(--accent);
     border-color: var(--accent);
     font-weight: 600;
 }
 
 .btn-primary:hover {
-    background: var(--accent-hover);
+    background: var(--accent-bg);
     border-color: var(--accent-hover);
 }
 
-/* ===== ВТОРОСТЕПЕННЫЕ КНОПКИ (СЕРЫЕ) ===== */
-
-/* Кнопка "Успешно" (например, "Сохранить") — теперь просто темно-серая */
+/* ===== УСПЕХ (ЗЕЛЕНАЯ РАМКА) ===== */
 .btn-success {
-    background: var(--bg-secondary);
-    color: var(--text-primary);
-    border-color: var(--border);
+    background: transparent;
+    color: var(--success);
+    border-color: var(--success);
 }
 
 .btn-success:hover {
-    background: var(--bg-tertiary);
-    border-color: var(--text-muted);
+    background: var(--success-bg);
+    border-color: var(--success);
 }
 
-/* Кнопка "Удалить" (Красная, но приглушенная) */
+/* ===== ОПАСНО (КРАСНАЯ РАМКА) ===== */
 .btn-danger {
-    background: rgba(239, 68, 68, 0.1); /* Полупрозрачный красный */
+    background: transparent;
     color: var(--danger);
-    border-color: rgba(239, 68, 68, 0.3);
-}
-
-.btn-danger:hover {
-    background: rgba(239, 68, 68, 0.2);
     border-color: var(--danger);
 }
 
-/* Кнопка-призрак (без фона, только текст) */
+.btn-danger:hover {
+    background: var(--danger-bg);
+    border-color: var(--danger);
+}
+
+/* ===== ПРИЗРАК (БЕЗ РАМКИ) ===== */
 .btn-ghost {
     background: transparent;
     border-color: transparent;
@@ -90,6 +88,8 @@
     color: var(--text-primary);
 }
 
+
+
 /* Размеры */
 .btn-sm {
     padding: 6px 12px;
@@ -99,6 +99,30 @@
 .btn-lg {
     padding: 12px 24px;
     font-size: var(--text-lg);
+}
+
+/* ============================================================
+   КНОПКА С АКЦЕНТНОЙ РАМКОЙ (ghost-accent)
+   Темный фон, желтая рамка, желтый текст
+   ============================================================ */
+
+/* ===== АКЦЕНТНАЯ РАМКА (для кнопок "Открыть", "Добавить") ===== */
+.btn-outline-accent {
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    font-weight: 600;
+}
+
+.btn-outline-accent:hover {
+    background: var(--accent-bg);
+    color: var(--accent);
+    border-color: var(--accent-hover);
+}
+
+.btn-outline-accent:active {
+    background: var(--accent-active);
+    color: var(--text-inverse);
 }
 
 
@@ -134,9 +158,6 @@
     gap: var(--space-sm);
 }
 
-.card-body {
-    /* Контент */
-}
 
 .card-footer {
     margin-top: var(--space-md);
@@ -194,6 +215,14 @@ tr:hover td {
 
 tr:last-child td {
     border-bottom: none;
+}
+
+
+.table-actions {
+    display: flex;
+    gap: var(--space-sm);
+    align-items: center;
+    margin-left: auto;              /* Прижимает кнопки к правому краю */
 }
 
 /* ============================================================

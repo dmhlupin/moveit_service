@@ -396,6 +396,16 @@
     /* иначе строки будут «просвечивать» под sticky-шапкой */
 }
 
+.table-header {
+    padding: var(--space-md) var(--space-lg);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    /* flex-wrap: wrap; — убираем, чтобы не ломалось */
+    gap: var(--space-md);
+}
+
 /* ============================================================
    5.11.3.2: меню «Колонки»
    ============================================================ */

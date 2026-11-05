@@ -29,7 +29,8 @@
     width: 64px;
     height: 64px;
     border-radius: var(--radius-lg);
-    background: linear-gradient(135deg, var(--accent) 0%, var(--purple) 100%);
+    background: var(--bg-tertiary); 
+    border: 1px solid var(--accent);
     color: white;
     display: flex;
     align-items: center;
@@ -459,7 +460,8 @@
 }
 
 .cell-view-header {
-    background: linear-gradient(135deg, var(--purple) 0%, #a855f7 100%);
+    background: var(--bg-tertiary); 
+    border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     padding: var(--space-lg);
     color: white;

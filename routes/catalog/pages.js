@@ -269,7 +269,7 @@ function renderEquipmentRow(item, currentRole, currentUserId) {
         .split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
       responsibleCell = `<td>
         <div class="eq-owner">
-          <span class="eq-owner-avatar" style="background: linear-gradient(135deg, var(--purple) 0%, var(--accent) 100%);">${respInitials}</span>
+          <span class="eq-owner-avatar");">${respInitials}</span>
           <div class="eq-owner-info">
             <div class="eq-owner-name">${escapeHtml(item.responsible_user_name)}</div>
           </div>
