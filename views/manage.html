@@ -93,7 +93,12 @@
             <input type="checkbox" id="filterUnplaced" value="1" {{filter_unplaced_checked}}>
             <span>Без места хранения</span>
         </label>
+        <label class="checkbox-label">
+            <input type="checkbox" id="filterStale" {{filter_stale_checked}}>
+            <span>Без движения &gt; 3 мес.</span>
+        </label>
     </div>
+    
     {{filter_only_mine_block}}
     <div class="filter-group filter-group--narrow">
         <label>Показывать по</label>

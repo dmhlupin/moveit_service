@@ -112,6 +112,7 @@ async function renderManage(req, res) {
     html = html.replace(/\{\{filter_model_name\}\}/g,   escapeHtml(filters.model_name || ''));
     html = html.replace(/\{\{filter_search\}\}/g,       escapeHtml(filters.search || ''));
     html = html.replace(/\{\{filter_unplaced_checked\}\}/g, filters.unplaced ? 'checked' : '');
+    html = html.replace(/\{\{filter_stale_checked\}\}/g, filters.stale ? 'checked' : '');
 
     html = html.replace('{{page_size_options}}', buildPageSizeOptions(ALLOWED_PAGE_SIZES, pageSize));
 

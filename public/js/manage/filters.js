@@ -25,6 +25,10 @@ function applyFilters() {
     const unplaced = document.getElementById('filterUnplaced')?.checked;
     if (unplaced) params.set('unplaced', '1');
     
+    // 🆕 Фильтр «Без движения > 3 мес.»
+    const stale = document.getElementById('filterStale')?.checked;
+    if (stale) params.set('stale', '1');
+
     if (pageSize) params.set('limit', pageSize);
 
     const url = new URL(window.location.href);
