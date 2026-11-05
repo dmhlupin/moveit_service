@@ -11,7 +11,7 @@ const { db, closeDatabase } = require('./database/db');
 // ============================================
 
 
-const renderDashboard = require('./routes/dashboard');
+const { renderDashboard } = require('./routes/dashboard');
 const { renderPdfList, renderPdfFile } = require('./routes/pdf');
 
 const { 

@@ -1,5 +1,5 @@
 <!-- views/dashboard.html -->
-<!-- Контент страницы Дашборд (без layout) -->
+<!-- Контент страницы Дашборд -->
 
 <div class="page-header">
     <div>
@@ -8,34 +8,29 @@
     </div>
     <div class="page-actions">
         {{action_add_equipment}}
-        <a href="/admin/inventory" class="btn">📊 Инвентаризация</a>
+        <a href="/admin/inventory" class="btn">Инвентаризация</a>
     </div>
 </div>
 
 <!-- Основная статистика -->
 <div class="stats-grid">
     <a href="/manage" class="stat-card">
-        <span class="icon">📦</span>
         <div class="number accent">{{stats.total_equipment}}</div>
         <div class="label">Всего техники</div>
     </a>
     <a href="/manage?status=available" class="stat-card">
-        <span class="icon">✅</span>
         <div class="number success">{{stats.available_equipment}}</div>
         <div class="label">Доступно</div>
     </a>
     <a href="/manage?status=assigned" class="stat-card">
-        <span class="icon">👤</span>
         <div class="number warning">{{stats.assigned_equipment}}</div>
         <div class="label">Назначено</div>
     </a>
     <a href="/manage?status=maintenance" class="stat-card">
-        <span class="icon">🔧</span>
         <div class="number danger">{{stats.maintenance_equipment}}</div>
         <div class="label">В ремонте</div>
     </a>
     <a href="/manage?status=retired" class="stat-card">
-        <span class="icon">📦</span>
         <div class="number danger">{{stats.retired_equipment}}</div>
         <div class="label">Списано</div>
     </a>
@@ -43,13 +38,23 @@
     {{card_actions_today}}
 </div>
 
-<!-- График активности -->
-<div class="card" style="margin-bottom: 24px;">
-    <div class="card-header">
-        <h2 class="card-title">📈 Активность за 14 дней</h2>
+<!-- Верхний ряд: график + пончик -->
+<div class="dashboard-top-row">
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Активность за 14 дней</h2>
+        </div>
+        <div class="chart-container">
+            {{activity_chart}}
+        </div>
     </div>
-    <div class="chart-container">
-        {{activity_chart}}
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Статусы техники</h2>
+        </div>
+        <div class="chart-container">
+            {{status_donut}}
+        </div>
     </div>
 </div>
 
@@ -59,7 +64,7 @@
     <!-- Техника по категориям -->
     <div class="card">
         <div class="card-header">
-            <h2 class="card-title">📚 Техника по категориям</h2>
+            <h2 class="card-title">Техника по категориям</h2>
             <a href="/admin/catalog" class="btn btn-ghost btn-sm">Справочник →</a>
         </div>
         <div class="category-stats-list">
@@ -70,7 +75,7 @@
     <!-- Последние действия -->
     <div class="card">
         <div class="card-header">
-            <h2 class="card-title">🕐 Последние действия</h2>
+            <h2 class="card-title">Последние действия</h2>
             {{link_all_logs}}
         </div>
         <div class="activity-list">
@@ -81,7 +86,7 @@
     <!-- Требует внимания -->
     <div class="card">
         <div class="card-header">
-            <h2 class="card-title">⚠️ Требует внимания</h2>
+            <h2 class="card-title">Требует внимания</h2>
         </div>
         <div class="attention-container">
             {{attention_blocks}}
@@ -91,7 +96,7 @@
     <!-- Топ пользователей -->
     <div class="card">
         <div class="card-header">
-            <h2 class="card-title">🏆 Самые активные (30 дней)</h2>
+            <h2 class="card-title">Самые активные (30 дней)</h2>
         </div>
         <div class="top-users-list">
             {{top_users}}

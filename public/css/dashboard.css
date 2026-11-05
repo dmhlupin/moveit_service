@@ -402,6 +402,72 @@
 }
 
 /* ============================================================
+   НОВЫЙ РЯД ДАШБОРДА (5.14.7)
+   ============================================================ */
+
+.dashboard-top-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: var(--space-lg);
+    margin-bottom: var(--space-lg);
+}
+
+@media (max-width: 992px) {
+    .dashboard-top-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ============================================================
+   ПОНЧИК СТАТУСОВ
+   ============================================================ */
+
+.donut-chart-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-md);
+}
+
+.donut-chart {
+    width: 100%;
+    max-width: 180px;
+    height: auto;
+}
+
+.donut-legend {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    width: 100%;
+}
+
+.donut-legend-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+}
+
+.donut-legend-color {
+    width: 12px;
+    height: 12px;
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+}
+
+.donut-legend-label {
+    flex: 1;
+}
+
+.donut-legend-value {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+}
+
+/* ============================================================
    АДАПТИВНОСТЬ
    ============================================================ */
 
