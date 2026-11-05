@@ -128,49 +128,54 @@ function renderPage(options) {
     
     // Собираем HTML
     return `<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${title}</title>
-    
-    <!-- Тема (цвета, переменные) -->
-    <link rel="stylesheet" href="/css/theme.css">
-    
-    <!-- Layout (sidebar, header, footer) -->
-    <link rel="stylesheet" href="/css/layout.css">
-    
-    <!-- Общие компоненты -->
-    <link rel="stylesheet" href="/css/components.css">
-    <link rel="stylesheet" href="/css/help.css">
-    
-    <!-- CSS конкретной страницы -->
-    ${extraCss}
-</head>
-<body class="${bodyClass}">
-    <div class="app-layout">
-        ${sidebar}
-        ${partials.header}
+    <html lang="ru" <html lang="ru" data-theme="dark">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${title}</title>
         
-        <main class="app-main">
-            ${content}
-        </main>
+        <!-- Шрифты -->
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+        <!-- Тема (цвета, переменные) -->
+        <link rel="stylesheet" href="/css/theme.css">
         
-        ${partials.footer}
-    </div>
+        <!-- Layout (sidebar, header, footer) -->
+        <link rel="stylesheet" href="/css/layout.css">
+        
+        <!-- Общие компоненты -->
+        <link rel="stylesheet" href="/css/components.css">
+        <link rel="stylesheet" href="/css/help.css">
+        
+        <!-- CSS конкретной страницы -->
+        ${extraCss}
+    </head>
+    <body class="${bodyClass}">
+        <div class="app-layout">
+            ${sidebar}
+            ${partials.header}
+            
+            <main class="app-main">
+                ${content}
+            </main>
+            
+            ${partials.footer}
+        </div>
 
-    <!-- Toast container -->
-    <div class="toast-container" id="toastContainer"></div>
+        <!-- Toast container -->
+        <div class="toast-container" id="toastContainer"></div>
 
-    <!-- Общие скрипты -->
-    <script src="/js/main.js"></script>
-    <script src="/js/help.js"></script>
-    <script src="/js/layout.js"></script>
-    
-    <!-- JS конкретной страницы -->
-    ${extraJs}
-</body>
-</html>`;
+        <!-- Общие скрипты -->
+        <script src="/js/main.js"></script>
+        <script src="/js/help.js"></script>
+        <script src="/js/layout.js"></script>
+        
+        <!-- JS конкретной страницы -->
+        ${extraJs}
+    </body>
+    </html>`;
 }
 
 /**

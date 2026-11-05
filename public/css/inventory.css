@@ -175,18 +175,21 @@
 }
 
 .user-summary-avatar {
-    display: inline-flex;
+    width: 32px;
+    height: 32px;
+    display: flex;
     align-items: center;
     justify-content: center;
-    width: 32px;                        /* было 28px — чуть больше, но пропорционально */
-    height: 32px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--purple) 0%, var(--accent) 100%);
-    color: #fff;
-    font-size: 11px;                    /* было 12px */
+    background: var(--bg-tertiary);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: var(--font-mono);
     font-weight: 700;
+    font-size: 12px;
+    border-radius: var(--radius-sm);
     flex-shrink: 0;
-    /* Убираем margin-right — gap в .ws-name */
+    line-height: 1;
+    text-transform: uppercase;
 }
 
 .user-summary-name-text {

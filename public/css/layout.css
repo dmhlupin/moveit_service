@@ -162,15 +162,19 @@
 .user-avatar {
     width: 32px;
     height: 32px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--accent), var(--purple));
     display: flex;
     align-items: center;
     justify-content: center;
-    color: white;
-    font-weight: 600;
-    font-size: var(--text-sm);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 12px;
+    border-radius: var(--radius-sm);
     flex-shrink: 0;
+    line-height: 1;
+    text-transform: uppercase;
 }
 
 .user-info {
@@ -422,13 +426,9 @@
     background: var(--accent);
 }
 
+/* Скрываем иконки в сайдбаре (так как переходим на текстовый стиль) */
 .sidebar-link-icon {
-    font-size: 18px;
-    width: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
+    display: none !important;
 }
 
 .sidebar-link-text {
@@ -547,7 +547,7 @@
 
 .app-main {
     grid-area: main;
-    padding: var(--space-xl);
+    padding: var(--space-lg); /* Было var(--space-xl) */
     min-width: 0;
     overflow-x: hidden;
     background: var(--bg-primary);

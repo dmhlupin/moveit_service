@@ -169,10 +169,5 @@ document.addEventListener('DOMContentLoaded', function() {
             authSubtitle.textContent = 'Установите новый пароль для продолжения';
         }
         
-        // Скрываем ссылку "Выйти" — пользователь не должен уйти пока не сменит пароль
-        const authFooter = document.getElementById('authFooter');
-        if (authFooter) {
-            authFooter.innerHTML = '<p style="color: var(--warning); font-size: var(--text-xs);">Смена пароля обязательна</p>';
-        }
     }
 });

@@ -62,18 +62,23 @@
     background: var(--bg-hover);
 }
 
-.activity-avatar {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--accent), var(--purple));
-    color: white;
+.activity-avatar,
+.top-user-avatar {
+    width: 32px;
+    height: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-weight: 600;
-    font-size: var(--text-sm);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 12px;
+    border-radius: var(--radius-sm);
     flex-shrink: 0;
+    line-height: 1;
+    text-transform: uppercase;
 }
 
 .activity-body {
@@ -329,19 +334,6 @@
 .top-user-medal {
     font-size: 16px;
     text-align: center;
-}
-
-.top-user-avatar {
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--success), #059669);
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 600;
-    font-size: var(--text-xs);
 }
 
 .top-user-info {

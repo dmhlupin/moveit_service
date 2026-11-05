@@ -1,97 +1,96 @@
 /* public/css/theme.css — Цветовая тема и переменные */
 
 /* ============================================================
-   ТЁМНАЯ ТЕМА (стиль Nginx UI)
+   ТЁМНАЯ ТЕМА (Строгий стиль, желтый акцент)
    ============================================================ */
 
-:root {
+[data-theme="dark"] {
     /* ===== ФОНЫ ===== */
-    --bg-primary: #0f1419;          /* самый тёмный — body */
-    --bg-secondary: #1a1f2e;        /* панели, sidebar */
-    --bg-tertiary: #242938;         /* карточки, input */
-    --bg-hover: #2a3042;            /* hover на элементах */
-    --bg-active: #2d3548;           /* активный элемент */
-    --bg-header: #151a24;           /* хедер */
+    --bg-primary: #121212;          /* Основной фон (почти черный) */
+    --bg-secondary: #1e1e1e;        /* Панели, sidebar, хедер */
+    --bg-tertiary: #252525;         /* Карточки, инпуты, таблицы */
+    --bg-hover: #2a2a2a;            /* Hover на элементах */
+    --bg-active: #333333;           /* Активный элемент */
+    --bg-header: #181818;           /* Хедер чуть темнее панелей */
     
     /* ===== ГРАНИЦЫ ===== */
-    --border: #2a3042;              /* основная граница */
-    --border-light: #1f2433;        /* тонкая граница */
-    --border-focus: #3b82f6;        /* граница при фокусе */
+    --border: #333333;              /* Основная граница */
+    --border-light: #262626;        /* Тонкая граница (для строк таблиц) */
+    --border-focus: #f59e0b;        /* Граница при фокусе (желтая) */
     
     /* ===== ТЕКСТ ===== */
-    --text-primary: #e5e7eb;        /* основной текст */
-    --text-secondary: #9ca3af;      /* второстепенный */
-    --text-muted: #6b7280;          /* приглушённый */
-    --text-inverse: #0f1419;        /* текст на светлом фоне */
+    --text-primary: #f3f4f6;        /* Основной текст (почти белый) */
+    --text-secondary: #a1a1aa;      /* Второстепенный */
+    --text-muted: #71717a;          /* Приглушённый */
+    --text-inverse: #121212;        /* Текст на светлом фоне */
     
-    /* ===== АКЦЕНТЫ (СИНИЙ) ===== */
-    --accent: #3b82f6;              /* основной синий */
-    --accent-hover: #2563eb;        /* hover */
-    --accent-active: #1d4ed8;       /* active */
-    --accent-bg: rgba(59, 130, 246, 0.1);  /* фон с прозрачностью */
-    --accent-border: rgba(59, 130, 246, 0.3);
+    /* ===== АКЦЕНТЫ (МЯГКИЙ ЗОЛОТОЙ) ===== */
+    --accent: #d4af37;              /* Мягкий золотой (вместо кислотного) */
+    --accent-hover: #b8962e;        /* Hover (чуть темнее) */
+    --accent-active: #9a7b26;       /* Active */
+    --accent-bg: rgba(212, 175, 55, 0.1);  /* Фон с прозрачностью */
+    --accent-border: rgba(212, 175, 55, 0.3);
     
     /* ===== СТАТУСЫ ===== */
-    --success: #10b981;             /* зелёный — успех */
-    --success-bg: rgba(16, 185, 129, 0.1);
+    --success: #22c55e;             /* Зеленый */
+    --success-bg: rgba(34, 197, 94, 0.1);
     
-    --warning: #f59e0b;             /* жёлтый — предупреждение */
+    --warning: #f59e0b;             /* Желтый (совпадает с акцентом, но для статусов) */
     --warning-bg: rgba(245, 158, 11, 0.1);
     
-    --danger: #ef4444;              /* красный — ошибка */
+    --danger: #ef4444;              /* Красный */
     --danger-bg: rgba(239, 68, 68, 0.1);
     
-    --info: #06b6d4;                /* голубой — инфо */
-    --info-bg: rgba(6, 182, 212, 0.1);
+    --info: #3b82f6;                /* Синий (для инфо) */
+    --info-bg: rgba(59, 130, 246, 0.1);
     
-    --purple: #8b5cf6;              /* фиолетовый — акцент 2 */
-    --purple-hover: #7c3aed;        /* фиолетовый — hover (темнее на шаг) */
+    --purple: #8b5cf6;              /* Фиолетовый (оставляем для разнообразия) */
+    --purple-hover: #7c3aed;
     --purple-bg: rgba(139, 92, 246, 0.1);
     
     /* ===== ТЕНИ ===== */
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
-    --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.5);
-    --shadow-xl: 0 20px 60px rgba(0, 0, 0, 0.6);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.6);
+    --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.7);
+    --shadow-xl: 0 20px 60px rgba(0, 0, 0, 0.8);
     
     /* ===== РАЗМЕРЫ ===== */
-    --header-height: 64px;
-    --sidebar-width: 240px;
-    --sidebar-collapsed-width: 64px;
-    --footer-height: 40px;
+    --header-height: 56px;          /* Уменьшили */
+    --sidebar-width: 220px;         /* Уменьшили */
+    --sidebar-collapsed-width: 56px;
+    --footer-height: 36px;
     
     /* ===== ОТСТУПЫ ===== */
     --space-xs: 4px;
     --space-sm: 8px;
-    --space-md: 16px;
-    --space-lg: 24px;
-    --space-xl: 32px;
-    --space-2xl: 48px;
+    --space-md: 12px;               /* Уменьшили (было 16) */
+    --space-lg: 20px;               /* Уменьшили (было 24) */
+    --space-xl: 24px;               /* Уменьшили (было 32) */
+    --space-2xl: 32px;              /* Уменьшили (было 48) */
     
-    /* ===== РАДИУСЫ ===== */
-    --radius-sm: 4px;
-    --radius-md: 8px;
-    --radius-lg: 12px;
-    --radius-xl: 16px;
-    --radius-full: 9999px;
+    /* ===== РАДИУСЫ (СТРОГИЙ СТИЛЬ = 0) ===== */
+    --radius-sm: 0px;
+    --radius-md: 0px;
+    --radius-lg: 0px;
+    --radius-xl: 0px;
+    --radius-full: 0px;             /* Даже бейджи делаем прямоугольными */
     
     /* ===== ШРИФТЫ ===== */
-    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 
-                 'Helvetica Neue', Arial, sans-serif;
-    --font-mono: 'SF Mono', Monaco, 'Cascadia Code', 'Courier New', monospace;
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'JetBrains Mono', 'SF Mono', Monaco, 'Cascadia Code', monospace;
     
     --text-xs: 11px;
     --text-sm: 12px;
-    --text-base: 14px;
-    --text-md: 15px;
-    --text-lg: 18px;
-    --text-xl: 22px;
-    --text-2xl: 28px;
+    --text-base: 13px;              /* Базовый шрифт чуть меньше для плотности */
+    --text-md: 14px;
+    --text-lg: 16px;
+    --text-xl: 20px;
+    --text-2xl: 24px;
     
     /* ===== ПЕРЕХОДЫ ===== */
-    --transition-fast: 0.15s ease;
-    --transition-base: 0.2s ease;
-    --transition-slow: 0.3s ease;
+    --transition-fast: 0.1s ease;   /* Ускорили для строгости */
+    --transition-base: 0.15s ease;
+    --transition-slow: 0.2s ease;
     
     /* ===== Z-INDEX ===== */
     --z-dropdown: 1000;
@@ -133,8 +132,8 @@ body {
    ============================================================ */
 
 ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;                     /* Уже скроллбар */
+    height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -143,7 +142,7 @@ body {
 
 ::-webkit-scrollbar-thumb {
     background: var(--border);
-    border-radius: var(--radius-full);
+    /* border-radius убран */
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -214,7 +213,7 @@ a:hover {
 
 ::selection {
     background: var(--accent);
-    color: white;
+    color: var(--text-inverse);
 }
 
 /* ============================================================

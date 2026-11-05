@@ -137,17 +137,21 @@
 }
 
 .log-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent) 0%, var(--purple) 100%);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-  font-size: var(--text-xs);
-  flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 12px;
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+    line-height: 1;
+    text-transform: uppercase;
 }
 
 .log-user-name {
