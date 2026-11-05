@@ -268,5 +268,84 @@ module.exports = ({ db, run, get, all }) => ({
         resolve({ categories: result, total });
       });
     });
-  },  
+  },
+  
+    /**
+   * Техника на складе, которая не двигалась > 3 месяцев.
+   * «Движение» = изменение updated_at или назначение/возврат (проверяем updated_at).
+   */
+  getStaleWarehouseEquipment(scope = {}) {
+    return new Promise((resolve, reject) => {
+      // Строим scope (для МОЛа — только его склады)
+      let scopeClause = '';
+      let scopeParams = [];
+      
+      if (scope.role === 'mol' && scope.userId) {
+        scopeClause = `
+          AND z.warehouse_id IN (
+            SELECT warehouse_id FROM warehouse_responsibles WHERE user_id = ?
+          )
+        `;
+        scopeParams.push(scope.userId);
+      }
+
+      db.all(`
+        SELECT
+          e.id, e.inventory_number, e.updated_at,
+          m.name AS model_name,
+          c.code AS cell_code,
+          w.name AS warehouse_name
+        FROM equipment e
+        JOIN equipment_models m ON m.id = e.model_id
+        JOIN cells c ON e.cell_id = c.id
+        JOIN racks r ON c.rack_id = r.id
+        JOIN zones z ON r.zone_id = z.id
+        JOIN warehouses w ON z.warehouse_id = w.id
+        WHERE e.status IN ('available', 'placed')
+          AND e.cell_id IS NOT NULL
+          AND e.updated_at < datetime('now', '-3 months')
+          ${scopeClause}
+        ORDER BY e.updated_at ASC
+        LIMIT 5
+      `, scopeParams, (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows || []);
+      });
+    });
+  },
+
+  /**
+   * Варнинг: техника available, но без ячейки и без рабочего места (потеряшки).
+   */
+  getLostAvailableEquipment(scope = {}) {
+    return new Promise((resolve, reject) => {
+      let scopeClause = '';
+      let scopeParams = [];
+      
+      if (scope.role === 'mol' && scope.userId) {
+        scopeClause = ` AND e.responsible_user_id = ? `;
+        scopeParams.push(scope.userId);
+      }
+
+      db.all(`
+        SELECT
+          e.id, e.inventory_number,
+          m.name AS model_name,
+          e.responsible_user_id,
+          ru.full_name AS responsible_user_name
+        FROM equipment e
+        JOIN equipment_models m ON m.id = e.model_id
+        LEFT JOIN users ru ON e.responsible_user_id = ru.id
+        WHERE e.status = 'available'
+          AND e.cell_id IS NULL
+          AND e.workplace_id IS NULL
+          ${scopeClause}
+        ORDER BY e.id DESC
+        LIMIT 10
+      `, scopeParams, (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows || []);
+      });
+    });
+  },
 });

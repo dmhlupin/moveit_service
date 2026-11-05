@@ -38,7 +38,7 @@
     {{card_actions_today}}
 </div>
 
-<!-- Верхний ряд: график + пончик -->
+<!-- Верхний ряд: график + пончик + залежавшаяся техника -->
 <div class="dashboard-top-row">
     <div class="card">
         <div class="card-header">
@@ -56,7 +56,22 @@
             {{status_donut}}
         </div>
     </div>
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Без движения > 3 мес.</h2>
+        </div>
+        <div class="stale-list">
+            {{stale_equipment}}
+        </div>
+        <!-- 🆕 Футер вынесен из скролла -->
+        <div class="stale-footer">
+            <a href="/manage?stale=1" class="btn btn-ghost btn-sm">Показать все →</a>
+        </div>
+    </div>
 </div>
+
+<!-- Варнинг: техника без места (если есть) -->
+{{lost_equipment_warning}}
 
 <!-- Основная сетка -->
 <div class="dashboard-grid">

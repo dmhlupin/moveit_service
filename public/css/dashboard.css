@@ -468,6 +468,174 @@
 }
 
 /* ============================================================
+   ВЕРХНИЙ РЯД — 3 КОЛОНКИ
+   ============================================================ */
+
+.dashboard-top-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr; /* График шире, остальные уже */
+    gap: var(--space-lg);
+    margin-bottom: var(--space-lg);
+}
+
+@media (max-width: 1200px) {
+    .dashboard-top-row {
+        grid-template-columns: 1fr 1fr;
+    }
+    .dashboard-top-row > .card:first-child {
+        grid-column: 1 / -1; /* График на всю ширину */
+    }
+}
+
+@media (max-width: 768px) {
+    .dashboard-top-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ============================================================
+   ЗАЛЕЖАВШАЯСЯ ТЕХНИКА
+   ============================================================ */
+
+.stale-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    max-height: 220px;
+    overflow-y: auto;
+    /* Добавь отступ, чтобы скролл не прилипал к футеру */
+    padding-right: var(--space-xs);
+}
+
+.stale-footer {
+    margin-top: var(--space-sm);
+    padding-top: var(--space-sm);
+    border-top: 1px solid var(--border);
+    text-align: right;
+    /* Футер не скроллится — он вне .stale-list */
+}
+
+.stale-item {
+    display: flex;
+    flex-direction: column;
+    padding: var(--space-sm);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--warning);
+    border-radius: var(--radius-sm);
+}
+
+.stale-inv {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-size: var(--text-sm);
+    color: var(--accent);
+}
+
+.stale-model {
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 2px;
+}
+
+.stale-location {
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    margin-bottom: 2px;
+}
+
+.stale-date {
+    font-size: var(--text-xs);
+    color: var(--warning);
+    font-weight: 600;
+}
+
+/* ============================================================
+   ВАРНИНГ: ТЕХНИКА БЕЗ МЕСТА
+   ============================================================ */
+
+.dashboard-warning {
+    background: var(--warning-bg);
+    border: 1px solid var(--warning);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-lg);
+    overflow: hidden;
+}
+
+.dashboard-warning-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-md) var(--space-lg);
+    background: rgba(245, 158, 11, 0.1); /* Чуть темнее фон заголовка */
+    border-bottom: 1px solid var(--warning);
+}
+
+.dashboard-warning-icon {
+    font-size: 20px;
+}
+
+.dashboard-warning-title {
+    font-weight: 600;
+    color: var(--warning);
+    font-size: var(--text-base);
+}
+
+.dashboard-warning-list {
+    padding: var(--space-sm) var(--space-lg);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.dashboard-warning-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-xs) 0;
+    border-bottom: 1px solid var(--border-light);
+    font-size: var(--text-sm);
+}
+
+.dashboard-warning-item:last-child {
+    border-bottom: none;
+}
+
+.dashboard-warning-item .inv-num {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--accent);
+    white-space: nowrap;
+}
+
+.dashboard-warning-item .inv-name {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text-primary);
+}
+
+.dashboard-warning-item .inv-extra {
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.dashboard-warning-footer {
+    padding: var(--space-sm) var(--space-lg);
+    border-top: 1px solid var(--warning);
+    text-align: right;
+}
+
+
+
+/* ============================================================
    АДАПТИВНОСТЬ
    ============================================================ */
 

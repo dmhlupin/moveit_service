@@ -65,6 +65,7 @@ async function renderManage(req, res) {
       search:       (q.search       || '').trim() || null,
       only_mine:    q.only_mine === '1',
       unplaced:     q.unplaced === '1' || q.unplaced === 'true',
+      stale:        q.stale === '1' || q.stale === 'true',
       warehouse_id: q.warehouse_id ? parseInt(q.warehouse_id, 10) : null,
       sort, order,
       limit: pageSize, offset, include_total: true,

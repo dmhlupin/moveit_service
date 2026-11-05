@@ -8,6 +8,8 @@ const {
   getDashboardActivityByDay,
   getTopUsers,
   getCategoryStats,
+  getStaleWarehouseEquipment, // 🆕
+  getLostAvailableEquipment,  // 🆕
 } = require('../../database/db');
 
 const { renderPageFor } = require('../../utils/layout');
@@ -18,13 +20,16 @@ async function renderDashboard(req, res) {
     const scope = { userId: req.session.userId, role: req.session.role };
     const role = req.session.role || 'user';
 
-    const [stats, recentActivity, attention, activityByDay, topUsers, categoryStats] = await Promise.all([
+    const [stats, recentActivity, attention, activityByDay, topUsers, categoryStats, staleEquipment, lostEquipment    
+    ] = await Promise.all([
       getDashboardStats(scope),
       getRecentActivity(10, scope),
       getEquipmentNeedingAttention(scope),
       getDashboardActivityByDay(14),
       getTopUsers(5, scope),
-      getCategoryStats(scope)
+      getCategoryStats(scope),
+      getStaleWarehouseEquipment(scope), // 🆕
+      getLostAvailableEquipment(scope),  // 🆕
     ]);
 
     const htmlPath = path.join(__dirname, '..', '..', 'views', 'dashboard.html');
@@ -54,6 +59,8 @@ async function renderDashboard(req, res) {
     // ===== Графики =====
     html = html.replace('{{activity_chart}}', helpers.renderActivityChart(activityByDay));
     html = html.replace('{{status_donut}}', helpers.renderStatusDonut(stats));
+    html = html.replace('{{stale_equipment}}', helpers.renderStaleEquipment(staleEquipment));
+    html = html.replace('{{lost_equipment_warning}}', helpers.renderLostEquipmentWarning(lostEquipment));
 
     // ===== Данные для JS (если нужно) =====
     html = html.replace('{{activity_data}}', JSON.stringify(activityByDay));

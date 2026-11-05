@@ -304,6 +304,7 @@ module.exports = ({ db, run, get, all }) => {
         corporate_id = null,       // 🆕
         model_name   = null,       // 🆕
         unplaced     = false,
+        stale        = false,
         sort         = 'id',       // 🆕
         order        = 'asc',      // 🆕
         limit        = null,
@@ -330,6 +331,15 @@ module.exports = ({ db, run, get, all }) => {
         whereParams.push(scope.userId);
       }
       if (unplaced)    { where.push(`(e.status = 'available' AND e.cell_id IS NULL AND e.workplace_id IS NULL)`); }
+      
+      // 🆕 Фильтр: техника на складе, не двигавшаяся > 3 мес.
+      if (stale) {
+        where.push(`(
+          e.cell_id IS NOT NULL
+          AND e.status IN ('available', 'placed')
+          AND e.updated_at < datetime('now', '-3 months')
+        )`);
+      }
 
       if (corporate_id) {
         where.push('m.corporate_id COLLATE NOCASE LIKE ?');

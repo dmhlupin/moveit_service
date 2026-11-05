@@ -447,6 +447,65 @@ function renderStatusDonut(stats) {
   `;
 }
 
+/**
+ * Рендер панели «Залежавшаяся техника» (> 3 мес. на складе)
+ */
+function renderStaleEquipment(items) {
+  if (!items || items.length === 0) {
+    return `<div class="empty-block"><span>✅</span><p>Нет залежавшейся техники</p></div>`;
+  }
+
+  let html = '';
+  items.forEach(eq => {
+    html += `
+      <div class="stale-item">
+        <div class="stale-inv">${escapeHtml(eq.inventory_number)}</div>
+        <div class="stale-model">${escapeHtml(eq.model_name || '—')}</div>
+        <div class="stale-location">${escapeHtml(eq.warehouse_name || '')} / ${escapeHtml(eq.cell_code || '')}</div>
+        <div class="stale-date">${timeAgoRu(eq.updated_at)}</div>
+      </div>
+    `;
+  });
+  return html;
+}
+
+/**
+ * Рендер варнинга «Техника без места»
+ */
+function renderLostEquipmentWarning(items) {
+  if (!items || items.length === 0) {
+    return ''; // Если таких нет — ничего не показываем
+  }
+
+  let html = `
+    <div class="dashboard-warning">
+      <div class="dashboard-warning-header">
+        <span class="dashboard-warning-icon">⚠️</span>
+        <span class="dashboard-warning-title">Внимание: техника без места хранения (${items.length})</span>
+      </div>
+      <div class="dashboard-warning-list">
+  `;
+  
+  items.forEach(eq => {
+    html += `
+      <div class="dashboard-warning-item">
+        <span class="inv-num">${escapeHtml(eq.inventory_number)}</span>
+        <span class="inv-name">${escapeHtml(eq.model_name || '—')}</span>
+        ${eq.responsible_user_name ? `<span class="inv-extra">МОЛ: ${escapeHtml(eq.responsible_user_name)}</span>` : ''}
+      </div>
+    `;
+  });
+
+  html += `
+      </div>
+      <div class="dashboard-warning-footer">
+        <a href="/manage?status=available&unplaced=1" class="btn btn-ghost btn-sm">Показать все →</a>
+      </div>
+    </div>
+  `;
+  return html;
+}
+
 module.exports = {
   escapeHtml,
   getInitials,
@@ -461,4 +520,6 @@ module.exports = {
   renderCategoryStats,
   renderActivityChart,
   renderStatusDonut,
+  renderStaleEquipment,         // 🆕
+  renderLostEquipmentWarning,   // 🆕
 };
