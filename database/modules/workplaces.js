@@ -20,6 +20,17 @@ function buildOfficeScope(scope = {}) {
   return { clause: '1=0', params: [] };
 }
 
+/**
+ * 🆕 5.15.5: парсинг ?quantity_only из query.
+ * По умолчанию — true (ведомость = только учитываемые).
+ * ?quantity_only=0 → показать всё (включая малоценку).
+ */
+function parseQuantityOnly(q) {
+  const v = String(q?.quantity_only ?? '').toLowerCase();
+  if (v === '0' || v === 'false') return false;
+  return true;
+}
+
 module.exports = ({ db, run, get, all }) => ({
 
   // ============================================================
@@ -774,9 +785,14 @@ module.exports = ({ db, run, get, all }) => ({
    * Получить всю технику на рабочем месте
    * 5.9.0(a): scope — МОЛ видит только технику в своих офисах.
    */
-  getWorkplaceEquipment(workplaceId, scope = {}) {
+  getWorkplaceEquipment(workplaceId, scope = {}, opts = {}) {
     const s = buildOfficeScope(scope);
     const extraWhere = s.clause ? `AND ${s.clause}` : '';
+
+    // 🆕 5.15.5
+    const quantityOnly = opts.quantityOnly !== false;
+    const qtyWhere = quantityOnly ? 'AND e.is_quantity_accounted = 1' : '';
+
     return new Promise((resolve, reject) => {
       db.all(`
         SELECT
@@ -794,15 +810,22 @@ module.exports = ({ db, run, get, all }) => ({
           c.name as category_name,
           c.icon as category_icon,
           t.name as type_name,
-          t.icon as type_icon
+          t.icon as type_icon,
+
+          -- 🆕 5.15.5
+          e.is_quantity_accounted,
+          CASE WHEN fa.equipment_id IS NOT NULL THEN 1 ELSE 0 END AS is_fixed_asset,
+          fa.commissioning_date
+
         FROM equipment e
         JOIN equipment_models m ON m.id = e.model_id
         LEFT JOIN equipment_categories c ON c.id = m.category_id
         LEFT JOIN equipment_types      t ON t.id = m.type_id
+        LEFT JOIN fixed_assets fa ON fa.equipment_id = e.id
         JOIN workplaces w ON e.workplace_id = w.id
         JOIN rooms r ON w.room_id = r.id
         JOIN offices o ON r.office_id = o.id
-        WHERE e.workplace_id = ? ${extraWhere}
+        WHERE e.workplace_id = ? ${qtyWhere} ${extraWhere}
         ORDER BY c.sort_order, t.sort_order, e.inventory_number
       `, [workplaceId, ...s.params], (err, rows) => {
         if (err) reject(err);
@@ -986,12 +1009,17 @@ module.exports = ({ db, run, get, all }) => ({
    * Техника в офисе (для инвентаризации рабочих мест)
    * 5.9.4a: scope — для МОЛа только его техника (responsible_user_id).
    */
-  getOfficeEquipment(officeId, scope = {}) {
+  getOfficeEquipment(officeId, scope = {}, opts = {}) {
     const s = buildOfficeScope(scope);
     const isMol = scope.role === 'mol';
     const uid = parseInt(scope.userId, 10) || 0;
     const molEq = isMol ? `AND e.responsible_user_id = ${uid}` : '';
     const extraWhere = s.clause ? `AND ${s.clause}` : '';
+
+    // 🆕 5.15.5
+    const quantityOnly = opts.quantityOnly !== false;
+    const qtyWhere = quantityOnly ? 'AND e.is_quantity_accounted = 1' : '';
+
     return new Promise((resolve, reject) => {
       db.all(`
         SELECT
@@ -1015,16 +1043,23 @@ module.exports = ({ db, run, get, all }) => ({
           w.name as workplace_name,
           w.code as workplace_code,
           r.name as room_name,
-          o.name as office_name
+          o.name as office_name,
+
+          -- 🆕 5.15.5
+          e.is_quantity_accounted,
+          CASE WHEN fa.equipment_id IS NOT NULL THEN 1 ELSE 0 END AS is_fixed_asset,
+          fa.commissioning_date
+
         FROM equipment e
         JOIN equipment_models m ON m.id = e.model_id
         LEFT JOIN equipment_categories c ON c.id = m.category_id
         LEFT JOIN equipment_types      t ON t.id = m.type_id
+        LEFT JOIN fixed_assets fa ON fa.equipment_id = e.id
         JOIN workplaces w ON e.workplace_id = w.id
         JOIN rooms r ON w.room_id = r.id
         JOIN offices o ON r.office_id = o.id
         LEFT JOIN users ru ON ru.id = e.responsible_user_id
-        WHERE r.office_id = ? ${molEq} ${extraWhere}
+        WHERE r.office_id = ? ${molEq} ${qtyWhere} ${extraWhere}
         ORDER BY r.sort_order, r.name, w.sort_order, w.name, c.sort_order, t.sort_order
       `, [officeId, ...s.params], (err, rows) => {
         if (err) {

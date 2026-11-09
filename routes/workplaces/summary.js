@@ -8,6 +8,15 @@ const {
   getWorkplaceOccupancy,
 } = require('../../database/db');
 
+/**
+ * 🆕 5.15.5: парсинг ?quantity_only из query.
+ */
+function parseQuantityOnly(q) {
+  const v = String(q?.quantity_only ?? '').toLowerCase();
+  if (v === '0' || v === 'false') return false;
+  return true;
+}
+
 const { renderPageFor } = require('../../utils/layout');  // если понадобится
 
 // ============================================================
@@ -92,7 +101,8 @@ async function getOfficeEquipmentAPI(req, res) {
     }
 
     const scope = { userId: req.session.userId, role: req.session.role };
-    const equipment = await getOfficeEquipment(officeId, scope);
+    const quantityOnly = parseQuantityOnly(req.query);
+    const equipment = await getOfficeEquipment(officeId, scope, { quantityOnly });
     res.json(equipment);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -128,12 +138,13 @@ async function exportOfficeInventoryCSV(req, res) {
     }
 
     const scope = { userId: req.session.userId, role: req.session.role };
+    const quantityOnly = parseQuantityOnly(req.query);
     const office = await getOfficeById(officeId, scope);
     if (!office) {
       return res.status(404).send('Офис не найден');
     }
 
-    const equipment = await getOfficeEquipment(officeId, scope);
+    const equipment = await getOfficeEquipment(officeId, scope, { quantityOnly });
 
     // Формируем CSV
     const lines = [];
@@ -145,6 +156,7 @@ async function exportOfficeInventoryCSV(req, res) {
     lines.push('Инвентаризация: ' + office.name);
     lines.push('Адрес: ' + (office.address || '—'));
     lines.push('Дата: ' + new Date().toLocaleString('ru-RU'));
+    lines.push(`Учёт: ${quantityOnly ? 'только на количественном' : 'все (включая малоценку)'}`);
     lines.push('');
 
     // Шапка таблицы
@@ -157,7 +169,10 @@ async function exportOfficeInventoryCSV(req, res) {
       'Тип',
       'Расположение',
       'Статус',
-      'Ответственный МОЛ'
+      'Ответственный МОЛ',
+      'На количественном учёте',      // 🆕 5.15.5
+      'Основное средство',            // 🆕 5.15.5
+      'Дата ввода в эксплуатацию',    // 🆕 5.15.5
     ].join(';'));
 
     // Данные
@@ -175,7 +190,10 @@ async function exportOfficeInventoryCSV(req, res) {
         eq.type_name || '',
         location,
         eq.status,
-        eq.responsible_user_name || '—'
+        eq.responsible_user_name || '—',
+        eq.is_quantity_accounted ? 'Да' : 'Нет',
+        eq.is_fixed_asset ? 'Да' : 'Нет',
+        eq.commissioning_date || '',
       ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(';'));
     });
 
