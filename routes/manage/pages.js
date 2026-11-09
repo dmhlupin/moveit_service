@@ -48,8 +48,9 @@ async function renderManage(req, res) {
 
     const ALLOWED_SORTS = [
       'id', 'inventory_number', 'model_name', 'corporate_id',
-      'category', 'type', 'description', 'location', 'status', 
+      'category', 'type', 'description', 'location', 'status',
       'assigned', 'responsible', 'created_at', 'purchase_date',
+      'quantity_accounted',   // 🆕 5.15.4 — сортировка по «Учёт»
     ];
     const sort = ALLOWED_SORTS.includes(q.sort) ? q.sort : 'id';
     const order = (String(q.order).toLowerCase() === 'desc') ? 'desc' : 'asc';

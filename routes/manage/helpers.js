@@ -151,7 +151,8 @@ function getManageColumns(currentRole) {
   cols.push({ key: 'id',         width: '60px',  th: null, td: 'id' });
   cols.push({ key: 'inventory',  width: '130px', th: null, td: 'inventory' });
   // 🆕 5.15.4
-  cols.push({ key: 'quantity',   width: '80px',  th: '<th style="width: 80px; text-align: center;" title="На количественном учёте">Учёт</th>', td: 'quantity' });
+    // 🆕 5.15.4
+  cols.push({ key: 'quantity',   width: '80px',  th: null, td: 'quantity' });
   cols.push({ key: 'model',      width: '240px', th: null, td: 'model',      cls: 'th-model' });
   cols.push({ key: 'corporate',  width: '120px', th: null, td: 'corporate' });
   cols.push({ key: 'category',   width: '140px', th: null, td: 'category' });
@@ -189,7 +190,7 @@ function renderTableHead(cols, th) {
         case 'status':      inner = th('status', 'Статус'); break;
         case 'assigned':    inner = th('assigned', 'Назначена'); break;   // 🆕
         case 'responsible': inner = th('responsible', 'Ответственный МОЛ'); break;
-        case 'quantity':    inner = '<th style="width: 80px; text-align: center;">Учёт</th>'; break;
+        case 'quantity':    inner = th('quantity_accounted', 'Учёт', 'th-center'); break;
         default: return '';
       }
     }
