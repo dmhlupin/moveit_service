@@ -1556,6 +1556,83 @@ function migrateUserEquipmentAssignedBy() {
 }
 
 // ============================================================
+// 5.15.1: Количественный учёт + Основные средства
+// ============================================================
+
+/**
+ * equipment.is_quantity_accounted — флаг «на количественном учёте».
+ * Для малоценки (клавиатура, мышь, кабель) ставится 0 —
+ * в ведомостях инвентаризации не показывается (по фильтру).
+ * Существующие записи получают 1 (учитываются).
+ */
+async function addQuantityAccountedToEquipment() {
+  const exists = await tableExists('equipment');
+  if (!exists) return;
+
+  console.log('📋 Проверка поля is_quantity_accounted в equipment...');
+  const added = await addColumnIfMissing(
+    'equipment',
+    'is_quantity_accounted',
+    'INTEGER NOT NULL DEFAULT 1'
+  );
+  if (added) {
+    console.log('   ℹ️  Все существующие записи помечены как учитываемые (1)');
+  }
+  console.log('');
+}
+
+/**
+ * fixed_assets — 1:1 к equipment, только для ОС.
+ * Инвариант: есть строка в fixed_assets ⇒ is_quantity_accounted = 1
+ * (обеспечивается триггером + кодом в upsertFixedAsset).
+ */
+async function createFixedAssetsTable() {
+  const exists = await tableExists('fixed_assets');
+  if (exists) {
+    console.log('⏭️  Таблица fixed_assets уже существует\n');
+    return;
+  }
+
+  console.log('📋 Создание таблицы fixed_assets (основные средства)...');
+  await run(`
+    CREATE TABLE fixed_assets (
+      equipment_id        INTEGER PRIMARY KEY
+                            REFERENCES equipment(id) ON DELETE CASCADE,
+      commissioning_date  TEXT    NOT NULL,
+      initial_cost        REAL,
+      useful_life_months  INTEGER,
+      created_at          TEXT    NOT NULL DEFAULT (datetime('now')),
+      updated_at          TEXT    NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+  await createIndexIfMissing(
+    'idx_fixed_assets_commissioning',
+    'fixed_assets',
+    'commissioning_date'
+  );
+  console.log('✅ Таблица fixed_assets создана\n');
+}
+
+/**
+ * Триггер-страховка: ОС ⇒ количественный учёт = 1.
+ * Дублирует проверку в upsertFixedAsset, но на уровне БД надёжнее.
+ */
+async function createFixedAssetsTrigger() {
+  await run(`
+    CREATE TRIGGER IF NOT EXISTS trg_fixed_assets_force_quantity
+    AFTER INSERT ON fixed_assets
+    BEGIN
+      UPDATE equipment
+         SET is_quantity_accounted = 1,
+             updated_at = datetime('now')
+       WHERE id = NEW.equipment_id
+         AND is_quantity_accounted = 0;
+    END
+  `);
+  console.log('✅ Триггер trg_fixed_assets_force_quantity создан\n');
+}
+
+// ============================================================
 // ГЛАВНАЯ ФУНКЦИЯ МИГРАЦИИ
 // ============================================================
 
@@ -1639,6 +1716,13 @@ async function migrate() {
 
     await migrateUserEquipmentAssignedBy();
 
+        // ===== ЭТАП 5.15.1: Количественный учёт + Основные средства =====
+    console.log('📊 ЭТАП 5.15.1: Количественный учёт + Основные средства\n');
+
+    await addQuantityAccountedToEquipment();
+    await createFixedAssetsTable();
+    await createFixedAssetsTrigger();
+
     // ===== ИТОГИ =====
     console.log('═══════════════════════════════════════════════');
     console.log('✅ МИГРАЦИЯ ЗАВЕРШЕНА УСПЕШНО');
@@ -1662,7 +1746,9 @@ async function migrate() {
         (SELECT COUNT(*) FROM offices) as offices,
         (SELECT COUNT(*) FROM rooms) as rooms,
         (SELECT COUNT(*) FROM workplaces) as workplaces,
-        (SELECT COUNT(*) FROM equipment WHERE status = 'placed') as equipment_placed
+        (SELECT COUNT(*) FROM equipment WHERE status = 'placed') as equipment_placed,
+        (SELECT COUNT(*) FROM equipment WHERE is_quantity_accounted = 0) as equipment_minor,
+        (SELECT COUNT(*) FROM fixed_assets) as fixed_assets
     `);
     
     console.log('📊 Итоговая статистика:');
@@ -1679,6 +1765,8 @@ async function migrate() {
     console.log(`   🚪 Кабинетов:      ${stats.rooms}`);
     console.log(`   💺 Рабочих мест:   ${stats.workplaces}`);
     console.log(`   🧩 Моделей ТМЦ:    ${stats.models}`);
+    console.log(`   📊 Малоценка (без кол. учёта): ${stats.equipment_minor}`);
+    console.log(`   🏦 Основных средств:           ${stats.fixed_assets}`);
     console.log(`   👔 МОЛ:            ${stats.mol_users}`);
     console.log(`   🔗 Связок МОЛ↔склад: ${stats.wh_responsibles}`);
     console.log(`   🔗 Связок МОЛ↔офис:  ${stats.office_responsibles}`);

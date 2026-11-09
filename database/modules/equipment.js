@@ -86,6 +86,36 @@ function buildEquipmentScope(scope = {}) {
   return { clause, params: [userId, userId, userId] };
 }
 
+// ============================================================
+// 5.15.1: Хелперы количественного учёта и основных средств
+// ============================================================
+
+/**
+ * Базовый SELECT для «полного» экземпляра:
+ * equipment + model + fixed_assets (LEFT).
+ * Добавляет поля: is_fixed_asset (0/1), commissioning_date,
+ * initial_cost, useful_life_months.
+ *
+ * Использовать в функциях чтения, где нужны признаки ОС.
+ * Внимание: этот SELECT — только каркас, остальные JOIN-ы
+ * (категория/тип/место/владелец) добавляются на месте.
+ */
+const EQUIPMENT_SELECT_BASE = `
+  SELECT e.*,
+         m.name         AS model_name,
+         m.corporate_id AS model_corporate_id,
+         m.manufacturer AS model_manufacturer,
+         m.category_id  AS category_id,
+         m.type_id      AS type_id,
+         CASE WHEN fa.equipment_id IS NOT NULL THEN 1 ELSE 0 END AS is_fixed_asset,
+         fa.commissioning_date,
+         fa.initial_cost,
+         fa.useful_life_months
+    FROM equipment e
+    JOIN equipment_models m ON m.id = e.model_id
+    LEFT JOIN fixed_assets fa ON fa.equipment_id = e.id
+`;
+
 module.exports = ({ db, run, get, all }) => {
 
   // ============================================================
@@ -124,8 +154,72 @@ module.exports = ({ db, run, get, all }) => {
     return { ok: true };
   }
 
-  return {
+    /**
+   * 5.15.1: Является ли экземпляр основным средством.
+   */
+  async function isFixedAsset(equipmentId) {
+    const row = await get(
+      'SELECT 1 FROM fixed_assets WHERE equipment_id = ?',
+      [equipmentId]
+    );
+    return !!row;
+  }
 
+  /**
+   * 5.15.1: Создать/обновить/удалить ОС-запись.
+   *   data.is_fixed_asset = true  → INSERT ... ON CONFLICT UPDATE
+   *   data.is_fixed_asset = false → DELETE (если была)
+   *
+   * Инварианты:
+   *   - commissioning_date обязательна для ОС (NOT NULL в БД, но проверяем явно);
+   *   - ОС ⇒ is_quantity_accounted = 1 (принудительно; триггер тоже страхует).
+   *
+   * НЕ открывает свою транзакцию — вызывающий код (addEquipment /
+   * updateEquipment в 5.15.2) оборачивает всё в BEGIN/COMMIT.
+   * Так избегаем вложенных транзакций (SQLite их не любит).
+   */
+  async function upsertFixedAsset(equipmentId, data) {
+    if (!data || typeof data.is_fixed_asset === 'undefined') {
+      return; // не трогаем ОС-запись
+    }
+
+    if (!data.is_fixed_asset) {
+      await run('DELETE FROM fixed_assets WHERE equipment_id = ?', [equipmentId]);
+      return;
+    }
+
+    if (!data.commissioning_date) {
+      throw new Error('Дата ввода в эксплуатацию обязательна для основного средства');
+    }
+
+    await run(`
+      INSERT INTO fixed_assets
+        (equipment_id, commissioning_date, initial_cost, useful_life_months)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(equipment_id) DO UPDATE SET
+        commissioning_date = excluded.commissioning_date,
+        initial_cost       = excluded.initial_cost,
+        useful_life_months = excluded.useful_life_months,
+        updated_at         = datetime('now')
+    `, [
+      equipmentId,
+      data.commissioning_date,
+      data.initial_cost ?? null,
+      data.useful_life_months ?? null,
+    ]);
+
+    // Страховка (триггер тоже сработает, но явно — надёжнее)
+    await run(
+      'UPDATE equipment SET is_quantity_accounted = 1 WHERE id = ? AND is_quantity_accounted = 0',
+      [equipmentId]
+    );
+  }
+
+  return {
+        // 🆕 5.15.1: ОС и количественный учёт
+    isFixedAsset,
+    upsertFixedAsset,
+    EQUIPMENT_SELECT_BASE,   // строка — для переиспользования в 5.15.2
     // 🆕 Общий хелпер — экспортируем для роутов (admin.js)
     checkCellAvailability(cellId, excludeEquipmentId = null) {
       return checkCellAvailability(db, cellId, excludeEquipmentId);
