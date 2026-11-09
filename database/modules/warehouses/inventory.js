@@ -45,12 +45,17 @@ module.exports = ({ db }) => ({
     });
   },
 
-  getWarehouseInventory(warehouseId, scope = {}) {
+  getWarehouseInventory(warehouseId, scope = {}, opts = {}) {
     const s = buildWarehouseScope(scope);
     const extraWhere = s.clause ? `AND ${s.clause}` : '';
     const isMol = scope.role === 'mol';
     const uid = parseInt(scope.userId, 10) || 0;
     const molEq = isMol ? `AND e.responsible_user_id = ${uid}` : '';
+
+    // 🆕 5.15.5: по умолчанию — только на количественном учёте (ведомость)
+    const quantityOnly = opts.quantityOnly !== false;
+    const qtyWhere = quantityOnly ? 'AND e.is_quantity_accounted = 1' : '';
+
     return new Promise((resolve, reject) => {
       db.all(`
         SELECT
@@ -63,7 +68,13 @@ module.exports = ({ db }) => ({
           c.name as category_name, c.icon as category_icon,
           t.name as type_name, t.icon as type_icon,
           cell.id as cell_id, cell.name as cell_name, cell.code as cell_code,
-          rack.name as rack_name, zone.name as zone_name
+          rack.name as rack_name, zone.name as zone_name,
+
+          -- 🆕 5.15.5
+          e.is_quantity_accounted,
+          CASE WHEN fa.equipment_id IS NOT NULL THEN 1 ELSE 0 END AS is_fixed_asset,
+          fa.commissioning_date
+
         FROM equipment e
         JOIN equipment_models m ON m.id = e.model_id
         LEFT JOIN equipment_categories c ON c.id = m.category_id
@@ -73,7 +84,8 @@ module.exports = ({ db }) => ({
         JOIN zones zone ON rack.zone_id = zone.id
         JOIN warehouses w ON zone.warehouse_id = w.id
         LEFT JOIN users ru ON ru.id = e.responsible_user_id
-        WHERE zone.warehouse_id = ? ${molEq} ${extraWhere}
+        LEFT JOIN fixed_assets fa ON fa.equipment_id = e.id
+        WHERE zone.warehouse_id = ? ${molEq} ${qtyWhere} ${extraWhere}
         ORDER BY zone.sort_order, zone.name, rack.sort_order, rack.name, cell.sort_order, cell.name
       `, [warehouseId, ...s.params], (err, rows) => err ? reject(err) : resolve(rows || []));
     });
@@ -204,9 +216,24 @@ module.exports = ({ db }) => ({
    * @param {Object} [sub] — { zone_id, rack_id, cell_id, room_id, workplace_id }
    * @returns {Promise<Array>}
    */
-  getEquipmentByLevel(level, id, scope = {}, sub = {}) {
+  /**
+   * 5.9.6: техника на выбранном уровне с углублением.
+   * 🆕 5.15.5: opts.quantityOnly (default true) — только на количественном учёте.
+   *
+   * @param {'warehouse'|'office'|'user'} level
+   * @param {number} id — ID склада / офиса / пользователя
+   * @param {Object} scope — { userId, role }
+   * @param {Object} [sub] — { zone_id, rack_id, cell_id, room_id, workplace_id }
+   * @param {Object} [opts] — { quantityOnly }
+   * @returns {Promise<Array>}
+   */
+  getEquipmentByLevel(level, id, scope = {}, sub = {}, opts = {}) {
     const isMol = scope.role === 'mol';
     const uid = parseInt(scope.userId, 10) || 0;
+
+    // 🆕 5.15.5: по умолчанию — только на количественном учёте (ведомость)
+    const quantityOnly = opts.quantityOnly !== false;
+    const qtyWhere = quantityOnly ? 'AND e.is_quantity_accounted = 1' : '';
 
     const subZone    = sub.zone_id    ? 'AND zone.id = ?'    : '';
     const subRack    = sub.rack_id    ? 'AND rack.id = ?'    : '';
@@ -234,6 +261,12 @@ module.exports = ({ db }) => ({
             c.name AS category_name, c.icon AS category_icon,
             t.name AS type_name, t.icon AS type_icon,
             ru.full_name AS responsible_user_name,
+
+            -- 🆕 5.15.5
+            e.is_quantity_accounted,
+            CASE WHEN fa.equipment_id IS NOT NULL THEN 1 ELSE 0 END AS is_fixed_asset,
+            fa.commissioning_date,
+
             cell.id AS cell_id, cell.code AS cell_code, cell.name AS cell_name,
             rack.id AS rack_id, rack.name AS rack_name,
             zone.id AS zone_id, zone.name AS zone_name,
@@ -245,11 +278,12 @@ module.exports = ({ db }) => ({
           LEFT JOIN equipment_categories c ON c.id = m.category_id
           LEFT JOIN equipment_types t ON t.id = m.type_id
           LEFT JOIN users ru ON ru.id = e.responsible_user_id
+          LEFT JOIN fixed_assets fa ON fa.equipment_id = e.id
           JOIN cells cell ON e.cell_id = cell.id
           JOIN racks rack ON cell.rack_id = rack.id
           JOIN zones zone ON rack.zone_id = zone.id
           JOIN warehouses w ON zone.warehouse_id = w.id
-          WHERE w.id = ? ${subZone} ${subRack} ${subCell} ${molWh} ${molEq}
+          WHERE w.id = ? ${subZone} ${subRack} ${subCell} ${qtyWhere} ${molWh} ${molEq}
           ORDER BY zone.sort_order, zone.name, rack.sort_order, rack.name, cell.sort_order, cell.name
         `;
         params = [id, ...subParams];
@@ -267,6 +301,12 @@ module.exports = ({ db }) => ({
             c.name AS category_name, c.icon AS category_icon,
             t.name AS type_name, t.icon AS type_icon,
             ru.full_name AS responsible_user_name,
+
+            -- 🆕 5.15.5
+            e.is_quantity_accounted,
+            CASE WHEN fa.equipment_id IS NOT NULL THEN 1 ELSE 0 END AS is_fixed_asset,
+            fa.commissioning_date,
+
             NULL AS cell_id, NULL AS cell_code, NULL AS cell_name,
             NULL AS rack_id, NULL AS rack_name, NULL AS zone_id, NULL AS zone_name,
             NULL AS warehouse_id, NULL AS warehouse_name,
@@ -277,10 +317,11 @@ module.exports = ({ db }) => ({
           LEFT JOIN equipment_categories c ON c.id = m.category_id
           LEFT JOIN equipment_types t ON t.id = m.type_id
           LEFT JOIN users ru ON ru.id = e.responsible_user_id
+          LEFT JOIN fixed_assets fa ON fa.equipment_id = e.id
           JOIN workplaces wp ON e.workplace_id = wp.id
           JOIN rooms r ON wp.room_id = r.id
           JOIN offices o ON r.office_id = o.id
-          WHERE o.id = ? ${subRoom} ${subWp} ${molOf} ${molEq}
+          WHERE o.id = ? ${subRoom} ${subWp} ${qtyWhere} ${molOf} ${molEq}
           ORDER BY r.sort_order, r.name, wp.sort_order, wp.name
         `;
         params = [id, ...subParams];
@@ -295,6 +336,12 @@ module.exports = ({ db }) => ({
             c.name AS category_name, c.icon AS category_icon,
             t.name AS type_name, t.icon AS type_icon,
             ru.full_name AS responsible_user_name,
+
+            -- 🆕 5.15.5
+            e.is_quantity_accounted,
+            CASE WHEN fa.equipment_id IS NOT NULL THEN 1 ELSE 0 END AS is_fixed_asset,
+            fa.commissioning_date,
+
             cell.id AS cell_id, cell.code AS cell_code, cell.name AS cell_name,
             rack.id AS rack_id, rack.name AS rack_name,
             zone.id AS zone_id, zone.name AS zone_name,
@@ -308,6 +355,7 @@ module.exports = ({ db }) => ({
           LEFT JOIN equipment_categories c ON c.id = m.category_id
           LEFT JOIN equipment_types t ON t.id = m.type_id
           LEFT JOIN users ru ON ru.id = e.responsible_user_id
+          LEFT JOIN fixed_assets fa ON fa.equipment_id = e.id
           LEFT JOIN cells cell ON e.cell_id = cell.id
           LEFT JOIN racks rack ON cell.rack_id = rack.id
           LEFT JOIN zones zone ON rack.zone_id = zone.id
@@ -315,7 +363,7 @@ module.exports = ({ db }) => ({
           LEFT JOIN workplaces wp ON e.workplace_id = wp.id
           LEFT JOIN rooms r ON wp.room_id = r.id
           LEFT JOIN offices o ON r.office_id = o.id
-          WHERE ue.user_id = ? AND ue.returned_date IS NULL ${molEq}
+          WHERE ue.user_id = ? AND ue.returned_date IS NULL ${qtyWhere} ${molEq}
           ORDER BY ue.assigned_date DESC
         `;
         params = [id];

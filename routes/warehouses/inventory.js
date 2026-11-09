@@ -20,6 +20,18 @@ const {
   getEquipmentByLevel,
 } = require('../../database/db');
 
+
+/**
+ * 🆕 5.15.5: парсинг ?quantity_only из query.
+ * По умолчанию — true (ведомость = только учитываемые).
+ * ?quantity_only=0 → показать всё (включая малоценку).
+ */
+function parseQuantityOnly(q) {
+  const v = String(q?.quantity_only ?? '').toLowerCase();
+  if (v === '0' || v === 'false') return false;
+  return true;
+}
+
 /**
  * GET /api/admin/inventory/summary — сводка по складам
  */
@@ -101,7 +113,8 @@ async function getWarehouseInventoryAPI(req, res) {
     }
 
     const scope = { userId: req.session.userId, role: req.session.role };
-    const inventory = await getWarehouseInventory(warehouseId, scope);
+    const quantityOnly = parseQuantityOnly(req.query);
+    const inventory = await getWarehouseInventory(warehouseId, scope, { quantityOnly });
     res.json(inventory);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -142,7 +155,8 @@ async function exportInventoryCSV(req, res) {
       return res.status(404).send('Склад не найден');
     }
 
-    const inventory = await getWarehouseInventory(warehouseId, scope);
+    const quantityOnly = parseQuantityOnly(req.query);
+    const inventory = await getWarehouseInventory(warehouseId, scope, { quantityOnly });
     // Формируем CSV
     const lines = [];
 
@@ -165,7 +179,10 @@ async function exportInventoryCSV(req, res) {
       'Тип',
       'Место хранения',
       'Статус',
-      'Ответственный МОЛ'
+      'Ответственный МОЛ',
+      'На количественном учёте',      // 🆕 5.15.5
+      'Основное средство',            // 🆕 5.15.5
+      'Дата ввода в эксплуатацию',    // 🆕 5.15.5
     ].join(';'));
 
     // Данные
@@ -183,11 +200,16 @@ async function exportInventoryCSV(req, res) {
         eq.type_name || '',
         location,
         eq.status,
-        eq.responsible_user_name || '—'
+        eq.responsible_user_name || '—',
+        eq.is_quantity_accounted ? 'Да' : 'Нет',
+        eq.is_fixed_asset ? 'Да' : 'Нет',
+        eq.commissioning_date || '',
       ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(';'));
     });
 
     lines.push('');
+        // 🆕 5.15.5: пометка в шапке отчёта о режиме фильтра
+    lines.splice(3, 0, `Учёт: ${quantityOnly ? 'только на количественном' : 'все (включая малоценку)'}`);
     lines.push(`Всего единиц: ${inventory.length}`);
 
     const csv = lines.join('\n');
@@ -268,7 +290,8 @@ async function getInventoryByLevelAPI(req, res) {
     };
 
     const scope = { userId: req.session.userId, role: req.session.role };
-    const rows = await getEquipmentByLevel(level, id, scope, sub);
+    const quantityOnly = parseQuantityOnly(req.query);
+    const rows = await getEquipmentByLevel(level, id, scope, sub, { quantityOnly });
     res.json(rows);
   } catch (error) {
     console.error('❌ Ошибка выборки по уровню:', error);
