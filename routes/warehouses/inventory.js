@@ -94,7 +94,8 @@ async function getInventoryOfficesSummaryAPI(req, res) {
 async function getInventoryUsersSummaryAPI(req, res) {
   try {
     const scope = { userId: req.session.userId, role: req.session.role };
-    const rows = await getUsersWithActiveEquipment(scope);
+    const quantityOnly = parseQuantityOnly(req.query);
+    const rows = await getUsersWithActiveEquipment(scope, { quantityOnly });
     res.json(rows);
   } catch (error) {
     console.error('❌ Ошибка сводки по пользователям:', error);
@@ -241,8 +242,9 @@ async function getInventoryUserDetailsAPI(req, res) {
       return res.status(404).json({ error: 'Пользователь не найден' });
     }
 
-    let activeEquipment = await getUserActiveEquipment(id);
-    let history = await getUserEquipmentHistory(id);
+    const quantityOnly = parseQuantityOnly(req.query);
+    let activeEquipment = await getUserActiveEquipment(id, { quantityOnly });
+    let history = await getUserEquipmentHistory(id, { quantityOnly });
 
     if (req.session.role === 'mol') {
       const uid = parseInt(req.session.userId, 10) || 0;

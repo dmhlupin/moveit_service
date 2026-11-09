@@ -257,10 +257,14 @@ module.exports = ({ db, run, get, all }) => ({
    * @param {Object} scope — { userId, role }
    * @returns {Promise<Array>}
    */
-  getUsersWithActiveEquipment(scope = {}) {
+  getUsersWithActiveEquipment(scope = {}, opts = {}) {
     const isMol = scope.role === 'mol';
     const uid = parseInt(scope.userId, 10) || 0;
     const molEq = isMol ? `AND e.responsible_user_id = ${uid}` : '';
+
+    // 🆕 5.15.5: по умолчанию — только на количественном учёте (ведомость)
+    const quantityOnly = opts.quantityOnly !== false;
+    const qtyWhere = quantityOnly ? 'AND e.is_quantity_accounted = 1' : '';
 
     return new Promise((resolve, reject) => {
       db.all(`
@@ -274,6 +278,7 @@ module.exports = ({ db, run, get, all }) => ({
             JOIN equipment e ON e.id = ue.equipment_id
             WHERE ue.user_id = u.id
               AND ue.returned_date IS NULL
+              ${qtyWhere}
               ${molEq}
           ) as active_equipment_count
         FROM users u
@@ -283,6 +288,7 @@ module.exports = ({ db, run, get, all }) => ({
             JOIN equipment e ON e.id = ue.equipment_id
             WHERE ue.user_id = u.id
               AND ue.returned_date IS NULL
+              ${qtyWhere}
               ${molEq}
           )
         ORDER BY active_equipment_count DESC, u.full_name ASC

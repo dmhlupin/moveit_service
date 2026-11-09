@@ -7,7 +7,11 @@ module.exports = ({ db, run, get, all }) => ({
    * Получить активную технику пользователя
    * (только выданную, не возвращённую)
    */
-  getUserActiveEquipment(userId) {
+  getUserActiveEquipment(userId, opts = {}) {
+    // 🆕 5.15.5
+    const quantityOnly = opts.quantityOnly !== false;
+    const qtyWhere = quantityOnly ? 'AND e.is_quantity_accounted = 1' : '';
+
     return new Promise((resolve, reject) => {
       db.all(`
         SELECT 
@@ -25,13 +29,20 @@ module.exports = ({ db, run, get, all }) => ({
           ue.assigned_date,
           ue.condition_on_assign,
           ue.notes,
-          ue.id as assignment_id
+          ue.id as assignment_id,
+
+          -- 🆕 5.15.5
+          e.is_quantity_accounted,
+          CASE WHEN fa.equipment_id IS NOT NULL THEN 1 ELSE 0 END AS is_fixed_asset,
+          fa.commissioning_date
+
         FROM user_equipment ue
         JOIN equipment e ON ue.equipment_id = e.id
         JOIN equipment_models m ON m.id = e.model_id
         LEFT JOIN users ru ON ru.id = e.responsible_user_id
         LEFT JOIN users ab ON ab.id = ue.assigned_by_user_id
-        WHERE ue.user_id = ? AND ue.returned_date IS NULL
+        LEFT JOIN fixed_assets fa ON fa.equipment_id = e.id
+        WHERE ue.user_id = ? AND ue.returned_date IS NULL ${qtyWhere}
         ORDER BY ue.assigned_date DESC
       `, [userId], (err, rows) => {
         if (err) reject(err);
@@ -44,7 +55,11 @@ module.exports = ({ db, run, get, all }) => ({
    * Получить всю историю техники пользователя
    * (включая возвращённую)
    */
-  getUserEquipmentHistory(userId) {
+  getUserEquipmentHistory(userId, opts = {}) {
+    // 🆕 5.15.5
+    const quantityOnly = opts.quantityOnly !== false;
+    const qtyWhere = quantityOnly ? 'AND e.is_quantity_accounted = 1' : '';
+
     return new Promise((resolve, reject) => {
       db.all(`
         SELECT 
@@ -60,6 +75,12 @@ module.exports = ({ db, run, get, all }) => ({
           ue.condition_on_return,
           ue.notes,
           ab.full_name AS assigned_by_name,
+
+          -- 🆕 5.15.5
+          e.is_quantity_accounted,
+          CASE WHEN fa.equipment_id IS NOT NULL THEN 1 ELSE 0 END AS is_fixed_asset,
+          fa.commissioning_date,
+
           CASE 
             WHEN ue.returned_date IS NULL THEN 'active'
             ELSE 'returned'
@@ -68,7 +89,8 @@ module.exports = ({ db, run, get, all }) => ({
         JOIN equipment e ON ue.equipment_id = e.id
         JOIN equipment_models m ON m.id = e.model_id
         LEFT JOIN users ab ON ab.id = ue.assigned_by_user_id
-        WHERE ue.user_id = ?
+        LEFT JOIN fixed_assets fa ON fa.equipment_id = e.id
+        WHERE ue.user_id = ? ${qtyWhere}
         ORDER BY ue.assigned_date DESC
       `, [userId], (err, rows) => {
         if (err) reject(err);

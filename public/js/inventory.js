@@ -25,6 +25,17 @@ let byLevelData = {
     rows: [],
     breadcrumbs: [], // 🆕 5.9.6
 };
+// 🆕 5.15.5: глобальный фильтр «Учёт»
+const QUANTITY_ONLY_KEY = 'inventory.quantityOnly';
+let quantityOnly = true;   // default — только учитываемые
+
+/**
+ * 🆕 5.15.5: добавить ?quantity_only к URL.
+ */
+function withQuantity(url) {
+    const sep = url.includes('?') ? '&' : '?';
+    return `${url}${sep}quantity_only=${quantityOnly ? '1' : '0'}`;
+}
 
 // ============================================================
 // 5.11.4: ВКЛАДКИ (Склады / Рабочие места / Пользователи / Выборка)
@@ -123,12 +134,47 @@ function initUserView() {
 document.addEventListener('DOMContentLoaded', async function() {
     initInventoryTabs();              // 🆕 5.11.4
     initUserView();                   // 5.12
+    initQuantityOnly();           // 🆕 5.15.5
     await loadSummary();
     await loadTotals();
     await loadSpecialSummary();
     await loadOfficesSummary();
     await loadUsersSummary();          // 🆕 5.9.4
 });
+
+/**
+ * 🆕 5.15.5: инициализация селекта «Учёт» из localStorage.
+ */
+function initQuantityOnly() {
+    let saved = '1';
+    try { saved = localStorage.getItem(QUANTITY_ONLY_KEY) || '1'; } catch (e) {}
+    quantityOnly = (saved !== '0');
+    const sel = document.getElementById('filterQuantityOnly');
+    if (sel) sel.value = quantityOnly ? '1' : '0';
+}
+
+/**
+ * 🆕 5.15.5: смена фильтра «Учёт» → перезагрузка всех вкладок.
+ */
+function onQuantityOnlyChange() {
+    const sel = document.getElementById('filterQuantityOnly');
+    quantityOnly = (sel?.value !== '0');
+    try { localStorage.setItem(QUANTITY_ONLY_KEY, quantityOnly ? '1' : '0'); } catch (e) {}
+
+    // Сброс раскрытых модалок — там данные могли устареть
+    if (currentWarehouseId) closeWarehouseDetailModal();
+    if (currentOfficeId) closeOfficeDetailModal();
+    if (currentUserIdInv) closeUserDetailModal();
+
+    // Перезагрузить всё
+    loadSummary();
+    loadTotals();
+    loadSpecialSummary();
+    loadOfficesSummary();
+    loadUsersSummary();
+    loadByLevel();
+}
+
 
 /**
  * Загрузить сводку по складам
@@ -140,7 +186,7 @@ async function loadSummary() {
     container.innerHTML = '<div class="loading-block">⏳ Загрузка...</div>';
     
     try {
-        const response = await fetch('/api/admin/inventory/summary');
+        const response = await fetch(withQuantity('/api/admin/inventory/summary'));
         summary = await response.json();
         
         renderSummary();
@@ -208,7 +254,7 @@ async function loadOfficesSummary() {
     container.innerHTML = '<div class="loading-block">⏳ Загрузка...</div>';
 
     try {
-        const response = await fetch('/api/admin/inventory/offices-summary');
+        const response = await fetch(withQuantity('/api/admin/inventory/offices-summary'));
         officesSummary = await response.json();
         renderOfficesSummary();
     } catch (error) {
@@ -314,7 +360,7 @@ async function loadUsersSummary() {
     if (cardsEl) cardsEl.innerHTML = loadingHtml;
 
     try {
-        const response = await fetch('/api/admin/inventory/users-summary');
+        const response = await fetch(withQuantity('/api/admin/inventory/users-summary'));
         const data = await response.json();
         if (!Array.isArray(data)) {
             throw new Error(data?.error || 'Некорректный ответ API');
@@ -684,7 +730,7 @@ async function openWarehouseDetail(warehouseId) {
     try {
         // Загружаем инвентаризацию и заполненность параллельно
         const [inventory, occupancy] = await Promise.all([
-            fetch(`/api/admin/warehouses/${warehouseId}/inventory`).then(r => r.json()),
+            fetch(withQuantity(`/api/admin/warehouses/${warehouseId}/inventory`)).then(r => r.json()),
             fetch(`/api/admin/warehouses/${warehouseId}/occupancy`).then(r => r.json()),
         ]);
         
@@ -876,7 +922,7 @@ async function openOfficeDetail(officeId) {
 
     try {
         const [equipment, occupancy] = await Promise.all([
-            fetch(`/api/admin/offices/${officeId}/equipment`).then(r => r.json()),
+            fetch(withQuantity(`/api/admin/offices/${officeId}/equipment`)).then(r => r.json()),
             fetch(`/api/admin/offices/${officeId}/occupancy`).then(r => r.json()),
         ]);
 
@@ -1046,7 +1092,8 @@ function switchOfficeTab(tab, event) {
 }
 
 function exportOfficeInventory(officeId) {
-    window.location.href = `/api/admin/offices/${officeId}/equipment/export`;
+    const q = `quantity_only=${quantityOnly ? '1' : '0'}`;
+    window.location.href = `/api/admin/offices/${officeId}/equipment/export?${q}`;
     showToast('📥 Начинается скачивание CSV...', 'success');
 }
 
@@ -1090,7 +1137,7 @@ async function openUserDetail(userId) {
     modal.classList.add('active');
 
     try {
-        const response = await fetch(`/api/admin/inventory/users/${userId}/details`);
+        const response = await fetch(withQuantity(`/api/admin/inventory/users/${userId}/details`));
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
         renderUserDetail(data);
@@ -1552,6 +1599,10 @@ async function loadByLevel() {
         const qs = new URLSearchParams({ level: type, id: String(id) });
         Object.entries(sub).forEach(([k, v]) => qs.set(k, String(v)));
 
+        // 🆕 5.15.5: по умолчанию quantityOnly = true — сервер сам применит,
+        // если хотим «все» — передаём quantity_only=0 явно.
+        if (!quantityOnly) qs.set('quantity_only', '0');
+
         const response = await fetch(`/api/admin/inventory/by-level?${qs.toString()}`);
         if (!response.ok) {
             const err = await response.json().catch(() => ({}));
@@ -1716,8 +1767,9 @@ function renderByLevel() {
 // ============================================================
 
 function exportInventory(warehouseId) {
-    // Просто открываем ссылку — браузер скачает CSV
-    window.location.href = `/api/admin/warehouses/${warehouseId}/inventory/export`;
+    const sep = '?';
+    const q = `quantity_only=${quantityOnly ? '1' : '0'}`;
+    window.location.href = `/api/admin/warehouses/${warehouseId}/inventory/export?${q}`;
     showToast('📥 Начинается скачивание CSV...', 'success');
 }
 
