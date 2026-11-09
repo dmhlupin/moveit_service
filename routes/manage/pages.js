@@ -357,6 +357,15 @@ async function renderAddEquipment(req, res) {
     const currentRole = req.session.role || 'user';
     content = content.replace(/\{\{current_role\}\}/g, currentRole);
 
+        // 🆕 5.15.3: дефолты для новой техники
+    content = content.replace(/\{\{is_quantity_accounted_checked\}\}/g, 'checked'); // по умолчанию ✓
+    content = content.replace(/\{\{is_fixed_asset_checked\}\}/g, '');
+    content = content.replace(/\{\{is_quantity_accounted_disabled\}\}/g, '');
+    content = content.replace(/\{\{fixed_asset_block_style\}\}/g, 'display: none;');
+    content = content.replace(/\{\{commissioning_date\}\}/g, '');
+    content = content.replace(/\{\{initial_cost\}\}/g, '');
+    content = content.replace(/\{\{useful_life_months\}\}/g, '');
+
     if (currentRole === 'admin') {
       const users = await getAllUsers();
       const mols = users.filter(u => u.role === 'mol' && u.is_active === 1);
@@ -408,6 +417,40 @@ async function renderEditEquipment(req, res) {
     content = content.replace(/\{\{cell_id\}\}/g, equipment.cell_id || '');
     content = content.replace(/\{\{workplace_id\}\}/g, equipment.workplace_id || '');
     content = content.replace(/\{\{selected_model_id\}\}/g, equipment.model_id || '');
+
+        // 🆕 5.15.3: количественный учёт + ОС
+    content = content.replace(
+      /\{\{is_quantity_accounted_checked\}\}/g,
+      equipment.is_quantity_accounted ? 'checked' : ''
+    );
+    content = content.replace(
+      /\{\{is_fixed_asset_checked\}\}/g,
+      equipment.is_fixed_asset ? 'checked' : ''
+    );
+    content = content.replace(
+      /\{\{is_fixed_asset_disabled\}\}/g,
+      '' // в edit чекбокс ОС всегда доступен
+    );
+    content = content.replace(
+      /\{\{is_quantity_accounted_disabled\}\}/g,
+      equipment.is_fixed_asset ? 'disabled' : ''
+    );
+    content = content.replace(
+      /\{\{commissioning_date\}\}/g,
+      escapeHtml(equipment.commissioning_date || '')
+    );
+    content = content.replace(
+      /\{\{initial_cost\}\}/g,
+      equipment.initial_cost != null ? equipment.initial_cost : ''
+    );
+    content = content.replace(
+      /\{\{useful_life_months\}\}/g,
+      equipment.useful_life_months != null ? equipment.useful_life_months : ''
+    );
+    content = content.replace(
+      /\{\{fixed_asset_block_style\}\}/g,
+      equipment.is_fixed_asset ? '' : 'display: none;'
+    );
 
     const statusLabels = {
       'available':   '✅ Доступна',
@@ -471,6 +514,12 @@ async function renderEditEquipment(req, res) {
       : '—');
     content = content.replace(/\{\{info_serial\}\}/g, escapeHtml(equipment.serial_number || '—'));
     content = content.replace(/\{\{info_status\}\}/g, escapeHtml(infoStatus));
+        content = content.replace(/\{\{info_quantity_accounted\}\}/g,
+      equipment.is_quantity_accounted ? '✅ Да' : '❌ Нет (малоценка)');
+    content = content.replace(/\{\{info_fixed_asset\}\}/g,
+      equipment.is_fixed_asset
+        ? `🏦 Да (с ${escapeHtml(equipment.commissioning_date || '—')})`
+        : '—');
 
     const users = await getAllUsers();
     let userOptions = '';

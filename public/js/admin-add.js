@@ -32,6 +32,9 @@ document.addEventListener('DOMContentLoaded', async function () {
   // Живой предпросмотр
   bindLivePreview();
   bindModelPreview();
+
+  // 🆕 5.15.3: начальное состояние блока ОС
+  onFixedAssetChange();
 });
 
 // ============================================================
@@ -94,6 +97,45 @@ function setInfo(id, text) {
 }
 
 // ============================================================
+// 🆕 5.15.3: ОСНОВНЫЕ СРЕДСТВА
+// ============================================================
+
+/**
+ * Переключение блока «Основное средство».
+ * При включении:
+ *   - показываем поля ОС (дата / стоимость / срок);
+ *   - инв.№, серийный №, дата ввода → required;
+ *   - «На количественном учёте» → ✓ + disabled (инвариант).
+ * При выключении — обратно.
+ */
+function onFixedAssetChange() {
+  const fixedCb   = document.getElementById('is_fixed_asset');
+  const qtyCb     = document.getElementById('is_quantity_accounted');
+  const block     = document.getElementById('fixedAssetBlock');
+  const invInput  = document.getElementById('inventory_number');
+  const snInput   = document.getElementById('serial_number');
+  const dateInput = document.getElementById('commissioning_date');
+
+  if (!fixedCb) return;
+  const isFa = fixedCb.checked;
+
+  if (block) block.style.display = isFa ? '' : 'none';
+
+  if (invInput)  invInput.required  = isFa;
+  if (snInput)   snInput.required   = isFa;
+  if (dateInput) dateInput.required = isFa;
+
+  if (qtyCb) {
+    if (isFa) {
+      qtyCb.checked  = true;
+      qtyCb.disabled = true;
+    } else {
+      qtyCb.disabled = false;
+    }
+  }
+}
+
+// ============================================================
 // ОТПРАВКА ФОРМЫ
 // ============================================================
 
@@ -135,6 +177,44 @@ async function submitForm(event) {
     document.getElementById('model_id').focus();
     return;
   }
+
+  // 🆕 5.15.3: количественный учёт + ОС
+  const isQuantityAccounted = document.getElementById('is_quantity_accounted')?.checked ? 1 : 0;
+  const isFixedAsset        = document.getElementById('is_fixed_asset')?.checked || false;
+  const commissioningDate   = document.getElementById('commissioning_date')?.value || null;
+  const initialCostRaw      = document.getElementById('initial_cost')?.value;
+  const usefulLifeRaw       = document.getElementById('useful_life_months')?.value;
+
+  // Клиентская валидация инвариантов ОС (те же сообщения, что и на сервере)
+  if (isFixedAsset) {
+    if (!formData.inventory_number) {
+      showToast('❌ Для основного средства обязателен инвентарный номер', 'error');
+      submitBtn.disabled = false;
+      submitBtn.textContent = '💾 Сохранить';
+      document.getElementById('inventory_number').focus();
+      return;
+    }
+    if (!formData.serial_number) {
+      showToast('❌ Для основного средства обязателен серийный номер', 'error');
+      submitBtn.disabled = false;
+      submitBtn.textContent = '💾 Сохранить';
+      document.getElementById('serial_number').focus();
+      return;
+    }
+    if (!commissioningDate) {
+      showToast('❌ Для основного средства обязательна дата ввода в эксплуатацию', 'error');
+      submitBtn.disabled = false;
+      submitBtn.textContent = '💾 Сохранить';
+      document.getElementById('commissioning_date').focus();
+      return;
+    }
+  }
+
+  formData.is_quantity_accounted = isFixedAsset ? 1 : isQuantityAccounted;
+  formData.is_fixed_asset        = isFixedAsset;
+  formData.commissioning_date    = isFixedAsset ? commissioningDate : null;
+  formData.initial_cost          = isFixedAsset && initialCostRaw ? parseFloat(initialCostRaw) : null;
+  formData.useful_life_months    = isFixedAsset && usefulLifeRaw ? parseInt(usefulLifeRaw, 10) : null;
 
   try {
     const response = await fetch('/api/manage/equipment', {

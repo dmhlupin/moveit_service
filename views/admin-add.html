@@ -94,6 +94,59 @@
             </div>
           </div>
 
+          <!-- ============================================================ -->
+          <!-- 🆕 5.15.3: Количественный учёт + Основные средства            -->
+          <!-- ============================================================ -->
+          <div class="accounting-section">
+            <div class="accounting-section-title">📊 Учёт</div>
+
+            <!-- На количественном учёте -->
+            <div class="form-group checkbox-group">
+              <label class="checkbox-label">
+                <input type="checkbox" id="is_quantity_accounted" checked>
+                <span>На количественном учёте</span>
+              </label>
+              <div class="help-text">
+                Снимите галочку для малоценки (клавиатура, мышь, кабель) —
+                она физически есть, но в ведомостях инвентаризации не учитывается.
+              </div>
+            </div>
+
+            <!-- Основное средство -->
+            <div class="form-group checkbox-group">
+              <label class="checkbox-label">
+                <input type="checkbox" id="is_fixed_asset" onchange="onFixedAssetChange()">
+                <span>Основное средство</span>
+              </label>
+              <div class="help-text">
+                ОС — техника, поставленная на баланс. Требует инв. №,
+                серийный № и дату ввода в эксплуатацию.
+                ОС всегда на количественном учёте.
+              </div>
+            </div>
+
+            <!-- Поля ОС (скрыты по умолчанию) -->
+            <div id="fixedAssetBlock" class="fixed-asset-block" style="{{fixed_asset_block_style}}">
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label>Дата ввода в эксплуатацию <span class="required">*</span></label>
+                  <input type="date" id="commissioning_date" value="{{commissioning_date}}">
+                </div>
+                <div class="form-group">
+                  <label>Первоначальная стоимость, ₽</label>
+                  <input type="number" id="initial_cost" step="0.01" min="0" placeholder="Опционально" value="{{initial_cost}}">
+                </div>
+                <div class="form-group">
+                  <label>Срок полезного использования, мес.</label>
+                  <input type="number" id="useful_life_months" min="1" placeholder="Опционально" value="{{useful_life_months}}">
+                </div>
+              </div>
+              <div class="help-text">
+                Стоимость и срок — опциональны. Если не заполнены — ОС всё равно создаётся.
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
 
