@@ -271,9 +271,7 @@ function buildRowContext(item, currentRole, currentUserId) {
     ? '<span class="lock-icon" title="Техника закреплена за другим МОЛом — только просмотр">🔒</span>'
     : '';
     // 🆕 5.15.4: учёт / ОС
-  const quantityCell = item.is_quantity_accounted
-    ? '<span class="badge badge-success" title="На количественном учёте">📊</span>'
-    : '<span class="badge badge-muted" title="Малоценка — не в ведомостях">—</span>';
+  const quantityCell = item.is_quantity_accounted ? 'Да' : 'Нет';
 
   const fixedAssetIcon = item.is_fixed_asset
     ? '<span class="fixed-asset-icon" title="Основное средство">🏦</span> '
