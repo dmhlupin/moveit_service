@@ -22,6 +22,7 @@
         status:      'Статус',
         assigned:    'Назначена',
         responsible: 'Ответственный МОЛ',
+        quantity:    'Учёт',
     };
 
     // ---------- localStorage ----------

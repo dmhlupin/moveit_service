@@ -88,6 +88,18 @@
             {{filter_mol_options}}
         </select>
     </div>
+        <div class="filter-group">
+        <label>Учёт</label>
+        <select id="filterQuantity">
+            {{filter_quantity_options}}
+        </select>
+    </div>
+    <div class="filter-group">
+        <label>Основное средство</label>
+        <select id="filterFixedAsset">
+            {{filter_fixed_asset_options}}
+        </select>
+    </div>
     <div class="filter-group filter-group--checkbox">
         <label class="checkbox-label">
             <input type="checkbox" id="filterUnplaced" value="1" {{filter_unplaced_checked}}>

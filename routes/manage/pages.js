@@ -54,6 +54,15 @@ async function renderManage(req, res) {
     const sort = ALLOWED_SORTS.includes(q.sort) ? q.sort : 'id';
     const order = (String(q.order).toLowerCase() === 'desc') ? 'desc' : 'asc';
 
+        // 🆕 5.15.4: учёт / ОС
+    let isQuantityAccounted = null;
+    if (q.quantity_mode === 'accounted')      isQuantityAccounted = true;
+    else if (q.quantity_mode === 'minor')     isQuantityAccounted = false;
+
+    let isFixedAssetFilter = null;
+    if (q.fixed_asset_mode === 'only')        isFixedAssetFilter = true;
+    else if (q.fixed_asset_mode === 'exclude') isFixedAssetFilter = false;
+
     // ---------- Фильтры ----------
     const filters = {
       category_id:  q.category_id  ? parseInt(q.category_id, 10)  : null,
@@ -69,6 +78,9 @@ async function renderManage(req, res) {
       warehouse_id: q.warehouse_id ? parseInt(q.warehouse_id, 10) : null,
       sort, order,
       limit: pageSize, offset, include_total: true,
+            // 🆕 5.15.4
+      is_quantity_accounted: isQuantityAccounted,
+      is_fixed_asset:        isFixedAssetFilter,
     };
 
     // ---------- Данные ----------
@@ -113,6 +125,9 @@ async function renderManage(req, res) {
     html = html.replace(/\{\{filter_search\}\}/g,       escapeHtml(filters.search || ''));
     html = html.replace(/\{\{filter_unplaced_checked\}\}/g, filters.unplaced ? 'checked' : '');
     html = html.replace(/\{\{filter_stale_checked\}\}/g, filters.stale ? 'checked' : '');
+
+    html = html.replace('{{filter_quantity_options}}',    buildQuantityOptions(q.quantity_mode || ''));
+    html = html.replace('{{filter_fixed_asset_options}}', buildFixedAssetOptions(q.fixed_asset_mode || ''));
 
     html = html.replace('{{page_size_options}}', buildPageSizeOptions(ALLOWED_PAGE_SIZES, pageSize));
 
@@ -254,7 +269,14 @@ function buildRowContext(item, currentRole, currentUserId) {
   const lockIcon = isLocked
     ? '<span class="lock-icon" title="Техника закреплена за другим МОЛом — только просмотр">🔒</span>'
     : '';
+    // 🆕 5.15.4: учёт / ОС
+  const quantityCell = item.is_quantity_accounted
+    ? '<span class="badge badge-success" title="На количественном учёте">📊</span>'
+    : '<span class="badge badge-muted" title="Малоценка — не в ведомостях">—</span>';
 
+  const fixedAssetIcon = item.is_fixed_asset
+    ? '<span class="fixed-asset-icon" title="Основное средство">🏦</span> '
+    : '';
   // Назначена
   let assignedInfo = '—';
   if (item.status === 'assigned' && item.user_name) {
@@ -332,7 +354,33 @@ function buildRowContext(item, currentRole, currentUserId) {
     canBulkMove, isLocked, rowClass, lockIcon,
     assignedInfo, categoryCell, typeCell, cellInfo,
     statusLabel, statusClass, responsibleCell,
+    quantityCell, fixedAssetIcon,
   };
+}
+
+// 🆕 5.15.4
+function buildQuantityOptions(currentMode) {
+  const modes = [
+    { v: '',          l: 'Все' },
+    { v: 'accounted', l: '📊 На количественном' },
+    { v: 'minor',     l: '— Малоценка' },
+  ];
+  return modes.map(o => {
+    const sel = (currentMode || '') === o.v ? 'selected' : '';
+    return `<option value="${o.v}" ${sel}>${o.l}</option>`;
+  }).join('');
+}
+
+function buildFixedAssetOptions(currentMode) {
+  const modes = [
+    { v: '',        l: 'Все' },
+    { v: 'only',    l: '🏦 Только ОС' },
+    { v: 'exclude', l: 'Только не-ОС' },
+  ];
+  return modes.map(o => {
+    const sel = (currentMode || '') === o.v ? 'selected' : '';
+    return `<option value="${o.v}" ${sel}>${o.l}</option>`;
+  }).join('');
 }
 
 // ============================================================

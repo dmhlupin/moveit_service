@@ -150,8 +150,9 @@ module.exports = ({ db, run, get, all }) => {
                     warehouse_id = null,
                     workplace_id = null,
                     mol_id = null,
-                    is_fixed_asset     = null,   // 🆕 5.15.2: true/false → 1/0
-                    quantity_only      = false,  // 🆕 5.15.2: только учитываемые
+                    is_fixed_asset     = null,   // 🆕 5.15.2
+                    is_quantity_accounted = null, // 🆕 5.15.4: true/false → 1/0; null = не фильтровать
+                    quantity_only      = false,  // 🆕 5.15.2
                     corporate_id = null,
                     model_name = null,
                     unplaced = false,
@@ -178,6 +179,8 @@ module.exports = ({ db, run, get, all }) => {
                 if (is_fixed_asset === true)  { where.push(`fa.equipment_id IS NOT NULL`); }
                 if (is_fixed_asset === false) { where.push(`fa.equipment_id IS NULL`); }
                 if (quantity_only)            { where.push('e.is_quantity_accounted = 1'); }
+                if (is_quantity_accounted === true)  { where.push('e.is_quantity_accounted = 1'); }
+                if (is_quantity_accounted === false) { where.push('e.is_quantity_accounted = 0'); }
                 if (only_mine && scope.userId && scope.role === 'mol') {
                     where.push('e.responsible_user_id = ?');
                     whereParams.push(scope.userId);

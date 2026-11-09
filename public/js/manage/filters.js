@@ -18,6 +18,11 @@ function applyFilters() {
     if (categoryId) params.set('category_id', categoryId);
     if (typeId) params.set('type_id', typeId);
     if (molId) params.set('mol_id', molId);
+        // 🆕 5.15.4: учёт / ОС
+    const quantityMode   = document.getElementById('filterQuantity')?.value || '';
+    const fixedAssetMode = document.getElementById('filterFixedAsset')?.value || '';
+    if (quantityMode)   params.set('quantity_mode', quantityMode);
+    if (fixedAssetMode) params.set('fixed_asset_mode', fixedAssetMode);
     
     const onlyMine = document.getElementById('filterOnlyMine')?.value;
     if (onlyMine) params.set('only_mine', onlyMine);
@@ -43,6 +48,11 @@ function applyFilters() {
 function resetFilters() {
     const unplaced = document.getElementById('filterUnplaced');
     if (unplaced) unplaced.checked = false;
+    // 🆕 5.15.4
+    const quantity = document.getElementById('filterQuantity');
+    if (quantity) quantity.value = '';
+    const fixedAsset = document.getElementById('filterFixedAsset');
+    if (fixedAsset) fixedAsset.value = '';
     window.location.href = '/manage';
 }
 
