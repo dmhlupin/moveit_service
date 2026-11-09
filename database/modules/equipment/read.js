@@ -26,6 +26,12 @@ module.exports = ({ db, run, get, all }) => {
           e.purchase_date, e.warranty_until, e.description,
           e.created_at, e.updated_at,
 
+          e.is_quantity_accounted,
+          CASE WHEN fa.equipment_id IS NOT NULL THEN 1 ELSE 0 END AS is_fixed_asset,
+          fa.commissioning_date,
+          fa.initial_cost,
+          fa.useful_life_months,
+
           m.name         AS model_name,
           m.corporate_id AS model_corporate_id,
           m.manufacturer AS model_manufacturer,
@@ -52,6 +58,7 @@ module.exports = ({ db, run, get, all }) => {
         LEFT JOIN user_equipment ue ON e.id = ue.equipment_id AND ue.returned_date IS NULL
         LEFT JOIN users u ON ue.user_id = u.id
         LEFT JOIN users ru ON e.responsible_user_id = ru.id
+        LEFT JOIN fixed_assets fa ON fa.equipment_id = e.id
         ${where}
         ORDER BY m.name, e.inventory_number
       `, s.params, (err, rows) => {
@@ -77,6 +84,12 @@ module.exports = ({ db, run, get, all }) => {
           ru.username  AS responsible_user_username,
           e.purchase_date, e.warranty_until, e.description,
           e.created_at, e.updated_at,
+
+          e.is_quantity_accounted,
+          CASE WHEN fa.equipment_id IS NOT NULL THEN 1 ELSE 0 END AS is_fixed_asset,
+          fa.commissioning_date,
+          fa.initial_cost,
+          fa.useful_life_months,
 
           m.name         AS model_name,
           m.corporate_id AS model_corporate_id,
@@ -113,6 +126,7 @@ module.exports = ({ db, run, get, all }) => {
         LEFT JOIN user_equipment ue ON e.id = ue.equipment_id AND ue.returned_date IS NULL
         LEFT JOIN users u ON ue.user_id = u.id
         LEFT JOIN users ru ON e.responsible_user_id = ru.id
+        LEFT JOIN fixed_assets fa ON fa.equipment_id = e.id
         WHERE e.id = ? ${extraWhere}
       `, [id, ...s.params], (err, row) => {
                     if (err) reject(err);
@@ -136,6 +150,8 @@ module.exports = ({ db, run, get, all }) => {
                     warehouse_id = null,
                     workplace_id = null,
                     mol_id = null,
+                    is_fixed_asset     = null,   // 🆕 5.15.2: true/false → 1/0
+                    quantity_only      = false,  // 🆕 5.15.2: только учитываемые
                     corporate_id = null,
                     model_name = null,
                     unplaced = false,
@@ -159,6 +175,9 @@ module.exports = ({ db, run, get, all }) => {
                 if (warehouse_id) { where.push('wh.id = ?'); whereParams.push(warehouse_id); }
                 if (workplace_id) { where.push('e.workplace_id = ?'); whereParams.push(workplace_id); }
                 if (mol_id) { where.push('e.responsible_user_id = ?'); whereParams.push(mol_id); }
+                if (is_fixed_asset === true)  { where.push(`fa.equipment_id IS NOT NULL`); }
+                if (is_fixed_asset === false) { where.push(`fa.equipment_id IS NULL`); }
+                if (quantity_only)            { where.push('e.is_quantity_accounted = 1'); }
                 if (only_mine && scope.userId && scope.role === 'mol') {
                     where.push('e.responsible_user_id = ?');
                     whereParams.push(scope.userId);
@@ -212,6 +231,9 @@ module.exports = ({ db, run, get, all }) => {
                     location: `COALESCE(cell.code, wp.name)`,
                     created_at: 'e.created_at',
                     purchase_date: 'e.purchase_date',
+                    commissioning_date: 'fa.commissioning_date',
+                    quantity_accounted: 'e.is_quantity_accounted',
+                    fixed_asset:        `CASE WHEN fa.equipment_id IS NOT NULL THEN 1 ELSE 0 END`,
                 };
                 const sortSql = SORT_MAP[sort] || 'e.id';
                 const orderSql = (String(order).toLowerCase() === 'desc') ? 'DESC' : 'ASC';
@@ -225,6 +247,12 @@ module.exports = ({ db, run, get, all }) => {
           ru.username  AS responsible_user_username,
           e.purchase_date, e.warranty_until, e.description,
           e.created_at, e.updated_at,
+
+          e.is_quantity_accounted,
+          CASE WHEN fa.equipment_id IS NOT NULL THEN 1 ELSE 0 END AS is_fixed_asset,
+          fa.commissioning_date,
+          fa.initial_cost,
+          fa.useful_life_months,
 
           m.name         AS model_name,
           m.corporate_id AS model_corporate_id,
@@ -251,6 +279,7 @@ module.exports = ({ db, run, get, all }) => {
         LEFT JOIN user_equipment ue ON e.id = ue.equipment_id AND ue.returned_date IS NULL
         LEFT JOIN users u ON ue.user_id = u.id
         LEFT JOIN users ru ON e.responsible_user_id = ru.id
+        LEFT JOIN fixed_assets fa ON fa.equipment_id = e.id
         LEFT JOIN cells      cell ON e.cell_id = cell.id
         LEFT JOIN racks      rack ON cell.rack_id = rack.id
         LEFT JOIN zones      zone ON rack.zone_id = zone.id
@@ -287,6 +316,7 @@ module.exports = ({ db, run, get, all }) => {
         LEFT JOIN zones      zone ON rack.zone_id = zone.id
         LEFT JOIN warehouses wh   ON zone.warehouse_id = wh.id
         LEFT JOIN workplaces wp   ON e.workplace_id = wp.id
+        LEFT JOIN fixed_assets fa ON fa.equipment_id = e.id
         ${whereSql}
       `;
 
@@ -320,6 +350,12 @@ module.exports = ({ db, run, get, all }) => {
           e.purchase_date, e.warranty_until, e.description,
           e.created_at, e.updated_at,
 
+          e.is_quantity_accounted,
+          CASE WHEN fa.equipment_id IS NOT NULL THEN 1 ELSE 0 END AS is_fixed_asset,
+          fa.commissioning_date,
+          fa.initial_cost,
+          fa.useful_life_months,
+
           m.name         AS model_name,
           m.corporate_id AS model_corporate_id,
           m.manufacturer AS model_manufacturer,
@@ -346,6 +382,7 @@ module.exports = ({ db, run, get, all }) => {
         LEFT JOIN user_equipment ue ON e.id = ue.equipment_id AND ue.returned_date IS NULL
         LEFT JOIN users u ON ue.user_id = u.id
         LEFT JOIN users ru ON e.responsible_user_id = ru.id
+        LEFT JOIN fixed_assets fa ON fa.equipment_id = e.id
         ORDER BY m.name, e.inventory_number
       `, (err, rows) => {
                     if (err) reject(err);
@@ -389,6 +426,9 @@ module.exports = ({ db, run, get, all }) => {
         SELECT
           e.id, e.model_id, e.inventory_number, e.serial_number,
           e.status, e.cell_id, e.workplace_id,
+          e.is_quantity_accounted,
+          CASE WHEN fa.equipment_id IS NOT NULL THEN 1 ELSE 0 END AS is_fixed_asset,
+          fa.commissioning_date,
           m.name         AS model_name,
           m.corporate_id AS model_corporate_id,
           m.manufacturer AS model_manufacturer,
@@ -400,6 +440,7 @@ module.exports = ({ db, run, get, all }) => {
         JOIN equipment_models m ON m.id = e.model_id
         LEFT JOIN equipment_categories c ON c.id = m.category_id
         LEFT JOIN equipment_types      t ON t.id = m.type_id
+        LEFT JOIN fixed_assets fa ON fa.equipment_id = e.id
         WHERE e.status = 'available'
         ORDER BY m.name, e.inventory_number
       `, (err, rows) => {

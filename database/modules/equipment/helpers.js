@@ -36,105 +36,132 @@ const EQUIPMENT_SELECT_BASE = `
 
 module.exports = ({ db, run, get, all }) => {
 
-  /**
-   * Проверяет уникальность inventory_number и serial_number.
-   * NULL разрешён и не считается коллизией.
-   */
-  async function checkUniqueSerialAndInventory(inventoryNumber, serialNumber, excludeId = null) {
-    const inv = inventoryNumber ? String(inventoryNumber).trim() : null;
-    const sn  = serialNumber    ? String(serialNumber).trim()    : null;
+    /**
+     * Проверяет уникальность inventory_number и serial_number.
+     * NULL разрешён и не считается коллизией.
+     */
+    async function checkUniqueSerialAndInventory(inventoryNumber, serialNumber, excludeId = null) {
+        const inv = inventoryNumber ? String(inventoryNumber).trim() : null;
+        const sn = serialNumber ? String(serialNumber).trim() : null;
 
-    if (inv) {
-      const params = [inv];
-      let sql = `SELECT id FROM equipment WHERE inventory_number = ?`;
-      if (excludeId) { sql += ` AND id != ?`; params.push(excludeId); }
-      const row = await get(sql, params);
-      if (row) {
-        return { ok: false, reason: 'duplicate_inventory_number', field: 'inventory_number', conflict_id: row.id };
-      }
+        if (inv) {
+            const params = [inv];
+            let sql = `SELECT id FROM equipment WHERE inventory_number = ?`;
+            if (excludeId) { sql += ` AND id != ?`; params.push(excludeId); }
+            const row = await get(sql, params);
+            if (row) {
+                return { ok: false, reason: 'duplicate_inventory_number', field: 'inventory_number', conflict_id: row.id };
+            }
+        }
+
+        if (sn) {
+            const params = [sn];
+            let sql = `SELECT id FROM equipment WHERE serial_number = ?`;
+            if (excludeId) { sql += ` AND id != ?`; params.push(excludeId); }
+            const row = await get(sql, params);
+            if (row) {
+                return { ok: false, reason: 'duplicate_serial_number', field: 'serial_number', conflict_id: row.id };
+            }
+        }
+
+        return { ok: true };
     }
 
-    if (sn) {
-      const params = [sn];
-      let sql = `SELECT id FROM equipment WHERE serial_number = ?`;
-      if (excludeId) { sql += ` AND id != ?`; params.push(excludeId); }
-      const row = await get(sql, params);
-      if (row) {
-        return { ok: false, reason: 'duplicate_serial_number', field: 'serial_number', conflict_id: row.id };
-      }
+    /**
+     * 5.15.1: Является ли экземпляр основным средством.
+     */
+    async function isFixedAsset(equipmentId) {
+        const row = await get(
+            'SELECT 1 FROM fixed_assets WHERE equipment_id = ?',
+            [equipmentId]
+        );
+        return !!row;
     }
 
-    return { ok: true };
-  }
+    /**
+     * 5.15.1: Создать/обновить/удалить ОС-запись.
+     *   data.is_fixed_asset = true  → INSERT ... ON CONFLICT UPDATE
+     *   data.is_fixed_asset = false → DELETE (если была)
+     *
+     * Инварианты:
+     *   - commissioning_date обязательна для ОС;
+     *   - ОС ⇒ is_quantity_accounted = 1 (принудительно; триггер тоже страхует).
+     *
+     * Транзакцию НЕ открывает — вызывающий код (addEquipment /
+     * updateEquipment в 5.15.2) оборачивает всё в BEGIN/COMMIT.
+     * Так избегаем вложенных транзакций (SQLite их не любит).
+     */
+    async function upsertFixedAsset(equipmentId, data) {
+        if (!data || typeof data.is_fixed_asset === 'undefined') {
+            return; // не трогаем ОС-запись
+        }
 
-  /**
-   * 5.15.1: Является ли экземпляр основным средством.
-   */
-  async function isFixedAsset(equipmentId) {
-    const row = await get(
-      'SELECT 1 FROM fixed_assets WHERE equipment_id = ?',
-      [equipmentId]
-    );
-    return !!row;
-  }
+        if (!data.is_fixed_asset) {
+            await run('DELETE FROM fixed_assets WHERE equipment_id = ?', [equipmentId]);
+            return;
+        }
 
-  /**
-   * 5.15.1: Создать/обновить/удалить ОС-запись.
-   *   data.is_fixed_asset = true  → INSERT ... ON CONFLICT UPDATE
-   *   data.is_fixed_asset = false → DELETE (если была)
-   *
-   * Инварианты:
-   *   - commissioning_date обязательна для ОС;
-   *   - ОС ⇒ is_quantity_accounted = 1 (принудительно; триггер тоже страхует).
-   *
-   * Транзакцию НЕ открывает — вызывающий код (addEquipment /
-   * updateEquipment в 5.15.2) оборачивает всё в BEGIN/COMMIT.
-   * Так избегаем вложенных транзакций (SQLite их не любит).
-   */
-  async function upsertFixedAsset(equipmentId, data) {
-    if (!data || typeof data.is_fixed_asset === 'undefined') {
-      return; // не трогаем ОС-запись
+        if (!data.commissioning_date) {
+            throw new Error('Дата ввода в эксплуатацию обязательна для основного средства');
+        }
+
+        await run(`
+            INSERT INTO fixed_assets
+                (equipment_id, commissioning_date, initial_cost, useful_life_months)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(equipment_id) DO UPDATE SET
+                commissioning_date = excluded.commissioning_date,
+                initial_cost       = excluded.initial_cost,
+                useful_life_months = excluded.useful_life_months,
+                updated_at         = datetime('now')
+                `, [
+                    equipmentId,
+                    data.commissioning_date,
+                    data.initial_cost ?? null,
+                    data.useful_life_months ?? null,
+                ]);
+
+        // Страховка (триггер тоже сработает, но явно — надёжнее)
+        await run(
+            'UPDATE equipment SET is_quantity_accounted = 1 WHERE id = ? AND is_quantity_accounted = 0',
+            [equipmentId]
+        );
     }
 
-    if (!data.is_fixed_asset) {
-      await run('DELETE FROM fixed_assets WHERE equipment_id = ?', [equipmentId]);
-      return;
+    /**
+     * 5.15.2: Валидация инвариантов ОС ДО записи.
+     * Вызывается в addEquipment / updateEquipment, если is_fixed_asset = true.
+     * Проверяет только то, что не проверит SQLite (NOT NULL на fixed_assets
+     * ловит commissioning_date, но не ловит пустую строку / инв.№+серийник).
+     *
+     * Бросает Error с понятным текстом (для роутов).
+     */
+    function validateFixedAssetInput(data) {
+        if (!data || data.is_fixed_asset !== true) return;
+
+        if (!data.inventory_number || !String(data.inventory_number).trim()) {
+            throw new Error('Для основного средства обязателен инвентарный номер');
+        }
+        if (!data.serial_number || !String(data.serial_number).trim()) {
+            throw new Error('Для основного средства обязателен серийный номер');
+        }
+        if (!data.commissioning_date) {
+            throw new Error('Для основного средства обязательна дата ввода в эксплуатацию');
+        }
+        // Формат даты — грубая проверка, точную делает SQLite при записи
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(String(data.commissioning_date).trim())) {
+            throw new Error('Дата ввода в эксплуатацию должна быть в формате YYYY-MM-DD');
+        }
     }
 
-    if (!data.commissioning_date) {
-      throw new Error('Дата ввода в эксплуатацию обязательна для основного средства');
-    }
-
-    await run(`
-      INSERT INTO fixed_assets
-        (equipment_id, commissioning_date, initial_cost, useful_life_months)
-      VALUES (?, ?, ?, ?)
-      ON CONFLICT(equipment_id) DO UPDATE SET
-        commissioning_date = excluded.commissioning_date,
-        initial_cost       = excluded.initial_cost,
-        useful_life_months = excluded.useful_life_months,
-        updated_at         = datetime('now')
-    `, [
-      equipmentId,
-      data.commissioning_date,
-      data.initial_cost ?? null,
-      data.useful_life_months ?? null,
-    ]);
-
-    // Страховка (триггер тоже сработает, но явно — надёжнее)
-    await run(
-      'UPDATE equipment SET is_quantity_accounted = 1 WHERE id = ? AND is_quantity_accounted = 0',
-      [equipmentId]
-    );
-  }
-
-  return {
-    EQUIPMENT_SELECT_BASE,
-    checkCellAvailability(cellId, excludeEquipmentId = null) {
-      return checkCellAvailability(db, cellId, excludeEquipmentId);
-    },
-    checkUniqueSerialAndInventory,
-    isFixedAsset,
-    upsertFixedAsset,
-  };
+    return {
+        EQUIPMENT_SELECT_BASE,
+        checkCellAvailability(cellId, excludeEquipmentId = null) {
+            return checkCellAvailability(db, cellId, excludeEquipmentId);
+        },
+        checkUniqueSerialAndInventory,
+        isFixedAsset,
+        upsertFixedAsset,
+        validateFixedAssetInput,
+    };
 };
