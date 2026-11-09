@@ -123,13 +123,17 @@ module.exports = ({ db }) => ({
     });
   },
 
-  getInventoryTotals(scope = {}) {
+  getInventoryTotals(scope = {}, opts = {}) {
     const isMol = scope.role === 'mol';
     const uid = parseInt(scope.userId, 10) || 0;
     const molWh = isMol
       ? `w.id IN (SELECT warehouse_id FROM warehouse_responsibles WHERE user_id = ${uid})`
       : '1=1';
     const molEq = isMol ? `e.responsible_user_id = ${uid}` : '1=1';
+
+    // 🆕 5.15.5: фильтр по учёту для счётчиков техники
+    const quantityOnly = opts.quantityOnly !== false;
+    const qtyEq = quantityOnly ? `AND e.is_quantity_accounted = 1` : '';
 
     return new Promise((resolve, reject) => {
       db.get(`
@@ -143,9 +147,12 @@ module.exports = ({ db }) => ({
           (SELECT COUNT(*) FROM cells c JOIN racks r ON c.rack_id = r.id
             JOIN zones z ON r.zone_id = z.id JOIN warehouses w ON z.warehouse_id = w.id
             WHERE c.is_active = 1 AND ${molWh}) as total_cells,
-          (SELECT COUNT(*) FROM equipment e WHERE e.cell_id IS NOT NULL AND ${molEq}) as equipment_on_stock,
-          (SELECT COUNT(*) FROM equipment e WHERE e.status = 'available' AND e.cell_id IS NULL AND ${molEq}) as available_without_cell,
-          (SELECT COUNT(*) FROM equipment e WHERE e.status = 'assigned' AND ${molEq}) as equipment_assigned,
+          
+          -- 🆕 Добавлен qtyEq
+          (SELECT COUNT(*) FROM equipment e WHERE e.cell_id IS NOT NULL AND ${molEq} ${qtyEq}) as equipment_on_stock,
+          (SELECT COUNT(*) FROM equipment e WHERE e.status = 'available' AND e.cell_id IS NULL AND ${molEq} ${qtyEq}) as available_without_cell,
+          (SELECT COUNT(*) FROM equipment e WHERE e.status = 'assigned' AND ${molEq} ${qtyEq}) as equipment_assigned,
+          
           (SELECT COALESCE(SUM(c.capacity), 0) FROM cells c
             JOIN racks r ON c.rack_id = r.id JOIN zones z ON r.zone_id = z.id
             JOIN warehouses w ON z.warehouse_id = w.id

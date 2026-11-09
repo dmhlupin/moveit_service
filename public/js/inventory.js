@@ -151,6 +151,9 @@ function initQuantityOnly() {
     quantityOnly = (saved !== '0');
     const sel = document.getElementById('filterQuantityOnly');
     if (sel) sel.value = quantityOnly ? '1' : '0';
+
+        // 🆕 Обновляем подсказку при инициализации
+    updateQuantityOnlyHint();
 }
 
 /**
@@ -160,6 +163,9 @@ function onQuantityOnlyChange() {
     const sel = document.getElementById('filterQuantityOnly');
     quantityOnly = (sel?.value !== '0');
     try { localStorage.setItem(QUANTITY_ONLY_KEY, quantityOnly ? '1' : '0'); } catch (e) {}
+
+    // 🆕 Обновляем подсказку при смене
+    updateQuantityOnlyHint();
 
     // Сброс раскрытых модалок — там данные могли устареть
     if (currentWarehouseId) closeWarehouseDetailModal();
@@ -173,6 +179,20 @@ function onQuantityOnlyChange() {
     loadOfficesSummary();
     loadUsersSummary();
     loadByLevel();
+}
+
+/**
+ * 🆕 5.15.5: обновление текста подсказки рядом с фильтром «Учёт».
+ */
+function updateQuantityOnlyHint() {
+    const hint = document.getElementById('quantityOnlyHint');
+    if (!hint) return;
+
+    if (quantityOnly) {
+        hint.textContent = 'В ведомостях показывается только техника на количественном учёте.';
+    } else {
+        hint.textContent = 'Показаны все ТМЦ, включая малоценку (без количественного учёта).';
+    }
 }
 
 
@@ -207,7 +227,7 @@ async function loadSummary() {
  */
 async function loadTotals() {
     try {
-        const response = await fetch('/api/admin/inventory/totals');
+        const response = await fetch(withQuantity('/api/admin/inventory/totals'));
         totals = await response.json();
         
         updateTotals();

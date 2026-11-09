@@ -51,7 +51,8 @@ async function getInventorySummaryAPI(req, res) {
 async function getInventoryTotalsAPI(req, res) {
   try {
     const scope = { userId: req.session.userId, role: req.session.role };
-    const totals = await getInventoryTotals(scope);
+    const quantityOnly = parseQuantityOnly(req.query);
+    const totals = await getInventoryTotals(scope, { quantityOnly });
     res.json(totals);
   } catch (error) {
     res.status(500).json({ error: error.message });
