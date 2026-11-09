@@ -124,34 +124,61 @@ async function getEquipmentDetailsAPI(req, res) {
 
 async function addEquipmentAPI(req, res) {
   try {
-    const {
-      model_id, inventory_number, serial_number, status,
-      description, purchase_date, warranty_until, cell_id, workplace_id,
-    } = req.body;
+  const {
+    model_id, inventory_number, serial_number, status,
+    description, purchase_date, warranty_until, cell_id, workplace_id,
+    // 🆕 5.15.3
+    is_quantity_accounted, is_fixed_asset,
+    commissioning_date, initial_cost, useful_life_months,
+  } = req.body;
 
-    if (!model_id) {
-      return res.status(400).json({ error: 'Модель ТМЦ обязательна' });
-    }
+  if (!model_id) {
+    return res.status(400).json({ error: 'Модель ТМЦ обязательна' });
+  }
 
-    let responsibleUserId = null;
-    if (req.session.role === 'mol') {
-      responsibleUserId = req.session.userId;
-    } else if (req.body.responsible_user_id) {
-      responsibleUserId = parseInt(req.body.responsible_user_id, 10);
-    }
+  let responsibleUserId = null;
+  if (req.session.role === 'mol') {
+    responsibleUserId = req.session.userId;
+  } else if (req.body.responsible_user_id) {
+    responsibleUserId = parseInt(req.body.responsible_user_id, 10);
+  }
 
-    const result = await addEquipment({
-      model_id: parseInt(model_id, 10),
-      inventory_number: inventory_number || null,
-      serial_number: serial_number || null,
-      status: status || 'available',
-      description: description || null,
-      purchase_date: purchase_date || null,
-      warranty_until: warranty_until || null,
-      cell_id: cell_id ? parseInt(cell_id, 10) : null,
-      workplace_id: workplace_id ? parseInt(workplace_id, 10) : null,
-      responsible_user_id: responsibleUserId,
-    });
+  // 🆕 5.15.3: нормализация полей ОС / количественного учёта
+  // is_fixed_asset: undefined → поле не передано (не трогаем ОС-запись);
+  // true/false → как есть.
+  const isFa = typeof is_fixed_asset === 'boolean'
+    ? is_fixed_asset
+    : (is_fixed_asset === 'true' ? true : (is_fixed_asset === 'false' ? false : undefined));
+
+  // is_quantity_accounted: true/false/'1'/'0' → 1/0; undefined → 1 (дефолт);
+  // при ОС — принудительно 1 (страховка; сервер всё равно это сделает).
+  let qtyAcc = 1;
+  if (is_quantity_accounted !== undefined && is_quantity_accounted !== null && is_quantity_accounted !== '') {
+    qtyAcc = (is_quantity_accounted === true || is_quantity_accounted === 1 || is_quantity_accounted === '1') ? 1 : 0;
+  }
+  if (isFa === true) qtyAcc = 1;
+
+  const result = await addEquipment({
+    model_id: parseInt(model_id, 10),
+    inventory_number: inventory_number || null,
+    serial_number: serial_number || null,
+    status: status || 'available',
+    description: description || null,
+    purchase_date: purchase_date || null,
+    warranty_until: warranty_until || null,
+    cell_id: cell_id ? parseInt(cell_id, 10) : null,
+    workplace_id: workplace_id ? parseInt(workplace_id, 10) : null,
+    responsible_user_id: responsibleUserId,
+
+    // 🆕 5.15.3
+    is_quantity_accounted: qtyAcc,
+    is_fixed_asset:        isFa,
+    commissioning_date:    isFa ? (commissioning_date || null) : null,
+    initial_cost:          isFa && initial_cost != null && initial_cost !== ''
+                             ? parseFloat(initial_cost) : null,
+    useful_life_months:    isFa && useful_life_months != null && useful_life_months !== ''
+                             ? parseInt(useful_life_months, 10) : null,
+  });
 
     await logAction({
       req,
@@ -187,6 +214,9 @@ async function updateEquipmentAPI(req, res) {
       model_id, inventory_number, serial_number, status, description,
       purchase_date, warranty_until, cell_id, workplace_id,
       assign_user_id, assign_condition, responsible_user_id,
+      // 🆕 5.15.3
+      is_quantity_accounted, is_fixed_asset,
+      commissioning_date, initial_cost, useful_life_months,
     } = req.body;
 
     if (!model_id) {
@@ -311,6 +341,19 @@ async function updateEquipmentAPI(req, res) {
       }
     }
 
+    // 🆕 5.15.3: нормализация полей ОС / количественного учёта
+    const isFa = typeof is_fixed_asset === 'boolean'
+      ? is_fixed_asset
+      : (is_fixed_asset === 'true' ? true : (is_fixed_asset === 'false' ? false : undefined));
+
+    let qtyAcc;
+    if (is_quantity_accounted !== undefined && is_quantity_accounted !== null && is_quantity_accounted !== '') {
+      qtyAcc = (is_quantity_accounted === true || is_quantity_accounted === 1 || is_quantity_accounted === '1') ? 1 : 0;
+    } else {
+      qtyAcc = undefined; // не трогать
+    }
+    if (isFa === true) qtyAcc = 1;
+
     const result = await updateEquipment(id, {
       model_id: parseInt(model_id, 10),
       inventory_number: inventory_number || null,
@@ -322,6 +365,15 @@ async function updateEquipmentAPI(req, res) {
       cell_id: finalCellId,
       workplace_id: finalWorkplaceId,
       responsible_user_id: finalResponsibleId,
+
+      // 🆕 5.15.3
+      is_quantity_accounted: qtyAcc,
+      is_fixed_asset:        isFa,
+      commissioning_date:    isFa === true ? (commissioning_date || null) : null,
+      initial_cost:          isFa === true && initial_cost != null && initial_cost !== ''
+                               ? parseFloat(initial_cost) : null,
+      useful_life_months:    isFa === true && useful_life_months != null && useful_life_months !== ''
+                               ? parseInt(useful_life_months, 10) : null,
     });
 
     if (willAutoReturn) {
