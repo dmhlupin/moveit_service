@@ -38,7 +38,8 @@ function parseQuantityOnly(q) {
 async function getInventorySummaryAPI(req, res) {
   try {
     const scope = { userId: req.session.userId, role: req.session.role };
-    const summary = await getInventorySummary(scope);
+    const quantityOnly = parseQuantityOnly(req.query);
+    const summary = await getInventorySummary(scope, { quantityOnly });
     res.json(summary);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -80,7 +81,8 @@ async function getSpecialStatusSummaryAPI(req, res) {
 async function getInventoryOfficesSummaryAPI(req, res) {
   try {
     const scope = { userId: req.session.userId, role: req.session.role };
-    const summary = await getWorkplaceSummary(scope);
+    const quantityOnly = parseQuantityOnly(req.query);
+    const summary = await getWorkplaceSummary(scope, { quantityOnly });
     res.json(summary);
   } catch (error) {
     console.error('❌ Ошибка сводки по офисам:', error);

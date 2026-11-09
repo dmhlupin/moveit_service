@@ -4,12 +4,15 @@
 const { buildWarehouseScope } = require('./scope');
 
 module.exports = ({ db }) => ({
-  getInventorySummary(scope = {}) {
+getInventorySummary(scope = {}, opts = {}) {
     const s = buildWarehouseScope(scope);
     const extraWhere = s.clause ? `AND ${s.clause}` : '';
     const isMol = scope.role === 'mol';
     const uid = parseInt(scope.userId, 10) || 0;
     const molEq = isMol ? `AND e.responsible_user_id = ${uid}` : '';
+
+    const quantityOnly = opts.quantityOnly !== false;
+    const qtyEq = quantityOnly ? `AND e.is_quantity_accounted = 1` : '';
     return new Promise((resolve, reject) => {
       db.all(`
         SELECT
@@ -20,9 +23,12 @@ module.exports = ({ db }) => ({
           (SELECT COUNT(*) FROM cells c JOIN racks r ON c.rack_id = r.id
             JOIN zones z ON r.zone_id = z.id
             WHERE z.warehouse_id = w.id AND c.is_active = 1) as cells_count,
+          
+          -- 👇 ВОТ ЗДЕСЬ ДОБАВЛЕН ${qtyEq}
           (SELECT COUNT(*) FROM equipment e JOIN cells c ON e.cell_id = c.id
             JOIN racks r ON c.rack_id = r.id JOIN zones z ON r.zone_id = z.id
-            WHERE z.warehouse_id = w.id ${molEq}) as equipment_count,
+            WHERE z.warehouse_id = w.id ${molEq} ${qtyEq}) as equipment_count,
+            
           (SELECT COALESCE(SUM(c.capacity), 0) FROM cells c
             JOIN racks r ON c.rack_id = r.id JOIN zones z ON r.zone_id = z.id
             WHERE z.warehouse_id = w.id AND c.is_active = 1 AND c.is_full = 0) as total_capacity,

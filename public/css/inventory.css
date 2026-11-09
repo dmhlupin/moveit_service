@@ -929,25 +929,26 @@
 
 /* 🆕 5.15.5: глобальный фильтр «Учёт» над вкладками */
 .inventory-global-filters {
-    display: grid;
-    grid-template-columns: auto 1fr; /* Селект слева, подсказка справа */
+    display: flex;
     align-items: center;
-    gap: 16px;
+    justify-content: flex-start;
     padding: 12px 16px;
-    margin: 0 0 16px 0; /* Убираем верхние отступы, оставляем нижний */
+    margin: 0 0 16px 0;
     background: var(--bg-tertiary);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
     width: 100%;
     box-sizing: border-box;
-    text-align: left; /* Перебиваем возможный text-align: center у родителя */
 }
 
+/* Принудительно ставим лейбл, селект и подсказку в одну строку */
 .inventory-global-filters .filter-group {
     display: flex;
+    flex-direction: row !important; /* Перебиваем глобальный column */
     align-items: center;
     gap: 12px;
     margin: 0;
+    width: auto;
 }
 
 .inventory-global-filters .filter-group label {
@@ -960,16 +961,17 @@
 }
 
 .inventory-global-filters select {
-    min-width: 240px;
+    min-width: 220px;
     margin: 0;
     background-color: var(--bg-secondary);
 }
 
+/* Подсказка теперь не улетит вправо, а встанет рядом с селектом */
 .inventory-global-hint {
     font-size: var(--text-xs);
     color: var(--text-muted);
-    text-align: right; /* Подсказка справа */
-    justify-self: end;
+    margin-left: 8px; /* Отступ от выпадающего списка */
+    white-space: nowrap; /* Текст не будет переноситься на новую строку (если хватает места) */
 }
 
 /* ============================================================

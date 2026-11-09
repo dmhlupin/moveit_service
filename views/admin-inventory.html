@@ -77,15 +77,16 @@
 <!-- 🆕 5.15.5: ОБЩИЙ ФИЛЬТР «УЧЁТ» (для всех вкладок)             -->
 <!-- ============================================================ -->
 <div class="inventory-global-filters">
-    <div class="filter-group filter-group--narrow">
+    <div class="filter-group">
         <label>Учёт</label>
         <select id="filterQuantityOnly" onchange="onQuantityOnlyChange()">
             <option value="1">Только на количественном</option>
             <option value="0">Все (включая малоценку)</option>
         </select>
-    </div>
-    <div class="inventory-global-hint" id="quantityOnlyHint">
-        В ведомостях показывается только техника на количественном учёте.
+        <!-- ПОДСКАЗКА ТЕПЕРЬ ВНУТРИ ЭТОГО ЖЕ БЛОКА -->
+        <span class="inventory-global-hint" id="quantityOnlyHint">
+            В ведомостях показывается только техника на количественном учёте.
+        </span>
     </div>
 </div>
 

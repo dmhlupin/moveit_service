@@ -959,13 +959,17 @@ module.exports = ({ db, run, get, all }) => ({
    * Сводка по всем офисам (для страницы /admin/workplaces и инвентаризации)
    * 5.9.3: scope-для МОЛа — только его офисы и его техника.
    */
-  getWorkplaceSummary(scope = {}) {
+  getWorkplaceSummary(scope = {}, opts = {}) {
     const s = buildOfficeScope(scope);
     const extraWhere = s.clause ? `AND ${s.clause}` : '';
 
     const isMol = scope.role === 'mol';
     const uid = parseInt(scope.userId, 10) || 0;
     const molEq = isMol ? `AND e.responsible_user_id = ${uid}` : '';
+
+    // 🆕 5.15.5: фильтр по учёту для счётчика техники
+    const quantityOnly = opts.quantityOnly !== false;
+    const qtyEq = quantityOnly ? `AND e.is_quantity_accounted = 1` : '';
 
     return new Promise((resolve, reject) => {
       db.all(`
@@ -983,7 +987,7 @@ module.exports = ({ db, run, get, all }) => ({
           (SELECT COUNT(*) FROM equipment e
             JOIN workplaces w ON e.workplace_id = w.id
             JOIN rooms r ON w.room_id = r.id
-            WHERE r.office_id = o.id ${molEq}) as equipment_count
+            WHERE r.office_id = o.id ${molEq} ${qtyEq}) as equipment_count
         FROM offices o
         WHERE o.is_active = 1 ${extraWhere}
         ORDER BY o.is_default DESC, o.name ASC
