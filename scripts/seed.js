@@ -186,7 +186,11 @@ const DESCRIPTIONS = {
 };
 
 const CONDITIONS = ['В хорошем состоянии', 'Новая', 'Требуется внимание', 'С дефектами'];
+// 🆕 5.15.6: Категории, которые являются малоценкой (без кол. учёта)
+const MINOR_CATEGORIES = ['Клавиатура', 'Мышь', 'Гарнитура', 'Веб-камера', 'USB-хаб', 'Кабель', 'Переходник'];
 
+// 🆕 5.15.6: Категории, которые могут быть ОС (с вероятностью 80%)
+const FIXED_ASSET_CATEGORIES = ['Ноутбук', 'Системный блок', 'Моноблок', 'Сервер', 'МФУ', 'Принтер', 'Сканер'];
 // ============================================================
 // ПРОВЕРКА СТРУКТУРЫ БД
 // ============================================================
@@ -432,6 +436,8 @@ async function createEquipment(modelKeyToId, users) {
   const createdEquipment = [];
   let counter = 1;
   let skipped = 0;
+  let fixedAssetsCount = 0;
+  let minorCount = 0;
 
   for (const eqData of EQUIPMENT_DATA) {
     const key = `${eqData.name}|${eqData.model}|${eqData.manufacturer || ''}`;
@@ -445,6 +451,37 @@ async function createEquipment(modelKeyToId, users) {
     warrantyDate.setFullYear(warrantyDate.getFullYear() + warrantyYears);
     const warrantyUntil = warrantyDate.toISOString().slice(0, 10);
 
+    // ============================================================
+    // 🆕 5.15.6: Определение количественного учёта и ОС
+    // ============================================================
+    let isQuantityAccounted = 1;
+    let isFixedAsset = false;
+    let commissioningDate = null;
+    let initialCost = null;
+    let usefulLifeMonths = null;
+
+    // 1. Малоценка (не на кол. учёте)
+    if (MINOR_CATEGORIES.includes(eqData.name)) {
+      isQuantityAccounted = 0;
+      minorCount++;
+    } 
+    // 2. Основные средства (только если на кол. учёте и входит в FIXED_ASSET_CATEGORIES)
+    else if (FIXED_ASSET_CATEGORIES.includes(eqData.name) && Math.random() < 0.8) {
+      isFixedAsset = true;
+      fixedAssetsCount++;
+      
+      // Дата ввода: чуть позже даты покупки (от 1 до 30 дней)
+      const cDate = new Date(purchaseDate);
+      cDate.setDate(cDate.getDate() + Math.floor(Math.random() * 30) + 1);
+      commissioningDate = cDate.toISOString().slice(0, 10);
+      
+      // Стоимость от 50к до 300к
+      initialCost = Math.floor(Math.random() * 250000) + 50000;
+      
+      // Срок полезного использования от 24 до 60 мес.
+      usefulLifeMonths = (Math.floor(Math.random() * 4) + 2) * 12;
+    }
+
     // === РАСПРЕДЕЛЕНИЕ СТАТУСОВ ===
     let status = 'available';
     let cellId = null;
@@ -455,15 +492,12 @@ async function createEquipment(modelKeyToId, users) {
     const rand = Math.random();
     
     if (rand < 0.35) {
-      // 35% — assigned (назначена пользователю)
       status = 'assigned';
       responsibleUserId = mols.length > 0 ? mols[Math.floor(Math.random() * mols.length)].id : null;
     } else if (rand < 0.65) {
-      // 30% — available (доступна)
       status = 'available';
       responsibleUserId = mols.length > 0 ? mols[Math.floor(Math.random() * mols.length)].id : null;
       
-      // 50% из них — в ячейке, 20% — "потеряшки" (без места), 30% — на рабочем месте
       const subRand = Math.random();
       if (subRand < 0.5 && cells.length > 0) {
         cellId = cells[Math.floor(Math.random() * cells.length)].id;
@@ -475,45 +509,63 @@ async function createEquipment(modelKeyToId, users) {
         status = 'placed';
       }
     } else if (rand < 0.75) {
-      // 10% — maintenance (в ремонте)
       status = 'maintenance';
       responsibleUserId = mols.length > 0 ? mols[Math.floor(Math.random() * mols.length)].id : null;
       if (cells.length > 0) cellId = cells[Math.floor(Math.random() * cells.length)].id;
     } else if (rand < 0.85) {
-      // 10% — retired (списана)
       status = 'retired';
       responsibleUserId = mols.length > 0 ? mols[Math.floor(Math.random() * mols.length)].id : null;
     } else {
-      // 15% — placed (на рабочем месте)
       status = 'placed';
       if (workplaces.length > 0) workplaceId = workplaces[Math.floor(Math.random() * workplaces.length)].id;
       responsibleUserId = mols.length > 0 ? mols[Math.floor(Math.random() * mols.length)].id : null;
     }
 
-    // Описание (у некоторых)
     const descriptions = [
       'Царапина на корпусе', 'Требует замены батареи', 'Новый, в упаковке',
       'Без дефектов', 'Небольшой скол', 'Проверено, работает',
     ];
     const description = Math.random() < 0.3 ? random(descriptions) : null;
 
+    // 1. Вставляем в equipment
     const result = await run(`
       INSERT INTO equipment
         (model_id, inventory_number, serial_number, status,
          cell_id, workplace_id, purchase_date, warranty_until,
-         description, responsible_user_id, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))
+         description, responsible_user_id, updated_at, is_quantity_accounted)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP), ?)
     `, [
       modelId, inventoryNumber, eqData.serial, status,
       cellId, workplaceId, purchaseDate.slice(0, 10), warrantyUntil,
-      description, responsibleUserId, updatedAt,
+      description, responsibleUserId, updatedAt, isQuantityAccounted,
     ]);
 
-    createdEquipment.push({ id: result.lastID, model_id: modelId, inventory_number: inventoryNumber, serial_number: eqData.serial, status, cell_id: cellId, workplace_id: workplaceId, responsible_user_id: responsibleUserId });
+    const newEqId = result.lastID;
+
+    // 2. Если это ОС — вставляем в fixed_assets
+    if (isFixedAsset) {
+      await run(`
+        INSERT INTO fixed_assets (equipment_id, commissioning_date, initial_cost, useful_life_months)
+        VALUES (?, ?, ?, ?)
+      `, [newEqId, commissioningDate, initialCost, usefulLifeMonths]);
+    }
+
+    createdEquipment.push({ 
+      id: newEqId, 
+      model_id: modelId, 
+      inventory_number: inventoryNumber, 
+      serial_number: eqData.serial, 
+      status, 
+      cell_id: cellId, 
+      workplace_id: workplaceId, 
+      responsible_user_id: responsibleUserId 
+    });
     counter++;
   }
 
   log(`   ✅ Создано экземпляров: ${createdEquipment.length}`, true);
+  log(`   📊 Из них на кол. учёте: ${createdEquipment.length - minorCount}, малоценка: ${minorCount}`, true);
+  log(`   🏦 Из них основных средств: ${fixedAssetsCount}`, true);
   if (skipped > 0) log(`   ⚠️  Пропущено: ${skipped}`, true);
   return createdEquipment;
 }
