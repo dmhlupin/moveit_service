@@ -230,18 +230,32 @@ app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true }));
 
 // ===== НАСТРОЙКА СЕССИЙ =====
+const isProduction = process.env.NODE_ENV === 'production';
+
+// Защита от запуска в продакшне с дефолтным/пустым секретом
+if (isProduction && !process.env.SESSION_SECRET) {
+  console.error('FATAL: SESSION_SECRET is required in production. Set it in .env or PM2 env.');
+  process.exit(1);
+}
+
+// Если за Nginx — обязательно, иначе secure-cookie не отправится
+if (isProduction) {
+  app.set('trust proxy', 1);
+}
+
 app.use(session({
   store: new SQLiteStore({
     db: 'sessions.db',
     dir: path.join(__dirname, 'data')
   }),
-  secret: process.env.SESSION_SECRET || 'your-secret-key-change-in-production-2026',
+  secret: process.env.SESSION_SECRET || 'dev-only-secret-do-not-use-in-production',
   resave: false,
   saveUninitialized: false,
+  rolling: true,                    // продлевать сессию при каждом запросе
   cookie: {
-    maxAge: 24 * 60 * 60 * 1000,
+    maxAge: 30 * 60 * 1000,         // 30 минут бездействия
     httpOnly: true,
-    secure: false,
+    secure: isProduction,           // локально false, на VPS true
     sameSite: 'lax'
   },
   name: 'equipment.sid'
