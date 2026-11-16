@@ -329,22 +329,21 @@ app.post('/api/profile/update', requireAuth, updateProfileAPI);
 
 // 1. Главная страница (Лэндинг для всех, Дашборд для авторизованных)
 app.get('/', (req, res, next) => {
-    // Если пользователь не авторизован — показываем лэндинг
+    // 1. Если не авторизован — лэндинг
     if (!req.session || !req.session.userId) {
         return res.sendFile(path.join(__dirname, 'public', 'landing', 'index.html'));
     }
 
-    // Если авторизован, проверяем роль
-    const role = req.session.userRole; // Убедитесь, что в сессии хранится именно userRole (или проверьте название поля)
-    
-    // Для admin, supervisor, mol — отдаем дашборд
+    // 2. Достаем роль (замените на правильное поле!)
+    const role = req.session.role || (req.session.user && req.session.user.role); 
+
+    // 3. Проверяем
     if (['admin', 'supervisor', 'mol'].includes(role)) {
         return renderDashboard(req, res, next);
     }
     
-    // Для роли 'user' — отправляем в личный кабинет (или на лэндинг)
-    // Скорее всего, обычный пользователь должен видеть свой профиль
-    return res.redirect('/profile'); 
+    // 4. Обычных пользователей кидаем в профиль
+    return res.redirect('/profile');
 });
 
 app.get('/pdf',        requireAuth, renderPdfList);
