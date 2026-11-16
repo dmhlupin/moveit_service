@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MoveIT service — Учёт ТМЦ</title>
+    <link rel="stylesheet" href="/landing/styles.css">
+</head>
+<body>
+    <!-- Шапка -->
+    <header class="header">
+        <div class="container">
+            <div class="logo">MoveIT</div>
+            <nav class="nav">
+                <a href="#features">Возможности</a>
+                <a href="#quick-start">Быстрый старт</a>
+                <a href="/login" class="btn btn-primary">Войти</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Главный экран -->
+    <section class="hero">
+        <div class="container">
+            <h1>MoveIT service</h1>
+            <p class="subtitle">Полнофункциональное веб-приложение для управления материально-техническими ресурсами (ТМЦ) организации.</p>
+            <div class="hero-actions">
+                <a href="/login" class="btn btn-primary btn-lg">Войти в систему</a>
+                <a href="#features" class="btn btn-lg">Узнать больше</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Для кого -->
+    <section class="for-whom">
+        <div class="container">
+            <h2>Для кого этот сервис</h2>
+            <div class="grid">
+                <div class="card">
+                    <h3>Малый и средний бизнес</h3>
+                    <p>Учёт ноутбуков, телефонов и офисной техники.</p>
+                </div>
+                <div class="card">
+                    <h3>IT-отделы</h3>
+                    <p>Управление парком устройств сотрудников.</p>
+                </div>
+                <div class="card">
+                    <h3>Отделы снабжения</h3>
+                    <p>Контроль выдачи и возврата ТМЦ.</p>
+                </div>
+                <div class="card">
+                    <h3>Образовательные учреждения</h3>
+                    <p>Учёт оборудования и инвентаризация.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Ключевые возможности -->
+    <section id="features" class="features">
+        <div class="container">
+            <h2>Ключевые возможности</h2>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h3>Адресное хранение</h3>
+                    <p>4-уровневая иерархия склада (Склад → Зона → Стеллаж → Ячейка) и 3-уровневая офиса (Офис → Кабинет → Место).</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Умный учёт техники</h3>
+                    <p>5 статусов, поддержка малоценки и основных средств с инвентарными номерами.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Ролевая модель</h3>
+                    <p>4 роли: Администратор, Супервизор, МОЛ и Пользователь.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Инвентаризация 2.0</h3>
+                    <p>Сводки по складам, офисам и пользователям с экспортом в CSV.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Быстрый старт -->
+    <section id="quick-start" class="quick-start">
+        <div class="container">
+            <h2>Как начать за 2 минуты</h2>
+            <div class="steps">
+                <div class="step">
+                    <span class="step-number">1</span>
+                    <h3>Установите Node.js 18+</h3>
+                </div>
+                <div class="step">
+                    <span class="step-number">2</span>
+                    <h3>Склонируйте репозиторий</h3>
+                    <code>git clone https://github.com</code>
+                </div>
+                <div class="step">
+                    <span class="step-number">3</span>
+                    <h3>Запустите установку</h3>
+                    <code>npm run setup</code>
+                </div>
+                <div class="step">
+                    <span class="step-number">4</span>
+                    <h3>Откройте приложение</h3>
+                    <code>http://localhost:3000</code>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Футер -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 MoveIT service. Сделано с ❤️ на Node.js.</p>
+        </div>
+    </footer>
+    
+    <script src="/landing/script.js"></script>
+</body>
+</html>

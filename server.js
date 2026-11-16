@@ -266,6 +266,9 @@ app.use('/css', express.static(path.join(__dirname, 'public', 'css')));
 app.use('/js', express.static(path.join(__dirname, 'public', 'js')));
 app.use('/images', express.static(path.join(__dirname, 'public', 'images')));
 
+// 🆕 Раздаем файлы лэндинга (доступны всем)
+app.use('/landing', express.static(path.join(__dirname, 'public', 'landing')));
+
 // ===== ЗАГРУЗКА ПОЛЬЗОВАТЕЛЯ В RES.LOCALS =====
 app.use(loadUser);
 
@@ -321,11 +324,28 @@ app.get('/profile', requireAuth, renderProfile);
 app.post('/api/profile/update', requireAuth, updateProfileAPI);
 
 // ============================================
-// ОСНОВНЫЕ РОУТЫ
+// ОСНОВНЫЕ РОУТЫ (Лэндинг + Дашборд)
 // ============================================
-// Дашборд, ТМЦ — read-only для admin + supervisor + mol.
 
-app.get('/',          requireRole(['admin', 'supervisor', 'mol']), renderDashboard);
+// 1. Главная страница (Лэндинг для всех, Дашборд для авторизованных)
+app.get('/', (req, res, next) => {
+    // Если пользователь не авторизован — показываем лэндинг
+    if (!req.session || !req.session.userId) {
+        return res.sendFile(path.join(__dirname, 'public', 'landing', 'index.html'));
+    }
+
+    // Если авторизован, проверяем роль
+    const role = req.session.userRole; // Убедитесь, что в сессии хранится именно userRole (или проверьте название поля)
+    
+    // Для admin, supervisor, mol — отдаем дашборд
+    if (['admin', 'supervisor', 'mol'].includes(role)) {
+        return renderDashboard(req, res, next);
+    }
+    
+    // Для роли 'user' — отправляем в личный кабинет (или на лэндинг)
+    // Скорее всего, обычный пользователь должен видеть свой профиль
+    return res.redirect('/profile'); 
+});
 
 app.get('/pdf',        requireAuth, renderPdfList);
 app.get('/pdf/:filename', requireAuth, renderPdfFile);
