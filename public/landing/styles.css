@@ -1,24 +1,26 @@
+/* /public/landing/styles.css */
+
 :root {
-    /* Палитра из components.css вашего проекта */
-    --bg-primary: #0a192f;
-    --bg-secondary: #08131A;
-    --bg-tertiary: #0F212D;
-    --bg-hover: #08131A;
-    --text-primary: #f8f9fa;
-    --text-secondary: #cbd5e1;
-    --text-muted: #94a3b8;
-    --accent: #fbbf24;
-    --accent-bg: rgba(251, 191, 36, 0.1);
-    --border: #334155;
-    --border-light: #1e293b;
-    --radius-md: 6px;
-    --radius-lg: 12px;
-    --transition-fast: 0.2s;
-    --space-sm: 8px;
-    --space-md: 16px;
-    --space-lg: 24px;
-    --rgb-bg-primary: 10, 25, 47; /* Для #0A192F */ 
-    --rgb-bg-secondary: 8, 19, 26; 
+    /* Палитра лэндинга (изолирована от основного приложения) */
+    --landing-bg-primary: #0a192f;
+    --landing-bg-secondary: #08131A;
+    --landing-bg-tertiary: #0F212D;
+    --landing-bg-hover: #08131A;
+    --landing-text-primary: #f8f9fa;
+    --landing-text-secondary: #cbd5e1;
+    --landing-text-muted: #94a3b8;
+    --landing-accent: #fbbf24;
+    --landing-accent-bg: rgba(251, 191, 36, 0.1);
+    --landing-border: #334155;
+    --landing-border-light: #1e293b;
+    --landing-radius-md: 6px;
+    --landing-radius-lg: 12px;
+    --landing-transition-fast: 0.2s;
+    --landing-space-sm: 8px;
+    --landing-space-md: 16px;
+    --landing-space-lg: 24px;
+    --landing-rgb-bg-primary: 10, 25, 47;
+    --landing-rgb-bg-secondary: 8, 19, 26;
 }
 
 /* Класс для прозрачных блоков поверх фона */ 
@@ -26,24 +28,9 @@
     background-color: transparent; 
     background-image: linear-gradient(
          to bottom, 
-         rgba(var(--rgb-bg-primary), 0.98), 
-         rgba(var(--rgb-bg-primary), 0.7) /* Меняйте эти значения от 0 до 1 для регулировки прозрачности */ 
+         rgba(var(--landing-rgb-bg-primary), 0.98), 
+         rgba(var(--landing-rgb-bg-primary), 0.7)
     ); 
-}
-
-/* Темная тема по умолчанию */
-[data-theme="light"] {
-    --bg-primary: #f8f9fa;
-    --bg-secondary: #f1f5f9;
-    --bg-tertiary: #ffffff;
-    --bg-hover: #e2e8f0;
-    --text-primary: #0a192f;
-    --text-secondary: #475569;
-    --text-muted: #64748b;
-    --accent: #fbbf24;
-    --accent-bg: rgba(251, 191, 36, 0.1);
-    --border: #e2e8f0;
-    --border-light: #cbd5e1;
 }
 
 * {
@@ -55,26 +42,24 @@
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     line-height: 1.6;
-    color: var(--text-primary);
+    color: var(--landing-text-primary);
     background-color: transparent;
     overflow-x: hidden;
 }
 
 body::before { 
-    content: ''; position: fixed; /* Закрепляем фон на экране */ 
+    content: ''; 
+    position: fixed;
     top: 0; 
     left: 0; 
     width: 100%; 
-    height: 100vh; /* Высота экрана */ 
-
-    /* Настройки изображения */ 
-    background-image: url('/landing/background.png');  /* Путь к вашей картинке */ 
-    background-size: cover; /* Растягиваем по размеру окна */ 
-    background-position: center; /* Центрируем */ 
-    background-repeat: no-repeat; /* Не повторяем */ 
-    z-index: -1; /* Убираем за контент страницы */ 
+    height: 100vh;
+    background-image: url('/landing/background.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    z-index: -1;
 }
-
 
 .container {
     width: 90%;
@@ -88,23 +73,23 @@ body::before {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: var(--space-sm);
+    gap: var(--landing-space-sm);
     padding: 10px 20px;
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    background: var(--landing-bg-tertiary);
+    color: var(--landing-text-primary);
+    border: 1px solid var(--landing-border);
+    border-radius: var(--landing-radius-md);
     font-size: 15px;
     font-weight: 500;
     text-decoration: none;
     cursor: pointer;
-    transition: all var(--transition-fast);
+    transition: all var(--landing-transition-fast);
     white-space: nowrap;
 }
 
 .btn:hover {
-    background: var(--bg-hover);
-    border-color: var(--accent);
+    background: var(--landing-bg-hover);
+    border-color: var(--landing-accent);
 }
 
 .btn:active {
@@ -114,15 +99,15 @@ body::before {
 /* ГЛАВНАЯ КНОПКА (ЖЕЛТАЯ РАМКА) */
 .btn-primary {
     background: transparent;
-    color: var(--accent);
-    border-color: var(--accent);
+    color: var(--landing-accent);
+    border-color: var(--landing-accent);
     font-weight: 600;
 }
 
 .btn-primary:hover {
-    background: var(--accent-bg);
-    color: var(--text-primary);
-    border-color: var(--accent);
+    background: var(--landing-accent-bg);
+    color: var(--landing-text-primary);
+    border-color: var(--landing-accent);
 }
 
 /* Размеры */
@@ -133,8 +118,8 @@ body::before {
 
 /* Шапка */
 .header {
-    background: var(--bg-secondary);
-    border-bottom: 1px solid var(--border);
+    background: var(--landing-bg-secondary);
+    border-bottom: 1px solid var(--landing-border);
     padding: 1rem 0;
     position: sticky;
     top: 0;
@@ -144,7 +129,7 @@ body::before {
 .header .logo {
     font-size: 1.5rem;
     font-weight: 700;
-    color: var(--accent);
+    color: var(--landing-accent);
 }
 
 .header .nav {
@@ -155,32 +140,31 @@ body::before {
 
 .header .nav a {
     text-decoration: none;
-    color: var(--text-secondary);
+    color: var(--landing-text-secondary);
     font-weight: 500;
     transition: color 0.2s;
 }
 
 .header .nav a:hover {
-    color: var(--accent);
+    color: var(--landing-accent);
 }
 
 /* Главный экран */
 .hero {
     padding: 8rem 0 6rem;
     text-align: center;    
-    class: bg-transparent; /* Или просто напишите так в HTML */
 }
 
 .hero h1 {
     font-size: 3.5rem;
     margin-bottom: 1rem;
-    color: var(--text-primary);
+    color: var(--landing-text-primary);
     font-weight: 700;
 }
 
 .hero .subtitle {
     font-size: 1.25rem;
-    color: var(--text-muted);
+    color: var(--landing-text-muted);
     margin-bottom: 2rem;
     max-width: 600px;
     margin-left: auto;
@@ -197,14 +181,13 @@ body::before {
 /* Секции */
 section {
     padding: 4rem 0;
-    class: bg-transparent;
 }
 
 section h2 {
     text-align: center;
     font-size: 2.25rem;
     margin-bottom: 3rem;
-    color: var(--text-primary);
+    color: var(--landing-text-primary);
     position: relative;
 }
 
@@ -213,7 +196,7 @@ section h2::after {
     display: block;
     width: 60px;
     height: 3px;
-    background: var(--accent);
+    background: var(--landing-accent);
     margin: 12px auto 0;
     border-radius: 2px;
 }
@@ -222,14 +205,14 @@ section h2::after {
 .for-whom .grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: var(--space-lg);
+    gap: var(--landing-space-lg);
 }
 
 .card {
-    background: var(--bg-tertiary);
+    background: var(--landing-bg-tertiary);
     padding: 2rem;
-    border-radius: var(--radius-lg);
-    border: 1px solid var(--border);
+    border-radius: var(--landing-radius-lg);
+    border: 1px solid var(--landing-border);
     text-align: center;
     transition: transform 0.2s, box-shadow 0.2s;
 }
@@ -237,12 +220,12 @@ section h2::after {
 .card:hover {
     transform: translateY(-4px);
     box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-    border-color: var(--accent);
+    border-color: var(--landing-accent);
 }
 
 .card h3 {
     margin-bottom: 1rem;
-    color: var(--accent);
+    color: var(--landing-accent);
     font-size: 1.2rem;
 }
 
@@ -250,15 +233,15 @@ section h2::after {
 .feature-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: var(--space-lg);
+    gap: var(--landing-space-lg);
 }
 
 .feature-card {
-    background: var(--bg-tertiary);
+    background: var(--landing-bg-tertiary);
     padding: 2rem;
-    border-radius: var(--radius-lg);
-    border: 1px solid var(--border);
-    transition: all var(--transition-fast);
+    border-radius: var(--landing-radius-lg);
+    border: 1px solid var(--landing-border);
+    transition: all var(--landing-transition-fast);
     position: relative;
     overflow: hidden;
 }
@@ -270,40 +253,40 @@ section h2::after {
     left: 0;
     right: 0;
     height: 4px;
-    background: var(--accent);
+    background: var(--landing-accent);
 }
 
 .feature-card:hover {
     transform: translateY(-4px);
     box-shadow: 0 15px 35px rgba(0,0,0,0.15);
-    border-color: var(--accent);
+    border-color: var(--landing-accent);
 }
 
 .feature-card h3 {
     margin-bottom: 1rem;
-    color: var(--text-primary);
+    color: var(--landing-text-primary);
     font-size: 1.25rem;
 }
 
 /* Быстрый старт */
 .quick-start {
-    background-image: linear-gradient(to bottom, rgba(var(--rgb-bg-secondary), 0.98), rgba(var(--rgb-bg-secondary), 0.7));
+    background-image: linear-gradient(to bottom, rgba(var(--landing-rgb-bg-secondary), 0.98), rgba(var(--landing-rgb-bg-secondary), 0.7));
 }
 
 .quick-start .steps {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: var(--space-lg);
+    gap: var(--landing-space-lg);
 }
 
 .step {
-    background: var(--bg-tertiary);
+    background: var(--landing-bg-tertiary);
     padding: 2rem;
-    border-radius: var(--radius-lg);
-    border: 1px solid var(--border);
+    border-radius: var(--landing-radius-lg);
+    border: 1px solid var(--landing-border);
     text-align: center;
     position: relative;
-    transition: all var(--transition-fast);
+    transition: all var(--landing-transition-fast);
 }
 
 .step::before {
@@ -313,25 +296,24 @@ section h2::after {
     left: 0;
     right: 0;
     height: 4px;
-    background: var(--accent);
+    background: var(--landing-accent);
 }
 
 .step:hover {
     transform: translateY(-4px);
     box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-    border-color: var(--accent);
+    border-color: var(--landing-accent);
 }
 
 .step-number {
-    display: inline-block;
-    width: 48px;
-    height: 48px;
-    background: var(--accent);
-    color: var(--bg-primary);
-    border-radius: 50%;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
+    width: 48px;
+    height: 48px;
+    background: var(--landing-accent);
+    color: var(--landing-bg-primary);
+    border-radius: 50%;
     font-weight: 700;
     margin-bottom: 1rem;
     font-size: 18px;
@@ -339,26 +321,24 @@ section h2::after {
 
 .step code {
     display: block;
-    background: var(--bg-secondary);
+    background: var(--landing-bg-secondary);
     padding: 0.75rem;
-    border-radius: var(--radius-md);
+    border-radius: var(--landing-radius-md);
     font-size: 0.9rem;
     margin-top: 1rem;
     word-break: break-all;
-    color: var(--text-primary);
-    border: 1px solid var(--border);
+    color: var(--landing-text-primary);
+    border: 1px solid var(--landing-border);
 }
 
 /* Футер */
 .footer {
-    background: var(--bg-secondary);
-    border-top: 1px solid var(--border);
+    background: var(--landing-bg-secondary);
+    border-top: 1px solid var(--landing-border);
     padding: 2rem 0;
     text-align: center;
-    color: var(--text-muted);
+    color: var(--landing-text-muted);
 }
-
-
 
 /* Адаптивность */
 @media (max-width: 768px) {
