@@ -6,7 +6,7 @@
 [![Express](https://img.shields.io/badge/Express-4.18-000000?logo=express&logoColor=white)](https://expressjs.com/)
 [![SQLite](https://img.shields.io/badge/SQLite-5.1-003B57?logo=sqlite&logoColor=white)](https://www.sqlite.org/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-5.15.0-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-5.16.1-blue.svg)](CHANGELOG.md)
 
 ---
 
@@ -102,6 +102,29 @@
 - **Фильтр по статусу** (`?status=X`) — из дашборда (`available` /
   `assigned` / `maintenance` / `retired`).
 - **Ссылки на карточку техники** из модалок ячеек / мест / пользователей.
+
+### 📊 Разделы учёта (5.16.1)
+
+Учёт ТМЦ разделён на **три независимых раздела** с общим рендер-движком.
+`/manage` остаётся сводным реестром (все три вида + фильтры «Учёт» / «ОС»).
+
+- **🏦 `/manage/fixed-assets`** — Основные средства.
+  Колонки: «Дата ввода», «Стоимость». Фильтр по `kind = fixed_asset`
+  (`fa.equipment_id IS NOT NULL`).
+- **📦 `/manage/tangible`** — ТМЦ на количественном учёте.
+  Фильтр: `fa.equipment_id IS NULL AND is_quantity_accounted = 1`.
+- **🏷️ `/manage/low-value`** — Малоценка.
+  Фильтр: `fa.equipment_id IS NULL AND is_quantity_accounted = 0`.
+  В колонке «Инв. №» — `#ID` экземпляра (инв. № у малоценки нет).
+- **🧴 `/manage/consumables`** — Расходные материалы (заглушка, 5.16.2).
+
+**Общее:** sidebar с 4 пунктами, `data-page` для подсветки, формы
+add/edit с предзаполнением по `?kind=`, API принимает `kind`
+(приоритет над `is_fixed_asset` / `is_quantity_accounted`).
+Смена `kind` после создания запрещена (400).
+
+**Отложено:** карточка техники с условными секциями (5.16.1.1),
+seed с ТМЦ (5.16.1.2).
 
 ### 🎛️ Действия с техникой (этап 4.2)
 
@@ -480,6 +503,21 @@ Read-only ко всему, кроме логов. Директор / бухга�
 | PUT | /api/manage/equipment/:id | Обновить |
 | DELETE | /api/manage/equipment/:id | Удалить |
 
+### 📊 Разделы учёта (5.16.1)
+
+Страницы (HTML, не API):
+
+| Метод | Endpoint | Описание |
+|-------|----------|----------|
+| GET | /manage/fixed-assets | 🏦 Основные средства |
+| GET | /manage/tangible | 📦 ТМЦ на кол. учёте |
+| GET | /manage/low-value | 🏷️ Малоценка |
+| GET | /manage/consumables | 🧴 Расходные материалы (заглушка 5.16.2) |
+
+Все — `requireRole(['admin', 'supervisor', 'mol'])`, фильтрация через
+`getEquipmentWithLocation({ kind })`. Пагинация / сортировка сохраняют
+`basePath` раздела.
+
 ---
 
 ### 🧩 Номенклатура / модели ТМЦ
@@ -676,8 +714,11 @@ moveit_service/
 │       ├── equipment/           # 5.15.1a: разбит на модули
 │       │   ├── index.js         # Сборка
 │       │   ├── scope.js         # buildEquipmentScope (5.7.0)
-│       │   ├── helpers.js       # escapeHtml, isFixedAsset, upsertFixedAsset
-│       │   ├── read.js          # SELECT (список, по ID, детали, фильтры)
+│       │   ├── helpers.js       # escapeHtml, isFixedAsset, upsertFixedAsset,
+│       │   │                    # kind-хелперы (5.16.1): EQUIPMENT_KINDS,
+│       │   │                    # getKindWhere, getKindMeta, normalizeKindToFlags
+│       │   ├── read.js          # SELECT (список, по ID, детали, фильтры,
+│       │   │                    # kind — 5.16.1)
 │       │   ├── write.js         # INSERT / UPDATE / DELETE
 │       │   ├── assignments.js   # Назначение / возврат / ответственный
 │       │   └── movements.js     # Перемещения (ячейка, место, склад)
@@ -710,6 +751,11 @@ moveit_service/
 │   │   ├── pages.js             # renderManage, renderAddEquipment, renderEditEquipment
 │   │   ├── helpers.js           # escapeHtml, getInitials, sortableTh, renderManagePagination
 │   │   ├── equipment.js         # CRUD техники + фильтры
+│   │   └── equipment-kinds/     # 5.16.1: разделы ОС / ТМЦ / малоценка
+│   │       ├── index.js         # Сборка
+│   │       ├── helpers.js       # getKindColumns / renderKindTableHead /
+│   │       │                    # renderKindEquipmentRow / buildKindPageActions
+│   │       └── pages.js         # renderEquipmentKindPage / renderConsumablesStub
 │   │   ├── logs.js              # Логи (+ ACTION_NAMES)
 │   │   └── users/               # 5.10.6: разбит
 │   │       ├── index.js
@@ -836,6 +882,8 @@ moveit_service/
 │   │   │   ├── bulk-actions.js
 │   │   │   ├── filters.js
 │   │   │   └── init.js
+│   │   ├── manage-kind/         # 5.16.1: разделы ОС / ТМЦ / малоценка
+│   │   │   └── filters.js       # applyKindFilters / resetKindFilters
 │   │   └── equipment-card/      # 5.8.1: независимый модуль
 │   │       ├── loader.js
 │   │       ├── render.js
@@ -900,6 +948,28 @@ moveit_service/
 ---
 
 ## 📝 История версий
+
+
+## [5.16.1] - 2026-11-18
+
+**🎉 Этап 5.16.1 завершён: разделы ОС / ТМЦ / малоценка**
+
+- **Разделы:** `/manage/fixed-assets`, `/manage/tangible`,
+  `/manage/low-value` — общий рендер-движок, разные колонки.
+  `/manage` остаётся сводным реестром.
+- **`/manage/consumables`** — заглушка (5.16.2).
+- **kind-хелперы** в `database/modules/equipment/helpers.js`
+  (`getKindWhere`, `getKindMeta`, `normalizeKindToFlags`).
+- **Sidebar:** 4 пункта под «Учёт ТМЦ», подсветка через `data-page`.
+- **Формы add/edit:** `?kind=` в add, read-only в edit,
+  подпись «вид задаётся при создании».
+- **API:** `kind` в `addEquipmentAPI` / `updateEquipmentAPI`
+  (приоритет над флагами), смена kind после создания → 400.
+
+**Отложено:** карточка техники с условными секциями (5.16.1.1),
+seed с ТМЦ (5.16.1.2), печатные формы, унификация CSV.
+
+Теги: v5.16.1c, v5.16.1d, v5.16.1e, **v5.16.1 — финал**.
 
 ## [5.15.0] - 2026-11-09
 
@@ -1293,6 +1363,7 @@ moveit_service/
 - [x] 🧹 **5.15.1a — `equipment.js` → папка `equipment/`** (5.15.1a).
 - [x] 🧩 **`/admin/catalog` — серверный рендеринг** таблицы техники (5.14.1).
 - [x] 🧩 **`/admin/catalog` — ступень «Модель»** + CRUD моделей (5.14.2).
+- [x] 📊 **5.16.1 — разделы ОС / ТМЦ / малоценка** (v5.16.1).
 - [ ] 📤 **Импорт / экспорт XLSX**.
 - [ ] 🖨️ **Печать карточек техники** и актов.
 - [ ] 📧 **Email-уведомления**.

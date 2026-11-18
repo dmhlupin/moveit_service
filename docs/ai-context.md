@@ -25,6 +25,15 @@ Node.js 18+ / Express 4.18 / SQLite3 / Vanilla JS (ES6+).
 - UI: `views/manage.html`, `admin-add.html`, `admin-edit.html`.
 - JS: `public/js/manage/` (helpers, columns, bulk-actions, filters, init), `public/js/equipment-card/`.
 
+### Разделы учёта (5.16.1)
+- Роуты: `routes/manage/equipment-kinds/` (index, helpers, pages).
+- UI: `views/manage-kind.html`, `public/js/manage-kind/filters.js`.
+- Kind-хелперы: `database/modules/equipment/helpers.js` —
+  `getKindWhere` / `getKindMeta` / `normalizeKindToFlags` /
+  `getKindFromFlags` / `getKindFromRow`.
+- Роуты (HTML): `/manage/fixed-assets`, `/manage/tangible`,
+  `/manage/low-value`, `/manage/consumables` (заглушка).
+
 ### Склады
 - БД: `database/modules/warehouses/` — index, scope, crud, tree, stats, inventory, batch, equipment-in-cell.
 - Роуты: `routes/warehouses/` — index, pages, helpers, warehouses, zones, racks, cells, inventory.
@@ -61,6 +70,8 @@ Node.js 18+ / Express 4.18 / SQLite3 / Vanilla JS (ES6+).
 - equipment_models(id, name, manufacturer, corporate_id, category_id, type_id, description)
 - equipment(id, model_id, inventory_number, serial_number, status, cell_id, workplace_id, responsible_user_id, is_quantity_accounted, assigned_by_user_id)
 - fixed_assets(equipment_id PK, commissioning_date, initial_cost, useful_life_months)
+- «kind» — вычисляемый (не колонка): EXISTS fixed_assets → fixed_asset;
+  is_quantity_accounted = 1 → tangible; = 0 → low_value (5.16.1).
 - warehouses / zones / racks / cells; offices / rooms / workplaces
 - warehouse_responsibles, office_responsibles (many-to-many МОЛ)
 - categories / types; logs
@@ -86,6 +97,11 @@ Node.js 18+ / Express 4.18 / SQLite3 / Vanilla JS (ES6+).
 - `database/modules/warehouses/scope.js` — buildWarehouseScope.
 - `database/modules/cells.js` — checkCellAvailability.
 - `database/modules/equipment/helpers.js` — isFixedAsset / upsertFixedAsset.
+- database/modules/equipment/helpers.js — kind-хелперы (5.16.1):
+  EQUIPMENT_KINDS / EQUIPMENT_KIND_META / getKindWhere /
+  getKindMeta / getKindFromRow / normalizeKindToFlags /
+  getKindFromFlags. Экспорт: через `module.exports.<fn>` (для read.js
+  и роутов) и через фабрику (для write.js / index.js).
 - `utils/layout.js` — renderPage / renderPageFor / buildSidebar.
 
 ## 8. Что менялось недавно (5.12–5.15)
@@ -94,6 +110,9 @@ Node.js 18+ / Express 4.18 / SQLite3 / Vanilla JS (ES6+).
 - 5.13: удалён `/equipment` → `/manage`.
 - 5.14: редизайн, темы, дашборд-модули, `/admin/catalog` серверный рендеринг.
 - 5.15: количественный учёт + fixed_assets, `equipment.js` → папка `equipment/`.
+- 5.16.1: разделы учёта — `/manage/fixed-assets`, `/manage/tangible`,
+  `/manage/low-value`; kind-хелперы; sidebar с 4 пунктами; `?kind=`
+  в форме add, read-only в edit; API принимает `kind`.
 
 ## 9. Границы применимости моделей
 

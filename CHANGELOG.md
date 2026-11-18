@@ -1,5 +1,94 @@
 # История изменений
 
+## [5.16.1] - 2026-11-18
+
+**🎉 Этап 5.16.1 завершён: разделы ОС / ТМЦ / малоценка**
+
+Учёт ТМЦ разделён на три независимых раздела с общим рендер-движком.
+`/manage` остаётся сводным реестром. Печатные формы (акт приёма-передачи),
+унификация CSV и раздел «Расходные материалы» — вынесены в следующие
+подшаги (5.16.2+).
+
+### Ключевые изменения
+
+- **5.16.1a** — kind-хелперы в `database/modules/equipment/helpers.js`:
+  `EQUIPMENT_KINDS`, `EQUIPMENT_KIND_META`, `getKindWhere`, `getKindMeta`,
+  `getKindFromRow`, `normalizeKindToFlags`, `getKindFromFlags`. Вынесены
+  на уровень модуля + экспорт через `module.exports.<fn>` (для `read.js` /
+  роутов) и через фабрику (для `write.js` / `index.js`). Обратная
+  совместимость: старые `is_fixed_asset` / `is_quantity_accounted`
+  работают как раньше.
+
+- **5.16.1b** — фильтр `kind` в `getEquipmentWithLocation` (`read.js`):
+  параметр `filters.kind` (`fixed_asset` | `tangible` | `low_value`),
+  WHERE-фрагменты через `getKindWhere`, `initial_cost` в `SORT_MAP`.
+  Порядок `params` корректен: scope первым, kind — после (params kind = []).
+
+- **5.16.1c** — страницы разделов:
+  * `/manage/fixed-assets`, `/manage/tangible`, `/manage/low-value` —
+    `renderEquipmentKindPage` (`routes/manage/equipment-kinds/`);
+  * `/manage/consumables` — заглушка (5.16.2);
+  * `routes/manage/equipment-kinds/{index,helpers,pages}.js` — общий
+    рендер: `getKindColumns` / `renderKindTableHead` /
+    `renderKindEquipmentRow` / `buildKindPageActions` / `buildKindRowContext`;
+  * `views/manage-kind.html` — шаблон раздела (без фильтров «Учёт»/«ОС»,
+    без колонки «Учёт» и значка 🏦; для `fixed_asset` — колонки
+    «Дата ввода» / «Стоимость»);
+  * `public/js/manage-kind/filters.js` — `applyKindFilters(basePath)` /
+    `resetKindFilters(basePath)`;
+  * `routes/manage/helpers.js` — `basePath` в `sortableTh` /
+    `renderManagePagination` (дефолт `/manage`, обратная совместимость);
+  * `server.js` — 4 роута под `requireRole(['admin', 'supervisor', 'mol'])`.
+
+- **5.16.1d** — sidebar: под «Учёт ТМЦ» добавлены 4 пункта
+  (🏦 Основные средства, 📦 ТМЦ на кол. учёте, 🏷️ Малоценка,
+  🧴 Расходные материалы) в блоках `admin_or_mol` и `supervisor`.
+  `public/js/layout.js` → `highlightActiveSection()` — 4 новых
+  `else if` **до** общего `/manage` (иначе `startsWith('/manage/')`
+  перехватывает).
+
+- **5.16.1e** — `kind` в формах add/edit + API:
+  * `renderAddEquipment` читает `?kind=`, вычисляет дефолты секции
+    «📊 Учёт» через `normalizeKindToFlags`, передаёт `{{kind}}` /
+    `{{kind_label}}` / `{{is_*_checked}}` / `{{is_*_disabled}}` /
+    `{{fixed_asset_block_style}}`;
+  * `renderEditEquipment` — `kind` из `getKindFromFlags`, чекбоксы
+    `disabled` (kind не меняется), подпись «вид задаётся при создании»;
+  * `views/admin-add.html` — скрытое поле `#equipmentKind`, подпись
+    «Вид учёта: {{kind_label}}», плейсхолдеры у чекбоксов (раньше были
+    захардкожены — замена сервера не срабатывала);
+  * `views/admin-edit.html` — `#equipmentKind`, подпись в заголовке
+    секции, `{{is_fixed_asset_disabled}}`;
+  * `public/js/admin-add.js` — `formData.kind`, приоритет kind над
+    чекбоксами, редирект после успеха в тот же раздел (`backPath`);
+  * `public/js/admin-edit.js` — `formData.kind` (read-only);
+  * `routes/manage/equipment.js` — `addEquipmentAPI` принимает `kind`,
+    нормализует через `normalizeKindToFlags` (приоритет над флагами);
+    `updateEquipmentAPI` — 400 при попытке смены kind.
+
+### Итог этапа
+
+- Три раздела с общим рендер-движком и разными колонками.
+- `/manage` — сводный реестр (все три вида + фильтры «Учёт» / «ОС»).
+- Sidebar — 4 новых пункта, подсветка работает.
+- Формы add/edit — предзаполнение по `kind`, `kind` read-only в edit.
+- API — `kind` имеет приоритет над `is_fixed_asset` / `is_quantity_accounted`,
+  смена kind после создания запрещена.
+
+### Отложено (5.16.1.1+)
+
+- **5.16.1.1** — `EquipmentCard`: условные секции (ОС-поля только для ОС,
+  для малоценки — `ID: #123` вместо инв. №).
+- **5.16.1.2** — `seed.js`: наполнить «ТМЦ на кол. учёте» (мониторы,
+  док-станции).
+
+### Теги
+
+- **v5.16.1c** — разделы ОС / ТМЦ / малоценка (a + b + c одним коммитом)
+- **v5.16.1d** — sidebar: 4 пункта разделов
+- **v5.16.1e** — kind в формах add/edit + API
+- **v5.16.1 — финал этапа (этот)**
+
 ## [5.15.0] - 2026-11-09
 
 **🎉 Этап 5.15 завершён: Количественный учёт + Основные средства**
