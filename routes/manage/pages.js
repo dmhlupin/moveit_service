@@ -391,6 +391,15 @@ async function renderAddEquipment(req, res) {
     const htmlPath = path.join(__dirname, '..', '..', 'views', 'admin-add.html');
     let content = fs.readFileSync(htmlPath, 'utf8');
 
+    // 🆕 5.16.1e: вид учёта из query (?kind=fixed_asset|tangible|low_value)
+    const { normalizeKindToFlags, getKindMeta } = require('../../database/modules/equipment/helpers');
+    const kind = req.query.kind || null;
+    const kindMeta = kind ? getKindMeta(kind) : null;
+    const kindLabel = kindMeta ? `${kindMeta.icon} ${kindMeta.title}` : '—';
+    const kindFlags = kind ? normalizeKindToFlags(kind) : { is_fixed_asset: false, is_quantity_accounted: 1 };
+    const isFa = kindFlags.is_fixed_asset === true;
+    const qty  = kindFlags.is_quantity_accounted !== 0;
+
     const models = await getAllModels();
     let modelOptions = '<option value="">— Выберите модель —</option>';
     models.forEach(m => {
@@ -404,11 +413,13 @@ async function renderAddEquipment(req, res) {
     const currentRole = req.session.role || 'user';
     content = content.replace(/\{\{current_role\}\}/g, currentRole);
 
-        // 🆕 5.15.3: дефолты для новой техники
-    content = content.replace(/\{\{is_quantity_accounted_checked\}\}/g, 'checked'); // по умолчанию ✓
-    content = content.replace(/\{\{is_fixed_asset_checked\}\}/g, '');
-    content = content.replace(/\{\{is_quantity_accounted_disabled\}\}/g, '');
-    content = content.replace(/\{\{fixed_asset_block_style\}\}/g, 'display: none;');
+    // 🆕 5.16.1e: дефолты секции «📊 Учёт» по kind
+    content = content.replace(/\{\{kind\}\}/g,          kind || '');
+    content = content.replace(/\{\{kind_label\}\}/g,    kindLabel);
+    content = content.replace(/\{\{is_quantity_accounted_checked\}\}/g, qty ? 'checked' : '');
+    content = content.replace(/\{\{is_fixed_asset_checked\}\}/g,        isFa ? 'checked' : '');
+    content = content.replace(/\{\{is_quantity_accounted_disabled\}\}/g, isFa ? 'disabled' : '');
+    content = content.replace(/\{\{fixed_asset_block_style\}\}/g,        isFa ? '' : 'display: none;');
     content = content.replace(/\{\{commissioning_date\}\}/g, '');
     content = content.replace(/\{\{initial_cost\}\}/g, '');
     content = content.replace(/\{\{useful_life_months\}\}/g, '');
@@ -451,6 +462,12 @@ async function renderEditEquipment(req, res) {
       return res.status(404).send('Техника не найдена');
     }
 
+    // 🆕 5.16.1e: вид учёта — read-only (kind не меняется)
+    const { getKindFromFlags, getKindMeta } = require('../../database/modules/equipment/helpers');
+    const kind = getKindFromFlags(equipment.is_fixed_asset, equipment.is_quantity_accounted);
+    const kindMeta = getKindMeta(kind);
+    const kindLabel = kindMeta ? `${kindMeta.icon} ${kindMeta.title}` : '—';
+
     const htmlPath = path.join(__dirname, '..', '..', 'views', 'admin-edit.html');
     let content = fs.readFileSync(htmlPath, 'utf8');
 
@@ -465,7 +482,9 @@ async function renderEditEquipment(req, res) {
     content = content.replace(/\{\{workplace_id\}\}/g, equipment.workplace_id || '');
     content = content.replace(/\{\{selected_model_id\}\}/g, equipment.model_id || '');
 
-        // 🆕 5.15.3: количественный учёт + ОС
+    // 🆕 5.16.1e: kind read-only, чекбоксы disabled
+    content = content.replace(/\{\{kind\}\}/g,          kind);
+    content = content.replace(/\{\{kind_label\}\}/g,    kindLabel);
     content = content.replace(
       /\{\{is_quantity_accounted_checked\}\}/g,
       equipment.is_quantity_accounted ? 'checked' : ''
@@ -474,14 +493,8 @@ async function renderEditEquipment(req, res) {
       /\{\{is_fixed_asset_checked\}\}/g,
       equipment.is_fixed_asset ? 'checked' : ''
     );
-    content = content.replace(
-      /\{\{is_fixed_asset_disabled\}\}/g,
-      '' // в edit чекбокс ОС всегда доступен
-    );
-    content = content.replace(
-      /\{\{is_quantity_accounted_disabled\}\}/g,
-      equipment.is_fixed_asset ? 'disabled' : ''
-    );
+    content = content.replace(/\{\{is_fixed_asset_disabled\}\}/g, 'disabled');
+    content = content.replace(/\{\{is_quantity_accounted_disabled\}\}/g, 'disabled');
     content = content.replace(
       /\{\{commissioning_date\}\}/g,
       escapeHtml(equipment.commissioning_date || '')
@@ -561,7 +574,7 @@ async function renderEditEquipment(req, res) {
       : '—');
     content = content.replace(/\{\{info_serial\}\}/g, escapeHtml(equipment.serial_number || '—'));
     content = content.replace(/\{\{info_status\}\}/g, escapeHtml(infoStatus));
-        content = content.replace(/\{\{info_quantity_accounted\}\}/g,
+    content = content.replace(/\{\{info_quantity_accounted\}\}/g,
       equipment.is_quantity_accounted ? '✅ Да' : '❌ Нет (малоценка)');
     content = content.replace(/\{\{info_fixed_asset\}\}/g,
       equipment.is_fixed_asset

@@ -130,7 +130,12 @@ async function addEquipmentAPI(req, res) {
     // 🆕 5.15.3
     is_quantity_accounted, is_fixed_asset,
     commissioning_date, initial_cost, useful_life_months,
+    kind,   // 🆕 5.16.1e
   } = req.body;
+  
+  // 🆕 5.16.1e: kind → флаги (приоритет над ручными)
+  const { normalizeKindToFlags } = require('../../database/modules/equipment/helpers');
+  const kindFlags = kind ? normalizeKindToFlags(kind) : {};
 
   if (!model_id) {
     return res.status(400).json({ error: 'Модель ТМЦ обязательна' });
@@ -146,14 +151,19 @@ async function addEquipmentAPI(req, res) {
   // 🆕 5.15.3: нормализация полей ОС / количественного учёта
   // is_fixed_asset: undefined → поле не передано (не трогаем ОС-запись);
   // true/false → как есть.
-  const isFa = typeof is_fixed_asset === 'boolean'
-    ? is_fixed_asset
-    : (is_fixed_asset === 'true' ? true : (is_fixed_asset === 'false' ? false : undefined));
+  let isFa;
+  if (kindFlags.is_fixed_asset !== undefined) {
+    isFa = kindFlags.is_fixed_asset;
+  } else {
+    isFa = typeof is_fixed_asset === 'boolean'
+      ? is_fixed_asset
+      : (is_fixed_asset === 'true' ? true : (is_fixed_asset === 'false' ? false : undefined));
+  }
 
-  // is_quantity_accounted: true/false/'1'/'0' → 1/0; undefined → 1 (дефолт);
-  // при ОС — принудительно 1 (страховка; сервер всё равно это сделает).
   let qtyAcc = 1;
-  if (is_quantity_accounted !== undefined && is_quantity_accounted !== null && is_quantity_accounted !== '') {
+  if (kindFlags.is_quantity_accounted !== undefined) {
+    qtyAcc = kindFlags.is_quantity_accounted;
+  } else if (is_quantity_accounted !== undefined && is_quantity_accounted !== null && is_quantity_accounted !== '') {
     qtyAcc = (is_quantity_accounted === true || is_quantity_accounted === 1 || is_quantity_accounted === '1') ? 1 : 0;
   }
   if (isFa === true) qtyAcc = 1;
@@ -217,6 +227,7 @@ async function updateEquipmentAPI(req, res) {
       // 🆕 5.15.3
       is_quantity_accounted, is_fixed_asset,
       commissioning_date, initial_cost, useful_life_months,
+      kind,   // 🆕 5.16.1e
     } = req.body;
 
     if (!model_id) {
@@ -226,6 +237,17 @@ async function updateEquipmentAPI(req, res) {
     const existing = await getEquipmentById(id);
     if (!existing) {
       return res.status(404).json({ error: 'Техника не найдена' });
+    }
+
+        // 🆕 5.16.1e: kind не меняется после создания
+    if (kind) {
+      const { getKindFromFlags } = require('../../database/modules/equipment/helpers');
+      const currentKind = getKindFromFlags(existing.is_fixed_asset, existing.is_quantity_accounted);
+      if (kind !== currentKind) {
+        return res.status(400).json({
+          error: 'Вид учёта нельзя изменить после создания. Создайте новый экземпляр.',
+        });
+      }
     }
 
     const userForPerm = { id: req.session.userId, role: req.session.role };

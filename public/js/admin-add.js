@@ -210,8 +210,27 @@ async function submitForm(event) {
     }
   }
 
-  formData.is_quantity_accounted = isFixedAsset ? 1 : isQuantityAccounted;
-  formData.is_fixed_asset        = isFixedAsset;
+    // 🆕 5.16.1e: kind (из query, скрытое поле)
+  const kind = document.getElementById('equipmentKind')?.value || null;
+  formData.kind = kind || null;
+
+  // 🆕 5.16.1e: приоритет kind над чекбоксами
+  if (kind === 'fixed_asset') {
+    formData.is_quantity_accounted = 1;
+    formData.is_fixed_asset = true;
+  } else if (kind === 'tangible') {
+    formData.is_quantity_accounted = 1;
+    formData.is_fixed_asset = false;
+  } else if (kind === 'low_value') {
+    formData.is_quantity_accounted = 0;
+    formData.is_fixed_asset = false;
+  } else {
+    // fallback — текущая логика чекбоксов
+    formData.is_quantity_accounted = isFixedAsset ? 1 : isQuantityAccounted;
+    formData.is_fixed_asset = isFixedAsset;
+  }
+
+
   formData.commissioning_date    = isFixedAsset ? commissioningDate : null;
   formData.initial_cost          = isFixedAsset && initialCostRaw ? parseFloat(initialCostRaw) : null;
   formData.useful_life_months    = isFixedAsset && usefulLifeRaw ? parseInt(usefulLifeRaw, 10) : null;
@@ -227,8 +246,12 @@ async function submitForm(event) {
 
     if (result.success) {
       showToast('✅ Техника успешно добавлена!', 'success');
+      const backPath = kind === 'fixed_asset' ? '/manage/fixed-assets'
+                    : kind === 'tangible'    ? '/manage/tangible'
+                    : kind === 'low_value'   ? '/manage/low-value'
+                    :                          '/manage';
       setTimeout(() => {
-        window.location.href = '/manage';
+        window.location.href = backPath;
       }, 1500);
     } else {
       showToast('❌ ' + result.error, 'error');

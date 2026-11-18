@@ -270,7 +270,10 @@ async function submitForm(event) {
     formData.assign_user_id = document.getElementById('assignUserId').value;
     formData.assign_condition = document.getElementById('assignCondition')?.value || 'В хорошем состоянии';
   }
-
+    // 🆕 5.16.1e: kind — read-only (сервер вернёт 400 при попытке смены)
+  const kind = document.getElementById('equipmentKind')?.value || null;
+  if (kind) formData.kind = kind;
+  
   // 🆕 5.15.3: количественный учёт + ОС
   const isQuantityAccounted = document.getElementById('is_quantity_accounted')?.checked ? 1 : 0;
   const isFixedAsset        = document.getElementById('is_fixed_asset')?.checked || false;

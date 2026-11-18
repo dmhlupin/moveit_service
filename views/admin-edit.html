@@ -18,6 +18,7 @@
 <input type="hidden" id="currentCellId" value="{{cell_id}}">
 <input type="hidden" id="currentWorkplaceId" value="{{workplace_id}}">
 <input type="hidden" id="currentRole" value="{{current_role}}">
+<input type="hidden" id="equipmentKind" value="{{kind}}">
 
 <div class="edit-layout">
 
@@ -137,7 +138,12 @@
           <!-- 🆕 5.15.3: Количественный учёт + Основные средства            -->
           <!-- ============================================================ -->
           <div class="accounting-section">
-            <div class="accounting-section-title">📊 Учёт</div>
+            <div class="accounting-section-title">
+              📊 Учёт
+              <span style="font-size: 12px; font-weight: normal; color: var(--text-secondary); margin-left: 8px;">
+                (вид задаётся при создании — <strong id="kindLabel">{{kind_label}}</strong>)
+              </span>
+            </div>
 
             <!-- На количественном учёте -->
             <div class="form-group checkbox-group">
@@ -156,9 +162,10 @@
             <!-- Основное средство -->
             <div class="form-group checkbox-group">
               <label class="checkbox-label">
-                <input type="checkbox" id="is_fixed_asset"
-                       {{is_fixed_asset_checked}}
-                       onchange="onFixedAssetChange()">
+              <input type="checkbox" id="is_fixed_asset"
+                    {{is_fixed_asset_checked}}
+                    {{is_fixed_asset_disabled}}
+                    onchange="onFixedAssetChange()">
                 <span>Основное средство</span>
               </label>
               <div class="help-text">

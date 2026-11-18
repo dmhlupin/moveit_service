@@ -13,6 +13,7 @@
 
 <!-- 🆕 Этап 4: роль пользователя — для JS -->
 <input type="hidden" id="currentRole" value="{{current_role}}">
+<input type="hidden" id="equipmentKind" value="{{kind}}">
 
 <div class="edit-layout">
 
@@ -99,11 +100,15 @@
           <!-- ============================================================ -->
           <div class="accounting-section">
             <div class="accounting-section-title">📊 Учёт</div>
-
+            <div class="help-text" style="margin-bottom: 10px;">
+              Вид учёта: <strong id="kindLabel">{{kind_label}}</strong>
+            </div>
             <!-- На количественном учёте -->
             <div class="form-group checkbox-group">
               <label class="checkbox-label">
-                <input type="checkbox" id="is_quantity_accounted" checked>
+                <input type="checkbox" id="is_quantity_accounted"
+                      {{is_quantity_accounted_checked}}
+                      {{is_quantity_accounted_disabled}}>
                 <span>На количественном учёте</span>
               </label>
               <div class="help-text">
@@ -115,7 +120,9 @@
             <!-- Основное средство -->
             <div class="form-group checkbox-group">
               <label class="checkbox-label">
-                <input type="checkbox" id="is_fixed_asset" onchange="onFixedAssetChange()">
+                <input type="checkbox" id="is_fixed_asset"
+                      {{is_fixed_asset_checked}}
+                      onchange="onFixedAssetChange()">
                 <span>Основное средство</span>
               </label>
               <div class="help-text">
