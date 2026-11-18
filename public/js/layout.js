@@ -166,7 +166,21 @@ function highlightActiveSection() {
     else if (path === '/manage/add' || path.startsWith('/manage/edit/')) {
         activePage = 'manage';
     }
-    // Общий /manage — «Учёт ТМЦ»
+    // 🆕 5.16.1d: разделы ОС / ТМЦ / малоценка / расходники
+    // ВАЖНО: до общего /manage, иначе startsWith('/manage/') перехватит.
+    else if (path === '/manage/fixed-assets' || path.startsWith('/manage/fixed-assets/')) {
+        activePage = 'fixed-assets';
+    }
+    else if (path === '/manage/tangible' || path.startsWith('/manage/tangible/')) {
+        activePage = 'tangible';
+    }
+    else if (path === '/manage/low-value' || path.startsWith('/manage/low-value/')) {
+        activePage = 'low-value';
+    }
+    else if (path === '/manage/consumables' || path.startsWith('/manage/consumables/')) {
+        activePage = 'consumables';
+    }
+    // Общий /manage — «Учёт ТМЦ» (после разделов)
     else if (path === '/manage' || path.startsWith('/manage/')) {
         activePage = 'manage';
     }
