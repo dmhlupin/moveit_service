@@ -6,6 +6,7 @@
 // ============================================================
 
 const { buildEquipmentScope } = require('./scope');
+const { getKindWhere } = require('./helpers');   // 🆕 5.16.1
 
 module.exports = ({ db, run, get, all }) => {
     return {
@@ -163,6 +164,7 @@ module.exports = ({ db, run, get, all }) => {
                     offset = 0,
                     include_total = false,
                     only_mine = false,
+                    kind = null,   // 🆕 5.16.1
                 } = filters;
 
                 const where = ['1=1'];
@@ -181,6 +183,11 @@ module.exports = ({ db, run, get, all }) => {
                 if (quantity_only)            { where.push('e.is_quantity_accounted = 1'); }
                 if (is_quantity_accounted === true)  { where.push('e.is_quantity_accounted = 1'); }
                 if (is_quantity_accounted === false) { where.push('e.is_quantity_accounted = 0'); }
+                // 🆕 5.16.1: фильтр по виду учёта
+                if (kind) {
+                    const k = getKindWhere(kind);
+                    if (k) { where.push(k.sql); whereParams.push(...k.params); }
+                }
                 if (only_mine && scope.userId && scope.role === 'mol') {
                     where.push('e.responsible_user_id = ?');
                     whereParams.push(scope.userId);
@@ -237,6 +244,7 @@ module.exports = ({ db, run, get, all }) => {
                     commissioning_date: 'fa.commissioning_date',
                     quantity_accounted: 'e.is_quantity_accounted',
                     fixed_asset:        `CASE WHEN fa.equipment_id IS NOT NULL THEN 1 ELSE 0 END`,
+                    initial_cost: 'fa.initial_cost',   // 🆕 5.16.1
                 };
                 const sortSql = SORT_MAP[sort] || 'e.id';
                 const orderSql = (String(order).toLowerCase() === 'desc') ? 'DESC' : 'ASC';

@@ -5,6 +5,8 @@ const pages = require('./pages');
 const equipment = require('./equipment');
 const users = require('./users');
 const logs = require('./logs');
+// 🆕 5.16.1: разделы ОС / ТМЦ / малоценка
+const equipmentKinds = require('./equipment-kinds');
 
 module.exports = {
   // Страницы
@@ -42,4 +44,6 @@ module.exports = {
   getLogsAPI: logs.getLogsAPI,
   getLogsStatsAPI: logs.getLogsStatsAPI,
   cleanLogsAPI: logs.cleanLogsAPI,
+
+  ...equipmentKinds,  // renderEquipmentKindPage, renderConsumablesStub
 };

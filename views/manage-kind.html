@@ -1,0 +1,189 @@
+<!-- views/manage-kind.html — шаблон раздела (ОС / ТМЦ / малоценка) -->
+
+<input type="hidden" id="currentRole" value="{{current_role}}">
+<input type="hidden" id="openEquipmentId" value="{{open_equipment_id}}">
+<input type="hidden" id="currentUserId" value="{{current_user_id}}">
+<input type="hidden" id="kindBasePath" value="{{kind_base_path}}">
+
+<!-- ============================================================ -->
+<!-- PAGE HEADER                                                   -->
+<!-- ============================================================ -->
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">{{kind_icon}} {{kind_title}}</h1>
+        <div class="page-subtitle">{{kind_description}}</div>
+    </div>
+    <div class="page-actions">
+        {{page_actions}}
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- STATS (одна карточка — всего в разделе)                       -->
+<!-- ============================================================ -->
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <span class="icon">{{kind_icon}}</span>
+        <div class="number accent">{{total_equipment}}</div>
+        <div class="label">Всего в разделе</div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- ФИЛЬТРЫ (без «Учёт» / «ОС» — они константа раздела)           -->
+<!-- ============================================================ -->
+
+<div class="filters-panel">
+    <div class="filter-group filter-group--search">
+        <label>Поиск</label>
+        <div class="search-wrapper">
+            <span class="search-icon">🔍</span>
+            <input type="search"
+                id="filterSearch"
+                placeholder="Инв. №, серийный, ФИО..."
+                autocomplete="off"
+                value="{{filter_search}}">
+        </div>
+    </div>
+    <div class="filter-group">
+        <label>Корпоративный ИД</label>
+        <input type="text" id="filterCorporateId" placeholder="Например: MOD-0001" value="{{filter_corporate_id}}">
+    </div>
+    <div class="filter-group">
+        <label>Наименование</label>
+        <input type="text" id="filterModelName" placeholder="Например: Ноутбук" value="{{filter_model_name}}">
+    </div>
+    <div class="filter-group">
+        <label>Категория</label>
+        <select id="filterCategory">
+            {{filter_category_options}}
+        </select>
+    </div>
+    <div class="filter-group">
+        <label>Тип</label>
+        <select id="filterType">
+            {{filter_type_options}}
+        </select>
+    </div>
+    <div class="filter-group" id="filterMolGroup">
+        <label>Ответственный МОЛ</label>
+        <select id="filterMol">
+            {{filter_mol_options}}
+        </select>
+    </div>
+    <div class="filter-group filter-group--checkbox">
+        <label class="checkbox-label">
+            <input type="checkbox" id="filterUnplaced" value="1" {{filter_unplaced_checked}}>
+            <span>Без места хранения</span>
+        </label>
+        <label class="checkbox-label">
+            <input type="checkbox" id="filterStale" {{filter_stale_checked}}>
+            <span>Без движения &gt; 3 мес.</span>
+        </label>
+    </div>
+
+    {{filter_only_mine_block}}
+    <div class="filter-group filter-group--narrow">
+        <label>Показывать по</label>
+        <select id="filterPageSize">
+            {{page_size_options}}
+        </select>
+    </div>
+    <div class="filter-actions">
+        <button type="button" class="btn btn-primary" onclick="applyKindFilters(document.getElementById('kindBasePath').value)">✔ Применить</button>
+        <button type="button" class="btn btn-ghost" onclick="resetKindFilters(document.getElementById('kindBasePath').value)">✕ Сбросить</button>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- ПАНЕЛЬ ВЫБРАННОГО                                            -->
+<!-- ============================================================ -->
+
+<div id="bulkActionsBar" class="bulk-actions-bar" style="display: none;">
+    <span>Выбрано: <strong id="selectedCount">0</strong></span>
+    <button type="button" class="btn btn-primary btn-sm" onclick="openBulkMoveModal()">
+        📦 Переместить на склад
+    </button>
+    <button type="button" class="btn btn-ghost btn-sm" onclick="clearSelection()">
+        ✕ Снять выделение
+    </button>
+</div>
+
+<!-- ============================================================ -->
+<!-- ТАБЛИЦА                                                       -->
+<!-- ============================================================ -->
+
+<div class="table-container">
+    <div class="table-header">
+        <h2>Список: {{kind_title}}</h2>
+        <div class="table-actions">
+            {{add_button}}
+            <div class="columns-menu-wrapper">
+                <button type="button" class="btn btn-ghost btn-sm" onclick="toggleColumnsMenu()" title="Скрыть / показать колонки">
+                    ⚙️ Колонки
+                </button>
+                <div id="columnsMenu" class="columns-menu" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+    <table class="manage-table">
+        <thead>
+            <tr>{{table_head}}</tr>
+        </thead>
+        <tbody id="equipmentTableBody">
+            {{equipment_rows}}
+        </tbody>
+    </table>
+</div>
+
+{{pagination}}
+
+<!-- Модалка группового перемещения (как на /manage) -->
+<div class="modal-overlay" id="bulkMoveModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>📦 Групповое перемещение</h3>
+            <button onclick="closeBulkMoveModal()" class="modal-close">✕</button>
+        </div>
+        <div class="modal-body">
+            <p style="margin: 0 0 16px 0; color: var(--text-secondary); font-size: var(--text-sm);">
+                Выбрано единиц техники: <strong id="bulkMoveCount">0</strong>.
+                Выберите ячейку, в которую они будут перемещены.
+            </p>
+            <div class="form-group">
+                <label>Склад</label>
+                <select id="bulkMoveWarehouse" onchange="onBulkMoveWarehouseChange()">
+                    <option value="">— Выберите склад —</option>
+                </select>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Зона</label>
+                    <select id="bulkMoveZone" onchange="onBulkMoveZoneChange()" disabled>
+                        <option value="">— Сначала выберите склад —</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Стеллаж</label>
+                    <select id="bulkMoveRack" onchange="onBulkMoveRackChange()" disabled>
+                        <option value="">— Сначала выберите зону —</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Ячейка <span class="required">*</span></label>
+                <select id="bulkMoveCell" disabled>
+                    <option value="">— Сначала выберите стеллаж —</option>
+                </select>
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button onclick="closeBulkMoveModal()" class="btn btn-ghost">Отмена</button>
+            <button onclick="submitBulkMove()" class="btn btn-primary" id="bulkMoveSubmitBtn">📦 Переместить</button>
+        </div>
+    </div>
+</div>
+
+{{equipment_card_partial}}

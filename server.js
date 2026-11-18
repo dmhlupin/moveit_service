@@ -55,6 +55,10 @@ const {
   getLogsAPI,
   getLogsStatsAPI,
   cleanLogsAPI,
+
+    // 🆕 5.16.1: разделы
+  renderEquipmentKindPage,
+  renderConsumablesStub,
 } = require('./routes/manage');
 
 const {
@@ -357,6 +361,18 @@ app.get('/pdf/:filename', requireAuth, renderPdfFile);
 app.get('/manage',          requireRole(['admin', 'supervisor', 'mol']), renderManage);
 app.get('/manage/add',      requireMol, renderAddEquipment);
 app.get('/manage/edit/:id', requireMol, renderEditEquipment)
+
+// 🆕 5.16.1: разделы ОС / ТМЦ / малоценка
+app.get('/manage/fixed-assets', requireRole(['admin', 'supervisor', 'mol']),
+  (req, res) => renderEquipmentKindPage(req, res, 'fixed_asset'));
+app.get('/manage/tangible', requireRole(['admin', 'supervisor', 'mol']),
+  (req, res) => renderEquipmentKindPage(req, res, 'tangible'));
+app.get('/manage/low-value', requireRole(['admin', 'supervisor', 'mol']),
+  (req, res) => renderEquipmentKindPage(req, res, 'low_value'));
+
+// 🆕 5.16.2: заглушка расходников
+app.get('/manage/consumables', requireRole(['admin', 'supervisor', 'mol']),
+  renderConsumablesStub);
 
 // ============================================
 // УПРАВЛЕНИЕ ПОЛЬЗОВАТЕЛЯМИ

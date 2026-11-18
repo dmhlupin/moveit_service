@@ -5,6 +5,7 @@
 //   - checkCellAvailability — обёртка над ./cells
 //   - checkUniqueSerialAndInventory — уникальность инв./серийного
 //   - isFixedAsset / upsertFixedAsset — основные средства (5.15.1)
+//   - kind-хелперы (5.16.1) — ОС / ТМЦ / малоценка
 // ============================================================
 
 const { checkCellAvailability } = require('../cells');
@@ -14,9 +15,6 @@ const { checkCellAvailability } = require('../cells');
  * equipment + model + fixed_assets (LEFT).
  * Добавляет поля: is_fixed_asset (0/1), commissioning_date,
  * initial_cost, useful_life_months.
- *
- * Сейчас не используется (задел на 5.15.2). Экспортируется
- * наружу — пригодится в отладке/тестах и в read.js.
  */
 const EQUIPMENT_SELECT_BASE = `
   SELECT e.*,
@@ -33,6 +31,98 @@ const EQUIPMENT_SELECT_BASE = `
     JOIN equipment_models m ON m.id = e.model_id
     LEFT JOIN fixed_assets fa ON fa.equipment_id = e.id
 `;
+
+// ============================================================
+// 5.16.1: Виды учёта (kind) — ОС / ТМЦ / малоценка
+// ============================================================
+//
+// Правило вычисления kind (единое для всего проекта):
+//   EXISTS fixed_assets         → 'fixed_asset'   (ОС)
+//   is_quantity_accounted = 1   → 'tangible'      (ТМЦ на кол. учёте)
+//   is_quantity_accounted = 0   → 'low_value'     (малоценка)
+//
+// SQL-фрагменты используют алиасы `e` (equipment) и `fa` (fixed_assets).
+// Все SELECT-ы, где применяется kind-фильтр, должны гарантировать
+// эти алиасы (getEquipmentWithLocation, getEquipmentById — уже гарантируют).
+
+const EQUIPMENT_KINDS = Object.freeze({
+  FIXED_ASSET: 'fixed_asset',
+  TANGIBLE:    'tangible',
+  LOW_VALUE:   'low_value',
+});
+
+const EQUIPMENT_KIND_META = Object.freeze({
+  [EQUIPMENT_KINDS.FIXED_ASSET]: {
+    title:       'Основные средства',
+    icon:        '🏦',
+    description: 'Техника, принятая к учёту как основное средство',
+    basePath:    '/manage/fixed-assets',
+  },
+  [EQUIPMENT_KINDS.TANGIBLE]: {
+    title:       'ТМЦ на количественном учёте',
+    icon:        '📦',
+    description: 'Техника на количественном учёте (не ОС)',
+    basePath:    '/manage/tangible',
+  },
+  [EQUIPMENT_KINDS.LOW_VALUE]: {
+    title:       'Малоценка',
+    icon:        '🏷️',
+    description: 'Малоценное оборудование (не ОС, не на кол. учёте)',
+    basePath:    '/manage/low-value',
+  },
+});
+
+/**
+ * SQL-фрагмент WHERE для фильтра по kind.
+ * @param {string} kind — 'fixed_asset' | 'tangible' | 'low_value'
+ * @returns {{ sql: string, params: any[] } | null}
+ */
+function getKindWhere(kind) {
+  switch (kind) {
+    case EQUIPMENT_KINDS.FIXED_ASSET:
+      return { sql: 'fa.equipment_id IS NOT NULL', params: [] };
+    case EQUIPMENT_KINDS.TANGIBLE:
+      return { sql: 'fa.equipment_id IS NULL AND e.is_quantity_accounted = 1', params: [] };
+    case EQUIPMENT_KINDS.LOW_VALUE:
+      return { sql: 'fa.equipment_id IS NULL AND e.is_quantity_accounted = 0', params: [] };
+    default:
+      return null;
+  }
+}
+
+function getKindMeta(kind) {
+  return EQUIPMENT_KIND_META[kind] || null;
+}
+
+function getKindFromRow(row) {
+  if (!row) return null;
+  if (row.is_fixed_asset === 1 || row.is_fixed_asset === true) return EQUIPMENT_KINDS.FIXED_ASSET;
+  if (row.is_quantity_accounted === 1 || row.is_quantity_accounted === true) return EQUIPMENT_KINDS.TANGIBLE;
+  return EQUIPMENT_KINDS.LOW_VALUE;
+}
+
+function normalizeKindToFlags(kind) {
+  switch (kind) {
+    case EQUIPMENT_KINDS.FIXED_ASSET:
+      return { is_fixed_asset: true,  is_quantity_accounted: 1 };
+    case EQUIPMENT_KINDS.TANGIBLE:
+      return { is_fixed_asset: false, is_quantity_accounted: 1 };
+    case EQUIPMENT_KINDS.LOW_VALUE:
+      return { is_fixed_asset: false, is_quantity_accounted: 0 };
+    default:
+      return {};
+  }
+}
+
+function getKindFromFlags(isFixedAsset, isQuantityAccounted) {
+  if (isFixedAsset) return EQUIPMENT_KINDS.FIXED_ASSET;
+  if (isQuantityAccounted) return EQUIPMENT_KINDS.TANGIBLE;
+  return EQUIPMENT_KINDS.LOW_VALUE;
+}
+
+// ============================================================
+// ФАБРИКА (ctx: { db, run, get, all })
+// ============================================================
 
 module.exports = ({ db, run, get, all }) => {
 
@@ -156,6 +246,15 @@ module.exports = ({ db, run, get, all }) => {
 
     return {
         EQUIPMENT_SELECT_BASE,
+        // 🆕 5.16.1: kind-хелперы (ссылки на функции уровня модуля)
+        EQUIPMENT_KINDS,
+        EQUIPMENT_KIND_META,
+        getKindWhere,
+        getKindMeta,
+        getKindFromRow,
+        normalizeKindToFlags,
+        getKindFromFlags,
+        // существующее
         checkCellAvailability(cellId, excludeEquipmentId = null) {
             return checkCellAvailability(db, cellId, excludeEquipmentId);
         },
@@ -165,3 +264,16 @@ module.exports = ({ db, run, get, all }) => {
         validateFixedAssetInput,
     };
 };
+
+// ============================================================
+// 5.16.1: экспорт kind-хелперов на уровне модуля
+// (для read.js и роутов, которые делают require('./helpers')
+//  и берут хелперы деструктуризацией)
+// ============================================================
+module.exports.EQUIPMENT_KINDS        = EQUIPMENT_KINDS;
+module.exports.EQUIPMENT_KIND_META    = EQUIPMENT_KIND_META;
+module.exports.getKindWhere           = getKindWhere;
+module.exports.getKindMeta            = getKindMeta;
+module.exports.getKindFromRow         = getKindFromRow;
+module.exports.normalizeKindToFlags   = normalizeKindToFlags;
+module.exports.getKindFromFlags       = getKindFromFlags;

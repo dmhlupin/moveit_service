@@ -81,7 +81,7 @@ function formatDateTime(dateString) {
 // HTML-ХЕЛПЕРЫ ДЛЯ /manage
 // ============================================================
 
-function sortableTh(column, label, currentSort, currentOrder, query, extraClass = '') {
+function sortableTh(column, label, currentSort, currentOrder, query, extraClass = '', basePath = '/manage') {
   const isActive = currentSort === column;
   const nextOrder = isActive && currentOrder === 'asc' ? 'desc' : 'asc';
   const arrow = isActive ? (currentOrder === 'asc' ? ' ▲' : ' ▼') : '';
@@ -98,11 +98,11 @@ function sortableTh(column, label, currentSort, currentOrder, query, extraClass 
   const cls = (isActive ? 'sortable-header active' : 'sortable-header')
     + (extraClass ? ' ' + extraClass : '');
   return `<th class="${cls}">
-    <a href="/manage?${params.toString()}">${label}${arrow}</a>
+    <a href="${basePath}?${params.toString()}">${label}${arrow}</a>
   </th>`;
 }
 
-function renderManagePagination({ page, totalPages, totalFiltered, query }) {
+function renderManagePagination({ page, totalPages, totalFiltered, query, basePath = '/manage' }) {
   if (totalPages <= 1) {
     return `<div class="pagination"><span class="pagination-info">Всего: ${totalFiltered}</span></div>`;
   }
@@ -112,7 +112,7 @@ function renderManagePagination({ page, totalPages, totalFiltered, query }) {
       if (k !== 'page' && v) params.set(k, v);
     });
     params.set('page', p);
-    return '/manage?' + params.toString();
+    return basePath + '?' + params.toString();
   };
   let html = '<div class="pagination">';
   html += `<span class="pagination-info">Страница ${page} из ${totalPages} (всего: ${totalFiltered})</span>`;
