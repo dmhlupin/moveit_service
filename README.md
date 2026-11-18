@@ -82,6 +82,8 @@
   значком 🏦 в таблице.
 - **Фильтры** «Учёт» (Все / На количественном / Малоценка) и «ОС»
   (Все / Только ОС / Только не-ОС) с серверной фильтрацией.
+- **Управление видимостью колонок** (⚙️ + `localStorage`) — 5.11.3-hotfix.
+- **Sticky-заголовки** таблицы (`<thead>` + `.table-container`) — 5.11.3-hotfix.
 - **Сортировка** по колонке «Учёт».
 - Модель ТМЦ (обязательная).
 - Ответственный МОЛ.
@@ -195,6 +197,8 @@
 - **Глобальный фильтр «Учёт»** над 4 вкладками: «Только на количественном»
   (по умолчанию) / «Все (включая малоценку)». Фильтрует сводки, таблицы
   в модалках, выборку по уровню и счётчики.
+- **4 вкладки:** Склады / Рабочие места / Пользователи / Выборка
+  (`location.hash`, F5 сохраняет вкладку) — 5.11.4.
 - **CSV-экспорт** с колонками «На количественном учёте», «Основное средство»,
   «Дата ввода в эксплуатацию».
 - Доступ: admin / supervisor / mol
@@ -261,6 +265,7 @@
 - Модалка помощи (FAQ)
 - Адаптивный дизайн, тёмная тема
 - Скрипт `check-roles.js`
+- **Публичный лендинг** (`public/landing/`) — вместо дефолтного `/login`.
 
 ---
 
@@ -656,19 +661,26 @@ moveit_service/
 ├── database/
 │   ├── db.js                    # Точка входа, склейка модулей
 │   └── modules/
-│       ├── users.js             # CRUD пользователей
-│       ├── equipment.js         # Техника + назначения + фильтры
-│       ├── equipment-models.js  # CRUD моделей ТМЦ
-│       ├── catalog.js           # Категории и типы
 │       ├── auth.js              # Пароли, роли, сессии
-│       ├── profile.js           # Личный кабинет
-│       ├── logs.js              # Логи активности
-│       ├── dashboard.js         # Дашборд + статистика
-│       ├── stats.js             # Общая статистика
-│       ├── meta.js              # app_meta
-│       ├── import.js            # Импорт CSV (5.4.x)
+│       ├── catalog.js           # Категории и типы
 │       ├── cells.js             # checkCellAvailability
+│       ├── dashboard.js         # Дашборд + статистика
+│       ├── equipment-models.js  # CRUD моделей ТМЦ
+│       ├── import.js            # Импорт CSV (5.4.x)
+│       ├── logs.js              # Логи активности
+│       ├── meta.js              # app_meta
+│       ├── profile.js           # Личный кабинет
+│       ├── stats.js             # Общая статистика
+│       ├── users.js             # CRUD пользователей
 │       ├── workplaces.js        # Офисы, кабинеты, рабочие места
+│       ├── equipment/           # 5.15.1a: разбит на модули
+│       │   ├── index.js         # Сборка
+│       │   ├── scope.js         # buildEquipmentScope (5.7.0)
+│       │   ├── helpers.js       # escapeHtml, isFixedAsset, upsertFixedAsset
+│       │   ├── read.js          # SELECT (список, по ID, детали, фильтры)
+│       │   ├── write.js         # INSERT / UPDATE / DELETE
+│       │   ├── assignments.js   # Назначение / возврат / ответственный
+│       │   └── movements.js     # Перемещения (ячейка, место, склад)
 │       └── warehouses/          # 5.2: разбит на модули
 │           ├── index.js         # Сборка
 │           ├── scope.js         # buildWarehouseScope (5.2)
@@ -736,10 +748,12 @@ moveit_service/
 │   │   ├── index.js
 │   │   ├── pages.js             # renderSettings (/admin/settings)
 │   │   └── api.js               # downloadBackupAPI (VACUUM INTO)
-│   ├── admin-backup.js          # (старый? не используется — проверить)
+│   ├── dashboard/               # 5.14.7: разбит на модули
+│   │   ├── index.js
+│   │   ├── pages.js             # renderDashboard
+│   │   └── helpers.js           # сборка данных для панелей
 │   ├── admin-responsibles.js    # Управление МОЛ
 │   ├── auth.js                  # Вход, выход, смена пароля
-│   ├── dashboard.js             # Дашборд
 │   ├── manage-equipment-actions.js # Действия из карточки
 │   ├── manage-import.js         # Импорт номенклатуры и экземпляров из CSV
 │   ├── pdf.js                   # PDF-инструкции
@@ -747,10 +761,11 @@ moveit_service/
 │
 ├── scripts/
 │   ├── migrate.js               # Миграция БД (включая таблицы МОЛ, 5.11.2 assigned_by_user_id)
-│   ├── seed.js                  # Тестовые данные (4 роли + МОЛы)
+│   ├── seed.js                  # Тестовые данные (4 роли + МОЛы, 5.15.6: малоценка + ОС)
 │   ├── backup-db.js             # Бэкап БД (5.11.5)
 │   ├── check-css.js             # Проверка CSS + плейсхолдеров
-│   ├── check-db.js              # Проверка структуры
+│   ├── check-css-classes.js     # 5.14.4: проверка потери CSS-классов
+│   ├── check-db.js              # Проверка структуры (5.15.1: fixed_assets)
 │   ├── check-catalog.js         # Проверка справочника
 │   ├── check-models.js          # Проверка моделей ТМЦ
 │   ├── check-roles.js           # Проверка ролевой модели
@@ -790,42 +805,49 @@ moveit_service/
 │   │       ├── modals.css
 │   │       └── responsive.css
 │   │
-│   └── js/
-│       ├── main.js              # Общее
-│       ├── layout.js            # Sidebar, поиск, горячие клавиши
-│       ├── help.js              # Модалка помощи
-│       ├── footer.js            # Версия в футере
-│       ├── login.js
-│       ├── change-password.js
-│       ├── dashboard.js
-│       ├── profile.js
-│       ├── admin-add.js         # Форма добавления техники
-│       ├── admin-edit.js        # Форма редактирования техники
-│       ├── admin-models.js      # Номенклатура
-│       ├── admin-settings.js    # 5.11.5: бэкап БД
-│       ├── admin-user-add.js    # Форма добавления пользователя
-│       ├── admin-user-edit.js   # Форма редактирования пользователя (+ МОЛ)
-│       ├── admin-users.js       # «Управление доступом»
-│       ├── catalog.js           # Справочник (5.11.3: EquipmentCard)
-│       ├── equipment-view.js    # 5.7.1: viewEquipmentFromExternal
-│       ├── logs.js              # Логи
-│       ├── manage-import.js     # Импорт CSV
-│       ├── warehouses.js        # Склады
-│       ├── warehouse-details.js # Дерево склада + ответственные МОЛ
-│       ├── workplaces.js        # Офисы
-│       ├── workplace-details.js # Дерево офиса + ответственные МОЛ
-│       ├── inventory.js         # Инвентаризация (5.11.4: вкладки; 5.12: users)
-│       ├── manage/              # 5.1.1: разбит
-│       │   ├── helpers.js
-│       │   ├── bulk-actions.js
-│       │   ├── filters.js
-│       │   └── init.js
-│       └── equipment-card/      # 5.8.1: независимый модуль
-│           ├── loader.js
-│           ├── render.js
-│           ├── actions.js
-│           ├── modals.js
-│           └── index.js
+│   ├── js/
+│   │   ├── main.js              # Общее
+│   │   ├── layout.js            # Sidebar, поиск, горячие клавиши
+│   │   ├── help.js              # Модалка помощи
+│   │   ├── footer.js            # Версия в футере
+│   │   ├── login.js
+│   │   ├── change-password.js
+│   │   ├── dashboard.js
+│   │   ├── profile.js
+│   │   ├── admin-add.js         # Форма добавления техники
+│   │   ├── admin-edit.js        # Форма редактирования техники
+│   │   ├── admin-models.js      # Номенклатура
+│   │   ├── admin-settings.js    # 5.11.5: бэкап БД
+│   │   ├── admin-user-add.js    # Форма добавления пользователя
+│   │   ├── admin-user-edit.js   # Форма редактирования пользователя (+ МОЛ)
+│   │   ├── admin-users.js       # «Управление доступом»
+│   │   ├── catalog.js           # Справочник (5.11.3: EquipmentCard)
+│   │   ├── equipment-view.js    # 5.7.1: viewEquipmentFromExternal
+│   │   ├── logs.js              # Логи
+│   │   ├── manage-import.js     # Импорт CSV
+│   │   ├── warehouses.js        # Склады
+│   │   ├── warehouse-details.js # Дерево склада + ответственные МОЛ
+│   │   ├── workplaces.js        # Офисы
+│   │   ├── workplace-details.js # Дерево офиса + ответственные МОЛ
+│   │   ├── inventory.js         # Инвентаризация (5.11.4: вкладки; 5.12: users)
+│   │   ├── manage/              # 5.1.1: разбит
+│   │   │   ├── helpers.js
+│   │   │   ├── columns.js       # 5.11.3.2: скрытие/показ колонок (localStorage)
+│   │   │   ├── bulk-actions.js
+│   │   │   ├── filters.js
+│   │   │   └── init.js
+│   │   └── equipment-card/      # 5.8.1: независимый модуль
+│   │       ├── loader.js
+│   │       ├── render.js
+│   │       ├── actions.js
+│   │       ├── modals.js
+│   │       └── index.js
+│   │
+│   └── landing/                 # Публичный лендинг (вместо дефолтного /login)
+│       ├── index.html
+│       ├── styles.css
+│       ├── script.js
+│       └── background.png
 │
 ├── views/
 │   ├── partials/
@@ -855,6 +877,17 @@ moveit_service/
 │   ├── admin-models.html
 │   └── admin-settings.html      # 5.11.5: бэкап БД
 │
+├── .continue/                   # Промпты для локальной модели (Qwen)
+│   ├── prompts/
+│   │   ├── project-brief.md
+│   │   ├── project-map.md
+│   │   ├── system-prompt.md
+│   │   └── task-template.md
+│   └── rules/
+│       ├── 01-architecture.md
+│       ├── 02-permissions.md
+│       └── 03-code-style.md
+│
 ├── .env
 ├── .gitignore
 ├── CHANGELOG.md
@@ -862,7 +895,6 @@ moveit_service/
 ├── VERSION.md
 ├── package.json
 └── server.js
-
 ```
 
 ---
@@ -872,8 +904,6 @@ moveit_service/
 ## [5.15.0] - 2026-11-09
 
 **🎉 Этап 5.15 завершён: Количественный учёт + Основные средства**
-
-### Ключевые изменения
 
 - **Модель данных:** `equipment.is_quantity_accounted` (0/1) +
   таблица `fixed_assets` (1:1) с `commissioning_date`, `initial_cost`,
@@ -886,38 +916,38 @@ moveit_service/
   фильтры «Учёт» и «ОС».
 - **Инвентаризация:** глобальный фильтр «Учёт» (4 вкладки + счётчики +
   модалки + выборка), CSV с новыми колонками.
+- **5.15.1a:** `database/modules/equipment.js` разложен на папку
+  `equipment/` (index, scope, helpers, read, write, assignments, movements).
 - **Seed:** генерация малоценки и основных средств.
 
-### Теги
-
-- v5.15.1 … v5.15.6, **v5.15.0 — финал**
+Теги: v5.15.1 … v5.15.6, **v5.15.0 — финал**.
 
 ## [5.14.0] - 2026-11-06
 
 **🎉 Этап 5.14 завершён: редизайн, дашборд, темы, фильтры**
 
-### Ключевые изменения
-
-- **Редизайн:** строгий стиль, глубокий синий фон + золотой акцент, убраны все градиенты, унифицированы аватары (квадрат с желтой рамкой), зебра в таблицах.
-- **Темы:** переключатель «Осень / Ночь / День» в хедере (🍂 / 🌙 / ☀️), выбор сохраняется в `localStorage`.
-- **Дашборд:** разнесен на модули (`routes/dashboard/`). Новые панели:
-  * График активности (стильный, золотой).
-  * Пончик статусов (Доступна / Назначена / На месте / В ремонте / Списана).
-  * «Без движения > 3 мес.» (ссылка на `/manage?stale=1`).
-  * Варнинг «Техника без места» (`available` без `cell_id` и `workplace_id`).
-- **`/manage`:** фильтр «Без движения > 3 мес.» (чекбокс), сортировка по «Описание» и «Назначена».
-- **`/admin/catalog`:** серверный рендеринг таблицы техники, ступень «Модель» + CRUD моделей прямо в каталоге. Страница `/admin/models` оставлена как сквозной реестр.
-- **Транзакции:** `assignEquipment`, `returnEquipmentByEquipmentId`, `moveEquipmentToCellDetailed` — обёрнуты в `BEGIN / COMMIT / ROLLBACK`.
-- **`scripts/check-css-classes.js`:** проверка потери CSS-классов при удалении файла.
-- **`seed.js`:** переписан для генерации ~50 единиц техники с разными статусами, местами, «залежавшимися» и «потеряшками».
+- **Редизайн:** строгий стиль, глубокий синий фон + золотой акцент,
+  убраны градиенты, унифицированы аватары, зебра в таблицах.
+- **Темы:** переключатель «Осень / Ночь / День» (🍂 / 🌙 / ☀️),
+  выбор в `localStorage`.
+- **Дашборд:** разнесён на модули (`routes/dashboard/`). Новые панели:
+  график активности, пончик статусов, «Без движения > 3 мес.»,
+  «Техника без места» (варнинг).
+- **`/manage`:** фильтр «Без движения > 3 мес.» (`?stale=1`),
+  сортировка по «Описание» и «Назначена».
+- **`/admin/catalog`:** серверный рендеринг + ступень «Модель» +
+  CRUD моделей в каталоге.
+- **Транзакции:** `assignEquipment`, `returnEquipmentByEquipmentId`,
+  `moveEquipmentToCellDetailed` — `BEGIN / COMMIT / ROLLBACK`.
+- **`scripts/check-css-classes.js`** — проверка потери CSS-классов.
+- **`seed.js`:** ~50 единиц техники с разными статусами, местами,
+  «залежавшимися» и «потеряшками».
 
 Подробности — в [CHANGELOG.md](CHANGELOG.md).
 
 ## [5.13] - 2026-10-27
 
 **🎉 Этап 5.13: удалён раздел `/equipment` (ТМЦ) — дублирует `/manage`**
-
-### Ключевые изменения
 
 - Удалены `routes/equipment.js`, `views/equipment.html`,
   `public/js/equipment-filter.js`, `public/css/equipment.css`.
@@ -926,54 +956,40 @@ moveit_service/
 - Дашборд — 6 ссылок `/equipment[?status=...]` → `/manage[?status=...]`.
 - Инвентаризация → виртуальные склады — 2 ссылки → `/manage`.
 - `renderManage` — добавлен `filters.warehouse_id` (для виртуальных складов).
-- `routes/dashboard.js` → `cardUsers` — `/users` → `/admin/inventory#users`
-  (если оставалось после 5.12).
 
-Подробности — в [CHANGELOG.md](CHANGELOG.md).
+## [5.12] - 2026-10-27
 
 **🎉 Этап 5.12: удалена `/users`, `/admin/inventory#users` — таблица/карточки + поиск**
 
 Удалена устаревшая `/users` (дублировала `/admin/inventory#users`).
 В `/admin/inventory` → вкладка «Пользователи» — переключатель
-«Таблица / Карточки» + клиентский поиск. Карточки компактнее,
-кнопки на одном уровне.
+«Таблица / Карточки» + клиентский поиск.
 
-Для админа раздел управления пользователями - "Управление доступом"
-
-### Удалено
-
-- `routes/users.js` (`renderUsers`);
-- `views/users.html`;
-- `public/js/users.js` (клиентский поиск);
-- `public/css/users.css`.
-
-Подробности — в [CHANGELOG.md](CHANGELOG.md).
+- Удалены `routes/users.js`, `views/users.html`, `public/js/users.js`,
+  `public/css/users.css`.
+- `server.js` — убран `require('./routes/users')` + `app.get('/users')`.
+- Sidebar — убраны пункты «Пользователи» (admin + supervisor).
+- `/admin/inventory#users` — переключатель «📋 Таблица / 🗂️ Карточки»
+  (`localStorage`), поиск по таблице (ФИО / логин / отдел / email).
 
 ## [5.11.0] - 2026-10-26
 
 **🎉 Этап 5.11 завершён: чистота слоёв + «Выдал» + карточка на /admin/catalog + 4 вкладки + бэкап БД**
 
-### Ключевые изменения
-
 - **5.11.1a** — вынос `db.all` / `db.get` из `routes/manage/users` в `database/modules/*`;
-  фикс проверки «последний админ» (`newRole !== 'admin'`); `scripts/restore-admin.js`.
+  фикс «последний админ»; `scripts/restore-admin.js`.
 - **5.11.1b** — транзакция `updateUserWithResponsibles`.
-- **5.11.2** — `assigned_by_user_id` («Выдал») в «Истории» и активной технике.
+- **5.11.2** — `assigned_by_user_id` («Выдал») в истории и активной технике.
 - **5.11.2.2** — `/api/manage/users-for-assign` (фикс назначения под МОЛом).
 - **5.11.3** — карточка техники на `/admin/catalog` через `EquipmentCard` +
-  **scope-фикс** `getFilteredEquipmentAPI` (под МОЛом — только его техника).
-  
+  **scope-фикс** `getFilteredEquipmentAPI`.
 - **5.11.4** — UX инвентаризации: **4 вкладки** (Склады / Рабочие места /
   Пользователи / Выборка), `location.hash`.
-- **5.11.4a** — колонка «Ответственный МОЛ» на `/admin/catalog`;
-  колонка «Действия» удалена (строка кликабельна).
+- **5.11.4a** — колонка «Ответственный МОЛ» на `/admin/catalog`.
 - **5.11.5** — **бэкап БД** через `VACUUM INTO` (`data/backups/`, ротация 30,
   `/admin/settings`, только admin).
-- **5.11.3-hotfix** (`v5.11.3`, `v5.11.3.2`, `v5.11.3.3`) — параллельные
-  правки: `/manage` (Описание, «Без места», sticky, скрытие колонок,
-  фикс «Модель»), Auth UI (`/login`, `/change-password` на тёмную тему),
-  фиксы (`createUserWithPassword`, «последний админ», назначение под
-  МОЛом, «Выдал»).
+- **5.11.3-hotfix** — `/manage` (Описание, «Без места», sticky, скрытие
+  колонок, фикс «Модель»), Auth UI, фиксы.
 
 Подробности — в [CHANGELOG.md](CHANGELOG.md).
 
@@ -983,10 +999,6 @@ moveit_service/
 
 Разобраны все крупные роут-файлы. Каждый домен — папка с `index.js`
 (сборка) + `pages.js` (рендер) + `api.js` (или подфайлы по поддоменам).
-`server.js` и `routes/manage/index.js` не менялись — импорты через `index.js`
-подхватываются Node автоматически.
-
-### Ключевые изменения
 
 - **5.10.1** — актуализация `check-css.js`: рекурсивный обход `routes/**/*.js`,
   `views/partials/*.html`, `public/css/manage/*.css`; `--purple-hover` в theme.css.
@@ -1255,9 +1267,7 @@ moveit_service/
 - [x] 🔄 **Множественные перемещения** (v5.0.5).
 - [x] 🔒 **Проверка доступности склада / офиса для МОЛа** (v5.0.6).
 - [x] 🎛️ **Автозаполнение ячеек / стеллажей / мест** (v5.0.1–5.0.2).
-- [x] 🧹 **Рефакторинг раздувшихся файлов** (v5.1.0–5.3.0):
-  `routes/manage.js`, `public/js/manage.js`,
-  `database/modules/warehouses.js`, `public/css/manage.css`.
+- [x] 🧹 **Рефакторинг раздувшихся файлов** (v5.1.0–5.3.0).
 - [x] 🔄 **Переиспользование `moveEquipmentToWorkplace`** (v5.4.0).
 - [x] 🎛️ **`/admin/users`** — по аналогии с `/manage` (v5.5.x).
 - [x] 🏷️ **Пометка чужих экземпляров МОЛу** (v5.6.0).
@@ -1266,7 +1276,8 @@ moveit_service/
 - [x] 🔒 **Scope инвентаризации:** МОЛ видит только свою технику (v5.9.3.1).
 - [x] 🧑‍💼 **Ответственный МОЛ в CSV и модалках** (v5.9.3.2).
 - [x] 🔎 **Углубление выборки:** склад → зона → стеллаж → ячейка, офис → кабинет → место (v5.9.6).
-- [x] 🧹 **5.10 — структурный рефакторинг:** разнос роутов на `pages.js` / `api.js`, актуализация `check-css.js` (v5.10.0).
+- [x] 🧹 **5.10 — структурный рефакторинг:** разнос роутов на `pages.js` / `api.js`,
+  актуализация `check-css.js` (v5.10.0).
 - [x] 🧹 **5.11 — чистота слоёв:** вынос прямых `db.all` / `db.get` из роутов
   в `database/modules/*` (5.11.1a, 5.11.1b).
 - [x] 📝 **«Выдал» в истории и активной технике** (5.11.2, 5.11.2.1).
@@ -1277,8 +1288,11 @@ moveit_service/
 - [x] 🗂️ **Удаление `/equipment`** — роль выполняет `/manage` (5.13).
 - [x] 👥 **`/users` удалена** — данные в `/admin/inventory#users` (5.12).
 - [x] 🔄 **`/admin/inventory#users` — таблица/карточки + поиск** (5.12).
-- [ ] 🖥️ **`/admin/catalog` — серверный рендеринг** таблицы техники (5.11.6 / 5.12).
-- [ ] 🧩 **`/admin/catalog` — ступень «Модель»** + CRUD моделей (5.12+).
+- [x] 🎨 **Редизайн, темы, дашборд-модули** (5.14).
+- [x] 📊 **Количественный учёт + основные средства** (5.15).
+- [x] 🧹 **5.15.1a — `equipment.js` → папка `equipment/`** (5.15.1a).
+- [x] 🧩 **`/admin/catalog` — серверный рендеринг** таблицы техники (5.14.1).
+- [x] 🧩 **`/admin/catalog` — ступень «Модель»** + CRUD моделей (5.14.2).
 - [ ] 📤 **Импорт / экспорт XLSX**.
 - [ ] 🖨️ **Печать карточек техники** и актов.
 - [ ] 📧 **Email-уведомления**.

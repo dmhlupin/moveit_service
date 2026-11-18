@@ -9,11 +9,12 @@
 <body>
     <!-- Шапка -->
     <header class="header">
-        <div class="container">
+        <div class="container header-container">
             <div class="logo">MoveIT</div>
             <nav class="nav">
                 <a href="#features">Возможности</a>
-                <a href="#quick-start">Быстрый старт</a>
+                <a href="#inventory">Инвентаризация</a>
+                <a href="#roles">Роли</a>
                 <a href="/login" class="btn btn-primary">Войти</a>
             </nav>
         </div>
@@ -23,7 +24,7 @@
     <section class="hero">
         <div class="container">
             <h1>MoveIT service</h1>
-            <p class="subtitle">Полнофункциональное веб-приложение для управления материально-техническими ресурсами (ТМЦ) организации.</p>
+            <p class="subtitle">Полнофункциональное веб-приложение для управления материально-техническими ресурсами (ТМЦ) организации с адресным хранением.</p>
             <div class="hero-actions">
                 <a href="/login" class="btn btn-primary btn-lg">Войти в систему</a>
                 <a href="#features" class="btn btn-lg">Узнать больше</a>
@@ -32,7 +33,7 @@
     </section>
 
     <!-- Для кого -->
-    <section class="for-whom">
+    <section class="for-whom section-overlay">
         <div class="container">
             <h2>Для кого этот сервис</h2>
             <div class="grid">
@@ -57,7 +58,7 @@
     </section>
 
     <!-- Ключевые возможности -->
-    <section id="features" class="features">
+    <section id="features" class="features section-overlay">
         <div class="container">
             <h2>Ключевые возможности</h2>
             <div class="feature-grid">
@@ -81,8 +82,97 @@
         </div>
     </section>
 
+    <!-- Инвентаризация 2.0 -->
+    <section id="inventory" class="inventory-section section-overlay">
+        <div class="container">
+            <div class="split-layout">
+                <div class="text-content">
+                    <h2>Инвентаризация 2.0</h2>
+                    <p class="subtitle">Забудьте про слепые зоны в учёте. Отслеживайте технику не только на складах, но и на рабочих местах.</p>
+                    <ul class="feature-list">
+                        <li><strong>Гибкая выборка по уровню:</strong> Склад → Зона → Стеллаж → Ячейка и Офис → Кабинет → Место.</li>
+                        <li><strong>Учёт по пользователям:</strong> Видьте, у кого на руках активная техника и её историю.</li>
+                        <li><strong>Виртуальные склады:</strong> Отдельный учёт для техники «В ремонте» и «Списано».</li>
+                        <li><strong>Экспорт в CSV:</strong> Выгрузка сводок по складам, офисам и ответственным МОЛ.</li>
+                    </ul>
+                </div>
+                <div class="visual-placeholder">
+                    <!-- Визуальный акцент без эмодзи -->
+                    <span>Инвентаризация</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Ролевая модель -->
+    <section id="roles" class="roles-section section-overlay">
+        <div class="container">
+            <h2>Создана для команд</h2>
+            <div class="roles-grid">
+                <div class="role-card">
+                    <div class="role-badge">Admin</div>
+                    <h3>Администратор</h3>
+                    <p>Полный доступ. Настройка справочников, складов и пользователей.</p>
+                </div>
+                <div class="role-card">
+                    <div class="role-badge">MOL</div>
+                    <h3>МОЛ</h3>
+                    <p>Материально ответственные лица. Видят только свои склады и технику, могут её перемещать.</p>
+                </div>
+                <div class="role-card">
+                    <div class="role-badge">Supervisor</div>
+                    <h3>Супервизор</h3>
+                    <p>Режим «только чтение» для аудиторов, директоров и бухгалтеров.</p>
+                </div>
+                <div class="role-card">
+                    <div class="role-badge">User</div>
+                    <h3>Пользователь</h3>
+                    <p>Личный кабинет сотрудника: своя техника, история и инструкции.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Импорт данных -->
+    <section class="import-section section-overlay">
+        <div class="container">
+            <h2>Легкий переход с 1С или Excel</h2>
+            <div class="import-grid">
+                <div class="card">
+                    <h3>Импорт номенклатуры</h3>
+                    <p>Загружайте базу из CSV-файлов 1С. Поддержка Windows-1251, UTF-8 и разных разделителей. Предпросмотр перед загрузкой.</p>
+                </div>
+                <div class="card">
+                    <h3>Массовое создание</h3>
+                    <p>Создавайте стеллажи и ячейки пачками. Автогенерация кодов и названий за вас.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Безопасность -->
+    <section class="security-section section-overlay">
+        <div class="container">
+            <h2>Безопасность на уровне ядра</h2>
+            <div class="security-grid">
+                <div class="security-item">
+                    <h4>Надежная авторизация</h4>
+                    <p>Хеширование паролей bcrypt, сессии в SQLite, принудительная смена пароля при первом входе.</p>
+                </div>
+                <div class="security-item">
+                    <h4>Защита данных</h4>
+                    <p>Защита от удаления самого себя и последнего администратора. Транзакции при удалении.</p>
+                </div>
+                <div class="security-item">
+                    <h4>Полное логирование</h4>
+                    <p>25+ типов действий. Фиксация каждого шага для прозрачного аудита.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Быстрый старт -->
-    <section id="quick-start" class="quick-start">
+    <section id="quick-start" class="quick-start section-overlay">
         <div class="container">
             <h2>Как начать за 2 минуты</h2>
             <div class="steps">
@@ -93,7 +183,7 @@
                 <div class="step">
                     <span class="step-number">2</span>
                     <h3>Склонируйте репозиторий</h3>
-                    <code>git clone https://github.com</code>
+                    <code>git clone https://github.com/</code>
                 </div>
                 <div class="step">
                     <span class="step-number">3</span>
@@ -109,10 +199,25 @@
         </div>
     </section>
 
+    <!-- Технологии -->
+    <section class="tech-stack section-overlay">
+        <div class="container">
+            <h2>Технологическая база</h2>
+            <p class="subtitle text-center">Легковесное решение без зависимостей от тяжелых фреймворков.</p>
+            <div class="tech-badges">
+                <span class="badge">Node.js 18+</span>
+                <span class="badge">Express.js</span>
+                <span class="badge">SQLite</span>
+                <span class="badge">Vanilla JS</span>
+                <span class="badge">Docker-ready</span>
+            </div>
+        </div>
+    </section>
+
     <!-- Футер -->
     <footer class="footer">
         <div class="container">
-            <p>&copy; 2026 MoveIT service. Сделано с ❤️ на Node.js.</p>
+            <p>&copy; 2026 MoveIT service. Сделано на Node.js.</p>
         </div>
     </footer>
     

@@ -19,18 +19,6 @@
     --landing-space-sm: 8px;
     --landing-space-md: 16px;
     --landing-space-lg: 24px;
-    --landing-rgb-bg-primary: 10, 25, 47;
-    --landing-rgb-bg-secondary: 8, 19, 26;
-}
-
-/* Класс для прозрачных блоков поверх фона */ 
-.bg-transparent { 
-    background-color: transparent; 
-    background-image: linear-gradient(
-         to bottom, 
-         rgba(var(--landing-rgb-bg-primary), 0.98), 
-         rgba(var(--landing-rgb-bg-primary), 0.7)
-    ); 
 }
 
 * {
@@ -43,10 +31,11 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     line-height: 1.6;
     color: var(--landing-text-primary);
-    background-color: transparent;
+    background-color: var(--landing-bg-primary);
     overflow-x: hidden;
 }
 
+/* Оригинальный фон без затемнения */
 body::before { 
     content: ''; 
     position: fixed;
@@ -68,7 +57,15 @@ body::before {
     padding: 0 15px;
 }
 
-/* КНОПКИ — СТРОГИЙ СТИЛЬ */
+/* Полупрозрачная подложка для секций */
+.section-overlay {
+    background: rgba(8, 19, 26, 0.7);
+    backdrop-filter: blur(4px);
+    border-bottom: 1px solid rgba(51, 65, 85, 0.3);
+    border-top: 1px solid rgba(51, 65, 85, 0.3);
+}
+
+/* КНОПКИ */
 .btn {
     display: inline-flex;
     align-items: center;
@@ -96,7 +93,6 @@ body::before {
     transform: translateY(1px);
 }
 
-/* ГЛАВНАЯ КНОПКА (ЖЕЛТАЯ РАМКА) */
 .btn-primary {
     background: transparent;
     color: var(--landing-accent);
@@ -110,7 +106,6 @@ body::before {
     border-color: var(--landing-accent);
 }
 
-/* Размеры */
 .btn-lg {
     padding: 14px 28px;
     font-size: 16px;
@@ -118,12 +113,19 @@ body::before {
 
 /* Шапка */
 .header {
-    background: var(--landing-bg-secondary);
+    background: rgba(8, 19, 26, 0.85);
+    backdrop-filter: blur(8px);
     border-bottom: 1px solid var(--landing-border);
     padding: 1rem 0;
     position: sticky;
     top: 0;
     z-index: 100;
+}
+
+.header-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
 .header .logo {
@@ -178,7 +180,7 @@ body::before {
     flex-wrap: wrap;
 }
 
-/* Секции */
+/* Общие стили секций */
 section {
     padding: 4rem 0;
 }
@@ -268,11 +270,155 @@ section h2::after {
     font-size: 1.25rem;
 }
 
-/* Быстрый старт */
-.quick-start {
-    background-image: linear-gradient(to bottom, rgba(var(--landing-rgb-bg-secondary), 0.98), rgba(var(--landing-rgb-bg-secondary), 0.7));
+/* Инвентаризация 2.0 (Split Layout) */
+.split-layout {
+    display: flex;
+    align-items: center;
+    gap: 4rem;
 }
 
+.split-layout .text-content {
+    flex: 1;
+}
+
+.split-layout .text-content h2 {
+    text-align: left;
+    margin-bottom: 1.5rem;
+}
+
+.split-layout .text-content h2::after {
+    margin: 12px 0 0;
+}
+
+.split-layout .text-content .subtitle {
+    color: var(--landing-text-muted);
+    font-size: 1.1rem;
+    margin-bottom: 2rem;
+}
+
+.feature-list {
+    list-style: none;
+    padding: 0;
+}
+
+.feature-list li {
+    margin-bottom: 1rem;
+    font-size: 1.05rem;
+    position: relative;
+    padding-left: 20px;
+}
+
+/* Маркеры списка */
+.feature-list li::before {
+    content: '•';
+    color: var(--landing-accent);
+    font-size: 1.5rem;
+    position: absolute;
+    left: 0;
+    top: -4px;
+}
+
+.feature-list strong {
+    color: var(--landing-text-primary);
+}
+
+.visual-placeholder {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: linear-gradient(135deg, rgba(251, 191, 36, 0.05), rgba(15, 33, 45, 0.9));
+    border: 1px solid var(--landing-border);
+    border-radius: var(--landing-radius-lg);
+    min-height: 300px;
+    box-shadow: inset 0 0 50px rgba(0,0,0,0.5);
+}
+
+.visual-placeholder span {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--landing-border);
+    text-transform: uppercase;
+    letter-spacing: 5px;
+}
+
+/* Ролевая модель */
+.roles-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: var(--landing-space-lg);
+}
+
+.role-card {
+    background: var(--landing-bg-tertiary);
+    padding: 2rem;
+    border-radius: var(--landing-radius-lg);
+    border: 1px solid var(--landing-border);
+    text-align: center;
+    transition: all var(--landing-transition-fast);
+}
+
+.role-card:hover {
+    border-color: var(--landing-accent);
+    transform: translateY(-4px);
+}
+
+.role-badge {
+    display: inline-block;
+    background: var(--landing-bg-primary);
+    color: var(--landing-accent);
+    padding: 0.2rem 0.8rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-family: monospace;
+    margin-bottom: 1rem;
+    border: 1px solid var(--landing-accent);
+}
+
+.role-card h3 {
+    color: var(--landing-text-primary);
+    margin-bottom: 0.5rem;
+}
+
+.role-card p {
+    color: var(--landing-text-secondary);
+    font-size: 0.95rem;
+}
+
+/* Импорт данных */
+.import-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: var(--landing-space-lg);
+}
+
+/* Безопасность */
+.security-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: var(--landing-space-lg);
+}
+
+.security-item {
+    background: var(--landing-bg-tertiary);
+    padding: 2rem;
+    border-radius: var(--landing-radius-lg);
+    border: 1px solid var(--landing-border);
+    border-left: 4px solid var(--landing-accent);
+}
+
+.security-item h4 {
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+    color: var(--landing-text-primary);
+}
+
+.security-item p {
+    color: var(--landing-text-muted);
+    font-size: 0.95rem;
+}
+
+/* Быстрый старт */
 .quick-start .steps {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -331,9 +477,33 @@ section h2::after {
     border: 1px solid var(--landing-border);
 }
 
+/* Технологии */
+.text-center {
+    text-align: center;
+}
+
+.tech-badges {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 2rem;
+}
+
+.badge {
+    background: var(--landing-bg-tertiary);
+    border: 1px solid var(--landing-accent);
+    color: var(--landing-accent);
+    padding: 0.5rem 1.5rem;
+    border-radius: 50px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    letter-spacing: 0.5px;
+}
+
 /* Футер */
 .footer {
-    background: var(--landing-bg-secondary);
+    background: rgba(8, 19, 26, 0.9);
     border-top: 1px solid var(--landing-border);
     padding: 2rem 0;
     text-align: center;
@@ -341,6 +511,26 @@ section h2::after {
 }
 
 /* Адаптивность */
+@media (max-width: 992px) {
+    .split-layout {
+        flex-direction: column;
+        gap: 2rem;
+    }
+    
+    .split-layout .text-content h2 {
+        text-align: center;
+    }
+    
+    .split-layout .text-content h2::after {
+        margin: 12px auto 0;
+    }
+    
+    .visual-placeholder {
+        width: 100%;
+        min-height: 200px;
+    }
+}
+
 @media (max-width: 768px) {
     .hero h1 {
         font-size: 2.5rem;
@@ -351,8 +541,7 @@ section h2::after {
     }
     
     .header .nav {
-        gap: 1rem;
-        font-size: 14px;
+        display: none; 
     }
     
     .hero-actions {
@@ -365,7 +554,11 @@ section h2::after {
         max-width: 300px;
     }
     
-    .grid, .feature-grid, .steps {
+    .grid, .feature-grid, .steps, .roles-grid, .security-grid, .import-grid {
         grid-template-columns: 1fr;
+    }
+    
+    .feature-list li {
+        font-size: 1rem;
     }
 }
