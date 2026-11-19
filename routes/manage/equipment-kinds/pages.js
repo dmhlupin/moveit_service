@@ -181,6 +181,7 @@ async function renderEquipmentKindPage(req, res, kind) {
       ],
       pageJs: [
         '/js/manage/helpers.js',
+        '/js/manage/columns.js',          // 🆕 5.16.3.1: меню «⚙️ Колонки»
         '/js/equipment-card/loader.js',
         '/js/equipment-card/render.js',
         '/js/equipment-card/actions.js',

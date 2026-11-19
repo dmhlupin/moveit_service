@@ -5,8 +5,23 @@
 (function () {
     'use strict';
 
-    const STORAGE_KEY = 'manage.hiddenColumns';
-    const MENU_ID = 'columnsMenu';
+const STORAGE_KEY_BASE = 'manage.hiddenColumns';
+const MENU_ID = 'columnsMenu';
+
+// 🆕 5.16.3.1: пространство хранения — разное для /manage и разделов.
+// Берём из #kindBasePath (если есть), иначе — из pathname.
+function getStorageKey() {
+    const kindBasePath = document.getElementById('kindBasePath')?.value;
+    if (kindBasePath) {
+        // /manage/fixed-assets → 'fixed-assets'
+        // /manage/tangible     → 'tangible'
+        // /manage/low-value    → 'low-value'
+        const space = kindBasePath.replace(/^\/manage\//, '');
+        return `${STORAGE_KEY_BASE}:${space}`;
+    }
+    // /manage → 'manage' (как раньше)
+    return STORAGE_KEY_BASE;
+}
 
     // Ключи → читаемые названия (для меню)
     const COLUMN_LABELS = {
@@ -23,24 +38,27 @@
         assigned:    'Назначена',
         responsible: 'Ответственный МОЛ',
         quantity:    'Учёт',
+        // 🆕 5.16.3.1: колонки раздела ОС
+        commissioning_date: 'Дата ввода',
+        initial_cost:       'Стоимость',
     };
 
     // ---------- localStorage ----------
-    function getHiddenColumns() {
-        try {
-            const raw = localStorage.getItem(STORAGE_KEY);
-            const arr = raw ? JSON.parse(raw) : [];
-            return Array.isArray(arr) ? arr : [];
-        } catch (e) {
-            return [];
-        }
+function getHiddenColumns() {
+    try {
+        const raw = localStorage.getItem(getStorageKey());
+        const arr = raw ? JSON.parse(raw) : [];
+        return Array.isArray(arr) ? arr : [];
+    } catch (e) {
+        return [];
     }
+}
 
-    function setHiddenColumns(arr) {
-        try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(arr));
-        } catch (e) {}
-    }
+function setHiddenColumns(arr) {
+    try {
+        localStorage.setItem(getStorageKey(), JSON.stringify(arr));
+    } catch (e) {}
+}
 
     // ---------- Применение к DOM ----------
     function applyToDOM() {
