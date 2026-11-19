@@ -2,15 +2,14 @@
 <!-- Боковое меню: роле-зависимое (admin / supervisor / mol / user) -->
 <!--
   Маркеры (см. utils/layout.js → buildSidebar):
-  Условные блоки (см. utils/layout.js -> buildSidebar):
-    маркер "admin"                      — только admin
-    маркер "supervisor"                 — только supervisor
-    маркер "mol"                        — только mol
-    маркер "user"                       — только user
-    маркер "admin_or_supervisor"        — admin | supervisor
-    маркер "admin_or_mol"               — admin | mol
-    маркер "admin_or_supervisor_or_mol" — admin | supervisor | mol
-    маркер "all_roles"                  — любая авторизованная роль
+    admin                      — только admin
+    supervisor                 — только supervisor
+    mol                        — только mol
+    user                       — только user
+    admin_or_supervisor        — admin | supervisor
+    admin_or_mol               — admin | mol
+    admin_or_supervisor_or_mol — admin | supervisor | mol
+    all_roles                  — любая авторизованная роль
 -->
 
 <aside class="app-sidebar" id="appSidebar">
@@ -31,7 +30,7 @@
 
     {{#if supervisor}}
     <a href="/" class="sidebar-logo">
-        <svg width="32" height="32" viewBox="0 0 32 32" fill="none"> 
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
             <path d="M16 2L29 9L16 16L3 9L16 2Z" fill="currentColor" opacity="0.3"/>
             <path d="M3 9V23L16 30V16L3 9Z" fill="currentColor" opacity="0.5"/>
             <path d="M29 9V23L16 30V16L29 9Z" fill="currentColor"/>
@@ -85,16 +84,54 @@
                 <span class="sidebar-link-icon">📊</span>
                 <span class="sidebar-link-text">Обзор системы</span>
             </a>
-
         </div>
         {{/if}}
 
         <!-- ============================================ -->
-        <!-- ИНВЕНТАРИЗАЦИЯ — admin / supervisor / mol     -->
+        <!-- ТМЦ — admin / supervisor / mol                -->
         <!-- ============================================ -->
         {{#if admin_or_supervisor_or_mol}}
         <div class="sidebar-group">
-            <div class="sidebar-group-title">Инвентаризация</div>
+            <div class="sidebar-group-title">ТМЦ</div>
+
+            <a href="/manage" class="sidebar-link" data-page="manage">
+                <span class="sidebar-link-icon">🧾</span>
+                <span class="sidebar-link-text">Учёт ТМЦ</span>
+            </a>
+
+            <a href="/manage/fixed-assets" class="sidebar-link" data-page="fixed-assets">
+                <span class="sidebar-link-icon">🏦</span>
+                <span class="sidebar-link-text">Основные средства</span>
+            </a>
+
+            <a href="/manage/tangible" class="sidebar-link" data-page="tangible">
+                <span class="sidebar-link-icon">📦</span>
+                <span class="sidebar-link-text">ТМЦ на кол. учёте</span>
+            </a>
+
+            <a href="/manage/low-value" class="sidebar-link" data-page="low-value">
+                <span class="sidebar-link-icon">🏷️</span>
+                <span class="sidebar-link-text">Малоценка</span>
+            </a>
+
+            <a href="/manage/consumables" class="sidebar-link" data-page="consumables">
+                <span class="sidebar-link-icon">🧴</span>
+                <span class="sidebar-link-text">Расходные материалы</span>
+            </a>
+        </div>
+        {{/if}}
+
+        <!-- ============================================ -->
+        <!-- ХРАНЕНИЕ — admin / supervisor / mol           -->
+        <!-- ============================================ -->
+        {{#if admin_or_supervisor_or_mol}}
+        <div class="sidebar-group">
+            <div class="sidebar-group-title">Хранение</div>
+
+            <a href="/admin/warehouses" class="sidebar-link" data-page="warehouses">
+                <span class="sidebar-link-icon">🏢</span>
+                <span class="sidebar-link-text">Склады</span>
+            </a>
 
             <a href="/admin/inventory" class="sidebar-link" data-page="inventory">
                 <span class="sidebar-link-icon">📍</span>
@@ -104,90 +141,30 @@
         {{/if}}
 
         <!-- ============================================ -->
-        <!-- УПРАВЛЕНИЕ — admin / mol                      -->
+        <!-- ЭКСПЛУАТАЦИЯ — admin / supervisor / mol       -->
         <!-- ============================================ -->
-        {{#if admin_or_mol}}
+        {{#if admin_or_supervisor_or_mol}}
         <div class="sidebar-group">
-            <div class="sidebar-group-title">Управление</div>
-
-            <a href="/manage" class="sidebar-link" data-page="manage">
-                <span class="sidebar-link-icon">🧾</span>
-                <span class="sidebar-link-text">Учёт ТМЦ</span>
-            </a>
-
-            <a href="/manage/fixed-assets" class="sidebar-link" data-page="fixed-assets">
-                <span class="sidebar-link-icon">🏦</span>
-                <span class="sidebar-link-text">Основные средства</span>
-            </a>
-
-            <a href="/manage/tangible" class="sidebar-link" data-page="tangible">
-                <span class="sidebar-link-icon">📦</span>
-                <span class="sidebar-link-text">ТМЦ на кол. учёте</span>
-            </a>
-
-            <a href="/manage/low-value" class="sidebar-link" data-page="low-value">
-                <span class="sidebar-link-icon">🏷️</span>
-                <span class="sidebar-link-text">Малоценка</span>
-            </a>
-
-            <a href="/manage/consumables" class="sidebar-link" data-page="consumables">
-                <span class="sidebar-link-icon">🧴</span>
-                <span class="sidebar-link-text">Расходные материалы</span>
-            </a>
-
-            <a href="/admin/warehouses" class="sidebar-link" data-page="warehouses">
-                <span class="sidebar-link-icon">🏢</span>
-                <span class="sidebar-link-text">Склады</span>
-            </a>
+            <div class="sidebar-group-title">Эксплуатация</div>
 
             <a href="/admin/workplaces" class="sidebar-link" data-page="workplaces">
                 <span class="sidebar-link-icon">🏛️</span>
                 <span class="sidebar-link-text">Рабочие места</span>
             </a>
 
-            <a href="/admin/catalog" class="sidebar-link" data-page="catalog">
-                <span class="sidebar-link-icon">📚</span>
-                <span class="sidebar-link-text">Классификация</span>
-            </a>
-
-            <a href="/admin/models" class="sidebar-link" data-page="models">
-                <span class="sidebar-link-icon">🧩</span>
-                <span class="sidebar-link-text">Номенклатура</span>
+            <a href="/manage?status=assigned" class="sidebar-link" data-page="assigned">
+                <span class="sidebar-link-icon">👤</span>
+                <span class="sidebar-link-text">На руках</span>
             </a>
         </div>
         {{/if}}
 
         <!-- ============================================ -->
-        <!-- КЛАССИФИКАЦИЯ (просмотр) — supervisor          -->
+        <!-- НОМЕНКЛАТУРА — admin / supervisor / mol       -->
         <!-- ============================================ -->
-        {{#if supervisor}}
+        {{#if admin_or_supervisor_or_mol}}
         <div class="sidebar-group">
-            <div class="sidebar-group-title">Управление</div>
-
-            <a href="/manage" class="sidebar-link" data-page="manage">
-                <span class="sidebar-link-icon">🧾</span>
-                <span class="sidebar-link-text">Учёт ТМЦ</span>
-            </a>
-
-            <a href="/manage/fixed-assets" class="sidebar-link" data-page="fixed-assets">
-                <span class="sidebar-link-icon">🏦</span>
-                <span class="sidebar-link-text">Основные средства</span>
-            </a>
-
-            <a href="/manage/tangible" class="sidebar-link" data-page="tangible">
-                <span class="sidebar-link-icon">📦</span>
-                <span class="sidebar-link-text">ТМЦ на кол. учёте</span>
-            </a>
-
-            <a href="/manage/low-value" class="sidebar-link" data-page="low-value">
-                <span class="sidebar-link-icon">🏷️</span>
-                <span class="sidebar-link-text">Малоценка</span>
-            </a>
-
-            <a href="/manage/consumables" class="sidebar-link" data-page="consumables">
-                <span class="sidebar-link-icon">🧴</span>
-                <span class="sidebar-link-text">Расходные материалы</span>
-            </a>
+            <div class="sidebar-group-title">Номенклатура</div>
 
             <a href="/admin/catalog" class="sidebar-link" data-page="catalog">
                 <span class="sidebar-link-icon">📚</span>

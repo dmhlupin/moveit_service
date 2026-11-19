@@ -162,12 +162,7 @@ function highlightActiveSection() {
     else if (path === '/admin/catalog') {
         activePage = 'catalog';
     }
-    // Формы добавления/редактирования техники — подсвечиваем «Учёт ТМЦ»
-    else if (path === '/manage/add' || path.startsWith('/manage/edit/')) {
-        activePage = 'manage';
-    }
     // 🆕 5.16.1d: разделы ОС / ТМЦ / малоценка / расходники
-    // ВАЖНО: до общего /manage, иначе startsWith('/manage/') перехватит.
     else if (path === '/manage/fixed-assets' || path.startsWith('/manage/fixed-assets/')) {
         activePage = 'fixed-assets';
     }
@@ -180,7 +175,11 @@ function highlightActiveSection() {
     else if (path === '/manage/consumables' || path.startsWith('/manage/consumables/')) {
         activePage = 'consumables';
     }
-    // Общий /manage — «Учёт ТМЦ» (после разделов)
+    // 🆕 5.16.3: «На руках» — /manage?status=assigned
+    else if (path === '/manage' && window.location.search.includes('status=assigned')) {
+        activePage = 'assigned';
+    }
+    // Общий /manage — «Учёт ТМЦ» (после разделов и «На руках»)
     else if (path === '/manage' || path.startsWith('/manage/')) {
         activePage = 'manage';
     }
