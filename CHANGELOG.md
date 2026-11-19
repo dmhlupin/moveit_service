@@ -1,5 +1,45 @@
 # История изменений
 
+## [5.16.3.1] - 2026-11-19
+
+**🔧 Фикс: меню «⚙️ Колонки» в разделах ОС / ТМЦ / малоценка**
+
+На страницах `/manage/fixed-assets`, `/manage/tangible`, `/manage/low-value`
+кнопка «⚙️ Колонки» не работала — в `pageJs` раздела не был подключён
+`public/js/manage/columns.js`. Плюс `columns.js` использовал общий
+`localStorage`-ключ для `/manage` и всех разделов, а в `COLUMN_LABELS`
+не было меток для ОС-колонок.
+
+### Исправлено
+
+- **`routes/manage/equipment-kinds/pages.js`** — в `pageJs` добавлен
+  `'/js/manage/columns.js'` (после `helpers.js`, до `init.js`).
+- **`public/js/manage/columns.js`**:
+  * `STORAGE_KEY` → `STORAGE_KEY_BASE` + `getStorageKey()`: пространство
+    хранения зависит от `#kindBasePath`.
+    - `/manage` → `manage.hiddenColumns` (как раньше);
+    - `/manage/fixed-assets` → `manage.hiddenColumns:fixed-assets`;
+    - `/manage/tangible` → `manage.hiddenColumns:tangible`;
+    - `/manage/low-value` → `manage.hiddenColumns:low-value`.
+  * `COLUMN_LABELS`: добавлены `commissioning_date` → «Дата ввода»,
+    `initial_cost` → «Стоимость» (для раздела ОС).
+  * `getHiddenColumns` / `setHiddenColumns` используют `getStorageKey()`.
+
+### Проверено
+
+- `/manage` — колонки работают как раньше (ключ без суффикса).
+- `/manage/fixed-assets` — 13 пунктов в меню (с ОС-колонками),
+  скрытие сохраняется отдельно.
+- `/manage/tangible` — 11 пунктов, ключ `:tangible`.
+- `/manage/low-value` — 11 пунктов, ключ `:low-value`.
+- Независимость: скрытие в ОС не влияет на ТМЦ / малоценку.
+- «Сбросить» — только для текущего раздела.
+- `check-roles` / `check-css` / `check-css-classes` — зелёные.
+
+### Теги
+
+- **v5.16.3.1 — фикс меню колонок в разделах**
+
 ## [5.16.1] - 2026-11-18
 
 **🎉 Этап 5.16.1 завершён: разделы ОС / ТМЦ / малоценка**
