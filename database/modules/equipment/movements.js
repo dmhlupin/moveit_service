@@ -63,7 +63,7 @@ module.exports = ({ db, run, get, all }, helpers) => {
         }
 
         // Проверка доступности
-        const check = await checkCellAvailability(db, cellId, equipmentId);
+        const check = await checkCellAvailability(cellId, equipmentId);
         if (!check.ok) {
           if (check.reason === 'cell_not_found') throw new Error('Ячейка не найдена');
           if (check.reason === 'is_full')       throw new Error(`Ячейка ${check.label} отмечена как заполненная`);
