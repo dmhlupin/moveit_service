@@ -26,7 +26,7 @@ const path = require('path');
 const { db, closeDatabase } = require('../database/db');
 
 // ============================================================
-// Эталон: что ожидает код (после 5.16.3.2)
+// Эталон: что ожидает код (после 5.16.3.3, сверено с migrate.js)
 // ============================================================
 // ВАЖНО: при добавлении новой таблицы / колонки в migrate.js —
 // обновить этот эталон. Иначе check-db будет «зелёным», но
@@ -37,32 +37,39 @@ const EXPECTED_SCHEMA = {
   // ---------- Пользователи / роли ----------
   users: {
     columns: {
-      id:            { type: 'INTEGER', notnull: 0, default: null },
-      username:      { type: 'TEXT',    notnull: 1 },
-      password_hash: { type: 'TEXT',    notnull: 1 },
-      full_name:     { type: 'TEXT' },
-      email:         { type: 'TEXT' },
-      department:    { type: 'TEXT' },
-      role:          { type: 'TEXT',    notnull: 1, default: "'user'" },
-      is_active:     { type: 'INTEGER', notnull: 1, default: '1' },
-      created_at:    { type: 'TEXT',    default: "datetime('now')" },
-      updated_at:    { type: 'TEXT' },
+      id:                   { type: 'INTEGER', notnull: 0 },
+      username:             { type: 'TEXT',    notnull: 1 },
+      email:                { type: 'TEXT',    notnull: 1 },
+      password_hash:        { type: 'TEXT',    notnull: 1 },
+      full_name:            { type: 'TEXT' },
+      department:           { type: 'TEXT' },
+      phone:                { type: 'TEXT' },
+      role:                 { type: 'TEXT',    notnull: 1, default: "'user'" },
+      is_active:            { type: 'INTEGER', notnull: 1, default: '1' },
+      must_change_password: { type: 'INTEGER', notnull: 1, default: '0' },
+      last_login:           { type: 'DATETIME' },
+      created_at:           { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
+      updated_at:           { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
     },
-    unique: [['username']],
-    indexes: [],
+    unique: [['username'], ['email']],
+    indexes: ['idx_users_role', 'idx_users_active'],
   },
 
   // ---------- Справочник ----------
   equipment_categories: {
     columns: {
-      id:         { type: 'INTEGER', notnull: 0 },
-      name:       { type: 'TEXT',    notnull: 1 },
-      icon:       { type: 'TEXT' },
-      sort_order: { type: 'INTEGER', default: '0' },
-      created_at: { type: 'TEXT' },
+      id:          { type: 'INTEGER', notnull: 0 },
+      name:        { type: 'TEXT',    notnull: 1 },
+      description: { type: 'TEXT' },
+      icon:        { type: 'TEXT' },
+      sort_order:  { type: 'INTEGER', default: '0' },
+      is_active:   { type: 'INTEGER', notnull: 1, default: '1' },
+      created_at:  { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
+      updated_at:  { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
+      import_id:   { type: 'TEXT' },   // 5.4.x: для отмены импорта
     },
     unique: [['name']],
-    indexes: [],
+    indexes: ['idx_categories_sort'],
   },
 
   equipment_types: {
@@ -70,98 +77,109 @@ const EXPECTED_SCHEMA = {
       id:          { type: 'INTEGER', notnull: 0 },
       category_id: { type: 'INTEGER', notnull: 1 },
       name:        { type: 'TEXT',    notnull: 1 },
+      description: { type: 'TEXT' },
       icon:        { type: 'TEXT' },
       sort_order:  { type: 'INTEGER', default: '0' },
-      created_at:  { type: 'TEXT' },
+      is_active:   { type: 'INTEGER', notnull: 1, default: '1' },
+      created_at:  { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
+      updated_at:  { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
+      import_id:   { type: 'TEXT' },
     },
     unique: [['category_id', 'name']],
-    indexes: ['idx_types_category'],
+    indexes: ['idx_types_category', 'idx_types_sort'],
   },
 
   // ---------- Номенклатура / экземпляры ----------
   equipment_models: {
     columns: {
-      id:            { type: 'INTEGER', notnull: 0 },
-      name:          { type: 'TEXT',    notnull: 1 },
-      manufacturer:  { type: 'TEXT' },
-      corporate_id:  { type: 'TEXT',    notnull: 1 },
-      category_id:   { type: 'INTEGER' },
-      type_id:       { type: 'INTEGER' },
-      description:   { type: 'TEXT' },
-      created_at:    { type: 'TEXT' },
+      id:           { type: 'INTEGER', notnull: 0 },
+      corporate_id: { type: 'TEXT',    notnull: 1 },
+      name:         { type: 'TEXT',    notnull: 1 },
+      manufacturer: { type: 'TEXT' },
+      category_id:  { type: 'INTEGER', notnull: 1 },
+      type_id:      { type: 'INTEGER', notnull: 1 },
+      description:  { type: 'TEXT' },
+      created_at:   { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
+      updated_at:   { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
+      import_id:    { type: 'TEXT' },
     },
     unique: [['corporate_id']],
-    indexes: ['idx_models_category', 'idx_models_type'],
+    indexes: ['idx_models_category', 'idx_models_type', 'idx_models_corporate', 'idx_models_name'],
   },
 
   equipment: {
     columns: {
-      id:                   { type: 'INTEGER', notnull: 0 },
-      model_id:             { type: 'INTEGER', notnull: 1 },
-      inventory_number:     { type: 'TEXT' },
-      serial_number:        { type: 'TEXT' },
-      status:               { type: 'TEXT',    notnull: 1, default: "'available'" },
-      cell_id:              { type: 'INTEGER' },
-      workplace_id:         { type: 'INTEGER' },
-      responsible_user_id:  { type: 'INTEGER' },
-      purchase_date:        { type: 'TEXT' },
-      warranty_until:       { type: 'TEXT' },
-      description:          { type: 'TEXT' },
-      import_id:            { type: 'TEXT' },
-      is_quantity_accounted:{ type: 'INTEGER', notnull: 1, default: '1' },  // 🆕 5.15
-      assigned_by_user_id:  { type: 'INTEGER' },                            // 🆕 5.11.2
-      created_at:           { type: 'TEXT' },
-      updated_at:           { type: 'TEXT' },
+      id:                    { type: 'INTEGER', notnull: 0 },
+      model_id:              { type: 'INTEGER', notnull: 1 },
+      inventory_number:      { type: 'TEXT' },
+      serial_number:         { type: 'TEXT' },
+      status:                { type: 'TEXT',    default: "'available'" },  // notnull=0 в БД (наследие)
+      cell_id:               { type: 'INTEGER' },
+      workplace_id:          { type: 'INTEGER' },
+      responsible_user_id:   { type: 'INTEGER' },   // 4.10
+      purchase_date:         { type: 'DATE' },
+      warranty_until:        { type: 'DATE' },
+      description:           { type: 'TEXT' },
+      created_at:            { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
+      updated_at:            { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
+      is_quantity_accounted: { type: 'INTEGER', notnull: 1, default: '1' },  // 5.15
+      import_id:             { type: 'TEXT' },
+      // legacy: category_id / type_id — рудимент до 3.x, не используются
+      category_id:           { type: 'INTEGER', legacy: true },
+      type_id:               { type: 'INTEGER', legacy: true },
+      // assigned_by_user_id — НЕ существует в equipment (только в user_equipment)
     },
     unique: [['inventory_number'], ['serial_number']],
     indexes: [
-      'idx_equipment_status',
-      'idx_equipment_cell',
-      'idx_equipment_workplace',
-      'idx_equipment_responsible',
+      'idx_equipment_status', 'idx_equipment_cell', 'idx_equipment_workplace',
+      'idx_equipment_responsible', 'idx_equipment_model', 'idx_equipment_inventory',
+      'idx_equipment_serial',
     ],
   },
 
   fixed_assets: {
     columns: {
-      equipment_id:        { type: 'INTEGER', notnull: 1 },
-      commissioning_date:  { type: 'TEXT',    notnull: 1 },
-      initial_cost:        { type: 'REAL' },
-      useful_life_months:  { type: 'INTEGER' },
-      created_at:          { type: 'TEXT' },
-      updated_at:          { type: 'TEXT' },
+      equipment_id:       { type: 'INTEGER', notnull: 1, primaryKey: true },
+      commissioning_date: { type: 'TEXT',    notnull: 1 },
+      initial_cost:       { type: 'REAL' },
+      useful_life_months: { type: 'INTEGER' },
+      created_at:         { type: 'TEXT',    notnull: 1, default: "datetime('now')" },
+      updated_at:         { type: 'TEXT',    notnull: 1, default: "datetime('now')" },
     },
-    unique: [['equipment_id']],
-    indexes: [],
+    unique: [],  // equipment_id — INTEGER PRIMARY KEY (rowid, уникален неявно)
+    indexes: ['idx_fixed_assets_commissioning'],
   },
 
-  // ---------- Назначения ----------
   user_equipment: {
     columns: {
-      id:                   { type: 'INTEGER', notnull: 0 },
-      user_id:              { type: 'INTEGER', notnull: 1 },
-      equipment_id:         { type: 'INTEGER', notnull: 1 },
-      assigned_date:        { type: 'TEXT' },
-      returned_date:        { type: 'TEXT' },
-      condition_on_assign:  { type: 'TEXT' },
-      condition_on_return:  { type: 'TEXT' },
-      notes:                { type: 'TEXT' },
-      assigned_by_user_id:  { type: 'INTEGER' },  // 🆕 5.11.2
+      id:                  { type: 'INTEGER', notnull: 0 },
+      user_id:             { type: 'INTEGER', notnull: 1 },
+      equipment_id:        { type: 'INTEGER', notnull: 1 },
+      assigned_date:       { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
+      returned_date:       { type: 'DATETIME' },
+      condition_on_assign: { type: 'TEXT' },
+      condition_on_return: { type: 'TEXT' },
+      notes:               { type: 'TEXT' },
+      assigned_by_user_id: { type: 'INTEGER' },   // 5.11.2
     },
-    unique: [],
-    indexes: ['idx_user_equipment_user', 'idx_user_equipment_eq'],
+    unique: [['user_id', 'equipment_id', 'returned_date']],
+    indexes: ['idx_user_equipment_user', 'idx_user_equipment_equipment', 'idx_user_equipment_active'],
   },
 
   // ---------- Склады ----------
   warehouses: {
     columns: {
-      id:         { type: 'INTEGER', notnull: 0 },
-      name:       { type: 'TEXT',    notnull: 1 },
-      is_default: { type: 'INTEGER', notnull: 1, default: '0' },
-      created_at: { type: 'TEXT' },
+      id:          { type: 'INTEGER', notnull: 0 },
+      name:        { type: 'TEXT',    notnull: 1 },
+      address:     { type: 'TEXT' },
+      description: { type: 'TEXT' },
+      is_default:  { type: 'INTEGER', notnull: 1, default: '0' },
+      is_active:   { type: 'INTEGER', notnull: 1, default: '1' },
+      created_at:  { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
+      updated_at:  { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
     },
     unique: [['name']],
-    indexes: [],
+    indexes: ['idx_warehouses_default', 'idx_warehouses_active'],
   },
 
   zones: {
@@ -169,10 +187,14 @@ const EXPECTED_SCHEMA = {
       id:           { type: 'INTEGER', notnull: 0 },
       warehouse_id: { type: 'INTEGER', notnull: 1 },
       name:         { type: 'TEXT',    notnull: 1 },
-      created_at:   { type: 'TEXT' },
+      description:  { type: 'TEXT' },
+      sort_order:   { type: 'INTEGER', default: '0' },
+      is_active:    { type: 'INTEGER', notnull: 1, default: '1' },
+      created_at:   { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
+      updated_at:   { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
     },
     unique: [['warehouse_id', 'name']],
-    indexes: ['idx_zones_warehouse'],
+    indexes: ['idx_zones_warehouse', 'idx_zones_sort'],
   },
 
   racks: {
@@ -181,47 +203,62 @@ const EXPECTED_SCHEMA = {
       zone_id:     { type: 'INTEGER', notnull: 1 },
       name:        { type: 'TEXT',    notnull: 1 },
       description: { type: 'TEXT' },
-      created_at:  { type: 'TEXT' },
+      sort_order:  { type: 'INTEGER', default: '0' },
+      is_active:   { type: 'INTEGER', notnull: 1, default: '1' },
+      created_at:  { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
+      updated_at:  { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
     },
     unique: [['zone_id', 'name']],
-    indexes: ['idx_racks_zone'],
+    indexes: ['idx_racks_zone', 'idx_racks_sort'],
   },
 
   cells: {
     columns: {
-      id:         { type: 'INTEGER', notnull: 0 },
-      rack_id:    { type: 'INTEGER', notnull: 1 },
-      name:       { type: 'TEXT',    notnull: 1 },
-      code:       { type: 'TEXT' },
-      capacity:   { type: 'INTEGER' },
-      is_full:    { type: 'INTEGER', notnull: 1, default: '0' },
-      created_at: { type: 'TEXT' },
+      id:          { type: 'INTEGER', notnull: 0 },
+      rack_id:     { type: 'INTEGER', notnull: 1 },
+      name:        { type: 'TEXT',    notnull: 1 },
+      code:        { type: 'TEXT' },
+      capacity:    { type: 'INTEGER' },
+      description: { type: 'TEXT' },
+      sort_order:  { type: 'INTEGER', default: '0' },
+      is_active:   { type: 'INTEGER', notnull: 1, default: '1' },
+      is_full:     { type: 'INTEGER', notnull: 1, default: '0' },  // 4.7
+      created_at:  { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
+      updated_at:  { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
     },
     unique: [['rack_id', 'name']],
-    indexes: ['idx_cells_rack'],
+    indexes: ['idx_cells_rack', 'idx_cells_sort'],
   },
 
   // ---------- Рабочие места ----------
   offices: {
     columns: {
-      id:         { type: 'INTEGER', notnull: 0 },
-      name:       { type: 'TEXT',    notnull: 1 },
-      is_default: { type: 'INTEGER', notnull: 1, default: '0' },
-      created_at: { type: 'TEXT' },
+      id:          { type: 'INTEGER', notnull: 0 },
+      name:        { type: 'TEXT',    notnull: 1 },
+      address:     { type: 'TEXT' },
+      description: { type: 'TEXT' },
+      is_default:  { type: 'INTEGER', notnull: 1, default: '0' },
+      is_active:   { type: 'INTEGER', notnull: 1, default: '1' },
+      created_at:  { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
+      updated_at:  { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
     },
     unique: [['name']],
-    indexes: [],
+    indexes: ['idx_offices_default', 'idx_offices_active'],
   },
 
   rooms: {
     columns: {
-      id:         { type: 'INTEGER', notnull: 0 },
-      office_id:  { type: 'INTEGER', notnull: 1 },
-      name:       { type: 'TEXT',    notnull: 1 },
-      created_at: { type: 'TEXT' },
+      id:          { type: 'INTEGER', notnull: 0 },
+      office_id:   { type: 'INTEGER', notnull: 1 },
+      name:        { type: 'TEXT',    notnull: 1 },
+      description: { type: 'TEXT' },
+      sort_order:  { type: 'INTEGER', default: '0' },
+      is_active:   { type: 'INTEGER', notnull: 1, default: '1' },
+      created_at:  { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
+      updated_at:  { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
     },
     unique: [['office_id', 'name']],
-    indexes: ['idx_rooms_office'],
+    indexes: ['idx_rooms_office', 'idx_rooms_sort'],
   },
 
   workplaces: {
@@ -231,75 +268,84 @@ const EXPECTED_SCHEMA = {
       name:        { type: 'TEXT',    notnull: 1 },
       code:        { type: 'TEXT' },
       description: { type: 'TEXT' },
-      created_at:  { type: 'TEXT' },
+      sort_order:  { type: 'INTEGER', default: '0' },
+      is_active:   { type: 'INTEGER', notnull: 1, default: '1' },
+      created_at:  { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
+      updated_at:  { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
+      // capacity удалена в 4.8 (DROP COLUMN на SQLite 3.35+)
     },
     unique: [['room_id', 'name']],
-    indexes: ['idx_workplaces_room'],
+    indexes: ['idx_workplaces_room', 'idx_workplaces_sort'],
   },
 
   // ---------- МОЛ ----------
   warehouse_responsibles: {
     columns: {
+      id:           { type: 'INTEGER', notnull: 0 },
       warehouse_id: { type: 'INTEGER', notnull: 1 },
       user_id:      { type: 'INTEGER', notnull: 1 },
-      created_at:   { type: 'TEXT' },
+      created_at:   { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
     },
     unique: [['warehouse_id', 'user_id']],
-    indexes: [],
+    indexes: ['idx_wh_resp_user', 'idx_wh_resp_wh'],
   },
 
   office_responsibles: {
     columns: {
+      id:         { type: 'INTEGER', notnull: 0 },
       office_id:  { type: 'INTEGER', notnull: 1 },
       user_id:    { type: 'INTEGER', notnull: 1 },
-      created_at: { type: 'TEXT' },
+      created_at: { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
     },
     unique: [['office_id', 'user_id']],
-    indexes: [],
+    indexes: ['idx_office_resp_user', 'idx_office_resp_office'],
   },
 
   // ---------- Логи / мета ----------
   activity_log: {
     columns: {
-      id:          { type: 'INTEGER', notnull: 0 },
-      user_id:     { type: 'INTEGER' },
-      username:    { type: 'TEXT' },
-      action:      { type: 'TEXT',    notnull: 1 },
-      entity_type: { type: 'TEXT' },
-      entity_id:   { type: 'INTEGER' },
-      details:     { type: 'TEXT' },
-      created_at:  { type: 'TEXT' },
+      id:         { type: 'INTEGER', notnull: 0 },
+      user_id:    { type: 'INTEGER' },
+      username:   { type: 'TEXT' },
+      action:     { type: 'TEXT', notnull: 1 },
+      entity_type:{ type: 'TEXT' },
+      entity_id:  { type: 'INTEGER' },
+      details:    { type: 'TEXT' },
+      ip_address: { type: 'TEXT' },
+      user_agent: { type: 'TEXT' },
+      created_at: { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
     },
     unique: [],
-    indexes: ['idx_logs_user', 'idx_logs_action', 'idx_logs_entity', 'idx_logs_created'],
+    indexes: ['idx_activity_log_user', 'idx_activity_log_action', 'idx_activity_log_created'],
   },
 
   app_meta: {
     columns: {
-      key:        { type: 'TEXT', notnull: 1 },
+      key:        { type: 'TEXT', notnull: 0 },  // PRIMARY KEY, но SQLite допускает NULL (один)
       value:      { type: 'TEXT' },
-      updated_at: { type: 'TEXT' },
+      updated_at: { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
     },
-    unique: [['key']],
+    unique: [],
     indexes: [],
   },
 
   // ---------- Импорт ----------
   import_history: {
     columns: {
-      id:          { type: 'INTEGER', notnull: 0 },
-      import_id:   { type: 'TEXT',    notnull: 1 },
-      filename:    { type: 'TEXT' },
-      user_id:     { type: 'INTEGER' },
-      stats:       { type: 'TEXT' },
-      created_at:  { type: 'TEXT' },
+      id:               { type: 'INTEGER', notnull: 0 },
+      import_id:        { type: 'TEXT',    notnull: 1 },
+      user_id:          { type: 'INTEGER', notnull: 1 },
+      equipment_count:  { type: 'INTEGER', default: '0' },
+      models_count:     { type: 'INTEGER', default: '0' },
+      categories_count: { type: 'INTEGER', default: '0' },
+      types_count:      { type: 'INTEGER', default: '0' },
+      created_at:       { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
+      canceled_at:      { type: 'DATETIME' },
+      canceled_by:      { type: 'INTEGER' },
     },
     unique: [['import_id']],
     indexes: [],
   },
-
-  // 🆕 5.16.2 (заглушка, если ещё не мигрировали — см. skipIfMissing)
-  // consumables: { ... }
 };
 
 const EXPECTED_TRIGGERS = [
@@ -404,7 +450,13 @@ async function checkTable(name, spec) {
       continue;
     }
     // Тип
-    if (colSpec.type && actual.type.toUpperCase() !== colSpec.type.toUpperCase()) {
+    const SQLITE_TEXT_TYPES = ['TEXT', 'DATETIME', 'DATE'];
+    const actualType = (actual.type || '').toUpperCase();
+    const expectedType = (colSpec.type || '').toUpperCase();
+    const typesEquivalent =
+      (SQLITE_TEXT_TYPES.includes(actualType) && SQLITE_TEXT_TYPES.includes(expectedType)) ||
+      actualType === expectedType;
+    if (colSpec.type && !typesEquivalent) {
       warn(`  ${name}.${colName} — тип "${actual.type}", ожидается "${colSpec.type}"`);
       warnings++;
     }
@@ -415,9 +467,12 @@ async function checkTable(name, spec) {
     }
     // DEFAULT
     if (colSpec.default !== undefined && colSpec.default !== null) {
-      const actualDef = (actual.dflt_value || '').toString().replace(/\s+/g, '');
-      const expectedDef = colSpec.default.toString().replace(/\s+/g, '');
-      if (actualDef !== expectedDef) {
+      const norm = (v) => (v || '').toString()
+        .replace(/\s+/g, '')
+        .replace(/datetime\('now'\)/i, 'CURRENT_TIMESTAMP')
+        .replace(/^null$/i, 'NULL')
+        .toUpperCase();
+      if (norm(actual.dflt_value) !== norm(colSpec.default)) {
         warn(`  ${name}.${colName} — default="${actual.dflt_value}", ожидается "${colSpec.default}"`);
         warnings++;
       }
@@ -431,6 +486,7 @@ async function checkTable(name, spec) {
       warnings++;
     }
   }
+  // legacy-колонки: описаны в эталоне с legacy: true — не ругаемся
 
   // Индексы
   const indexes = await getIndexes(name);
@@ -444,11 +500,13 @@ async function checkTable(name, spec) {
 
   // UNIQUE
   for (const uq of spec.unique || []) {
-    const found = indexes.some(i => {
-      if (!i.unique) return false;
-      // PRAGMA index_info — проверить состав
-      return true; // упрощённо: проверяем только наличие unique-индекса
-    });
+    // Если это одна колонка и в эталоне помечена primaryKey — не требуем UNIQUE-индекс
+    const isPk = uq.length === 1
+      && spec.columns[uq[0]]
+      && spec.columns[uq[0]].primaryKey === true;
+    if (isPk) continue;
+
+    const found = indexes.some(i => i.unique);
     if (!found) {
       warn(`  ${name} — UNIQUE(${uq.join(', ')}) не найден`);
       warnings++;
