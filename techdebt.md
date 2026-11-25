@@ -29,8 +29,19 @@
 `adjustItemQuantity` в `database/modules/items/crud.js` готов (BEGIN
 IMMEDIATE/COMMIT/ROLLBACK), но UI-модалка и API-эндпоинт
 `POST /api/items/:id/adjust` — нет. Нужно: модалка «Приход / Расход»,
-история движений (таблица `item_movements` — 5.16.2c/d), статистика
-«расход за период» (дашборд).
+история движений (таблица `item_movements`), статистика «расход за
+период» (дашборд).
+
+## [открыт] 5.16.2b.8: привязка расходников к МОЛ
+Сейчас МОЛ видит расходники через `warehouse_responsibles` (складской
+scope) — этого недостаточно: на предприятии за расходниками заведует
+конкретный человек (заявки, распределение, учёт остатка). Решение:
+`item_models.responsible_user_id` (один МОЛ на номенклатуру).
+Scope для МОЛ — «только свои» (по `item_models.responsible_user_id`),
+не по складам. Затрагивает: миграция, models.js, crud.js, scope.js,
+pages.js, api.js, helpers.js (колонка), views/manage-consumables.html,
+seed.js, check-db.js. Делать ДО 5.16.2c (иначе item_movements придётся
+переделывать).
 
 ## [открыт] 5.16.2d: управление справочником item_categories / item_types
 Сейчас справочник `item_categories` / `item_types` доступен только через
