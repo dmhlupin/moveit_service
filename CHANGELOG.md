@@ -1,5 +1,95 @@
 # История изменений
 
+## [5.16.2b] - 2026-11-26
+
+**🎉 Этап 5.16.2b: страница `/manage/consumables` + CRUD номенклатуры и остатков**
+
+Раздел «Расходные материалы» перестал быть заглушкой. Заменён
+`renderConsumablesStub` на реальную страницу со списком остатков,
+фильтрами, модалкой создания/редактирования. API — CRUD номенклатуры
+(`item_models`) и остатков (`items`). Движения (приход/расход) —
+5.16.2c.
+
+### Ключевые изменения
+
+- **5.16.2a** — схема БД + модуль `database/modules/items/`:
+  * 4 таблицы: `item_categories` → `item_types` → `item_models` → `items`;
+  * `kind` на `item_models` (`'consumable'` | `'spare_part'`) без CHECK,
+    валидация в `helpers.js` (`ITEM_KINDS` / `normalizeItemKind`);
+  * `unit` — на модели; `quantity` / `min_quantity` — REAL;
+  * `corporate_id` UNIQUE NOT NULL; `UNIQUE(model_id, warehouse_id)`;
+  * FK RESTRICT;
+  * модуль: `helpers.js` / `models.js` / `crud.js` / `scope.js` / `index.js`;
+  * `adjustItemQuantity` — атомарный приход/расход через `BEGIN IMMEDIATE`.
+- **5.16.2b.1** — справочники для фильтров в `models.js`:
+  `getItemCategories` / `getItemTypes` / `getItemWarehouses`.
+- **5.16.2b.2** — `canAccessItemWarehouse(user, warehouseId)` в `scope.js`
+  (для МОЛ: 404 на чужой склад).
+- **5.16.2b.3** — страница `/manage/consumables`:
+  * `routes/manage/consumables/pages.js` — рендер (фильтры: поиск, склад,
+    категория, тип, «только ниже минимума», «показывать неактивные»;
+    сортировка; пагинация);
+  * `routes/manage/consumables/helpers.js` — колонки / строки / empty-row /
+    page_actions / `formatNumber`;
+  * `views/manage-consumables.html` — шаблон (без bulk-actions, без
+    карточки техники);
+  * `public/js/manage-consumables/filters.js` — `applyConsumableFilters` /
+    `resetConsumableFilters` (basePath из `#basePath`);
+  * `public/js/manage-consumables/init.js` — модалка CRUD (номенклатура
+    тянется через `GET /api/item-models`, склады клонируются из
+    `#filterWarehouse`).
+- **5.16.2b.4** — API: `routes/manage/consumables/api.js`:
+  * POST/PUT/DELETE `/api/item-models[/:id]` — CRUD номенклатуры;
+  * POST/PUT/DELETE `/api/items[/:id]` — CRUD остатков;
+  * GET `/api/item-models` — список для селекта (компактный формат);
+  * GET `/api/items/:id` — данные остатка для редактирования;
+  * логирование через `logAction` (`utils/logger.js`);
+  * для МОЛ — `404` на чужой склад.
+- **5.16.2b.5** — `routes/manage/consumables/index.js` — сборка
+  (`renderPage` + `apiRouter`). `server.js` — подключение
+  (`app.use('/manage/consumables/api', ...)` + `app.get('/manage/consumables',
+  consumablesRoutes.renderPage)`); старый `renderConsumablesStub` не
+  используется.
+- **5.16.2b.6** — `scripts/check-db.js`: эталон для `item_categories` /
+  `item_types` / `item_models` / `items` + FK.
+  `fixed_assets.equipment_id` — `notnull: 0` (rowid-алиас SQLite);
+  `checkTable` игнорирует `notnull` для `primaryKey: true` (системно,
+  для будущих таблиц).
+- **5.16.2b.7** — `scripts/seed.js`: `ITEM_CATALOG` (3 категории,
+  10 типов), `ITEM_DATA` (14 номенклатур), `seedItemCategoriesAndTypes` /
+  `seedItemModels` / `seedItems` (остатки на 1–2 складах; 20% — ниже
+  минимума).
+
+### Итог этапа
+
+- `/manage/consumables` — рабочий раздел: список остатков, фильтры,
+  сортировка, пагинация, модалка CRUD.
+- API: 8 эндпоинтов (6 write + 2 read), все под
+  `requireRole(['admin', 'supervisor', 'mol'])`.
+- Seed: 14 номенклатур, ~14–28 остатков, ~20% ниже минимума.
+- `check-db` — зелёный.
+- Задел на 5.17 (запчасти): `kind='spare_part'`, `spare_part_profiles` /
+  `spare_part_installations` — отдельными миграциями.
+
+### Отложено (5.16.2c+)
+
+- **5.16.2c** — модалка прихода/расхода (`adjustItemQuantity` уже готов
+  в `crud.js`), статистика «расход за период».
+- **5.16.2d** — управление справочником `item_categories` / `item_types`
+  (сейчас доступны только через БД), `GET /api/item-models` с
+  фильтрами для UI, вынос `getItemCategories` / `getItemTypes` /
+  `getItemWarehouses` — уже вынесены в 5.16.2b.1.
+- **5.16.1.1** — `EquipmentCard`: условные секции (ОС-поля только для ОС,
+  для малоценки — `ID: #123` вместо инв. №).
+- **5.16.1.2** — `seed.js`: наполнить «ТМЦ на кол. учёте».
+- **5.17** — запчасти (`kind='spare_part'`, совместимость с моделью ТМЦ,
+  факт установки в экземпляр, неснижаемый остаток «на парк»).
+
+### Теги
+
+- **v5.16.2a** — схема БД + модуль номенклатуры (items)
+- **v5.16.2b** — страница `/manage/consumables` + CRUD + seed (этот)
+
 ## [5.16.3.1] - 2026-11-19
 
 **🔧 Фикс: меню «⚙️ Колонки» в разделах ОС / ТМЦ / малоценка**

@@ -1,7 +1,7 @@
 // scripts/check-db.js
 // ============================================================
 // Проверка структуры БД на соответствие текущему состоянию
-// программы (после 5.16.3.2).
+// программы (после 5.16.2b).
 //
 // Что проверяет:
 //   1. Все ожидаемые таблицы существуют.
@@ -346,6 +346,75 @@ const EXPECTED_SCHEMA = {
     unique: [['import_id']],
     indexes: [],
   },
+
+  
+  // ---------- Номенклатура: расходники + запчасти (5.16.2) ----------
+  item_categories: {
+    columns: {
+      id:          { type: 'INTEGER', notnull: 0 },
+      name:        { type: 'TEXT',    notnull: 1 },
+      description: { type: 'TEXT' },
+      icon:        { type: 'TEXT' },
+      sort_order:  { type: 'INTEGER', default: '0' },
+      is_active:   { type: 'INTEGER', notnull: 1, default: '1' },
+      created_at:  { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
+      updated_at:  { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
+    },
+    unique: [['name']],
+    indexes: ['idx_item_cat_sort', 'idx_item_cat_active'],
+  },
+
+  item_types: {
+    columns: {
+      id:          { type: 'INTEGER', notnull: 0 },
+      category_id: { type: 'INTEGER', notnull: 1 },
+      name:        { type: 'TEXT',    notnull: 1 },
+      description: { type: 'TEXT' },
+      icon:        { type: 'TEXT' },
+      sort_order:  { type: 'INTEGER', default: '0' },
+      is_active:   { type: 'INTEGER', notnull: 1, default: '1' },
+      created_at:  { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
+      updated_at:  { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
+    },
+    unique: [['category_id', 'name']],
+    indexes: ['idx_item_type_cat', 'idx_item_type_sort', 'idx_item_type_active'],
+  },
+
+  item_models: {
+    columns: {
+      id:           { type: 'INTEGER', notnull: 0 },
+      corporate_id: { type: 'TEXT',    notnull: 1 },
+      name:         { type: 'TEXT',    notnull: 1 },
+      unit:         { type: 'TEXT',    notnull: 1, default: "'шт'" },
+      kind:         { type: 'TEXT',    notnull: 1, default: "'consumable'" },
+      category_id:  { type: 'INTEGER', notnull: 1 },
+      type_id:      { type: 'INTEGER', notnull: 1 },
+      description:  { type: 'TEXT' },
+      is_active:    { type: 'INTEGER', notnull: 1, default: '1' },
+      created_at:   { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
+      updated_at:   { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
+    },
+    unique: [['corporate_id']],
+    indexes: [
+      'idx_item_models_corporate', 'idx_item_models_name',
+      'idx_item_models_kind', 'idx_item_models_cat', 'idx_item_models_type',
+    ],
+  },
+
+  items: {
+    columns: {
+      id:           { type: 'INTEGER', notnull: 0 },
+      model_id:     { type: 'INTEGER', notnull: 1 },
+      warehouse_id: { type: 'INTEGER', notnull: 1 },
+      quantity:     { type: 'REAL',    notnull: 1, default: '0' },
+      min_quantity: { type: 'REAL',    notnull: 1, default: '0' },
+      is_active:    { type: 'INTEGER', notnull: 1, default: '1' },
+      created_at:   { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
+      updated_at:   { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
+    },
+    unique: [['model_id', 'warehouse_id']],
+    indexes: ['idx_items_model', 'idx_items_warehouse', 'idx_items_active'],
+  },
 };
 
 const EXPECTED_TRIGGERS = [
@@ -359,10 +428,24 @@ const EXPECTED_FK = {
     { from: 'workplace_id',        table: 'workplaces',       to: 'id' },
     { from: 'responsible_user_id', table: 'users',            to: 'id' },
   ],
+  
   fixed_assets: [
     { from: 'equipment_id', table: 'equipment', to: 'id' },
   ],
-  // ... (можно расширить)
+  
+  item_types: [
+    { from: 'category_id', table: 'item_categories', to: 'id' },
+  ],
+  
+  item_models: [
+    { from: 'category_id', table: 'item_categories', to: 'id' },
+    { from: 'type_id',     table: 'item_types',      to: 'id' },
+  ],
+  
+  items: [
+    { from: 'model_id',     table: 'item_models', to: 'id' },
+    { from: 'warehouse_id', table: 'warehouses',  to: 'id' },
+  ],
 };
 
 // ============================================================
@@ -461,7 +544,11 @@ async function checkTable(name, spec) {
       warnings++;
     }
     // NOT NULL
-    if (colSpec.notnull !== undefined && actual.notnull !== colSpec.notnull) {
+    // Для INTEGER PRIMARY KEY (rowid-алиас) SQLite всегда отдаёт
+    // notnull=0 в PRAGMA table_info — не считаем это расхождением.
+    if (colSpec.notnull !== undefined
+        && actual.notnull !== colSpec.notnull
+        && !(colSpec.primaryKey === true && actual.notnull === 0)) {
       warn(`  ${name}.${colName} — notnull=${actual.notnull}, ожидается ${colSpec.notnull}`);
       warnings++;
     }
@@ -691,7 +778,7 @@ async function checkSchemaVersion() {
 async function main() {
   console.log(`\n${C.cyan}═══════════════════════════════════════════════════${C.reset}`);
   console.log(`${C.cyan}  MoveIT service — check-db${C.reset}`);
-  console.log(`${C.cyan}  Проверка структуры БД (после 5.16.3.2)${C.reset}`);
+  console.log(`${C.cyan}  Проверка структуры БД (после 5.16.2b)${C.reset}`);
   console.log(`${C.cyan}═══════════════════════════════════════════════════${C.reset}`);
 
   // 1. Таблицы

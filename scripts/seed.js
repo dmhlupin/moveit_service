@@ -191,6 +191,61 @@ const MINOR_CATEGORIES = ['Клавиатура', 'Мышь', 'Гарнитур�
 
 // 🆕 5.15.6: Категории, которые могут быть ОС (с вероятностью 80%)
 const FIXED_ASSET_CATEGORIES = ['Ноутбук', 'Системный блок', 'Моноблок', 'Сервер', 'МФУ', 'Принтер', 'Сканер'];
+
+// ============================================================
+// 5.16.2b: РАСХОДНЫЕ МАТЕРИАЛЫ (seed)
+// ============================================================
+
+const ITEM_CATALOG = [
+  {
+    name: 'Бумага и канцелярия',
+    icon: '📄',
+    types: [
+      { name: 'Бумага',      icon: '📄' },
+      { name: 'Ручки',       icon: '🖊️' },
+      { name: 'Карандаши',   icon: '✏️' },
+      { name: 'Папки',       icon: '📁' },
+    ],
+  },
+  {
+    name: 'Печать и картриджи',
+    icon: '🖨️',
+    types: [
+      { name: 'Картридж',    icon: '🖨️' },
+      { name: 'Тонер',       icon: '🎨' },
+      { name: 'Фотобарабан', icon: '🥁' },
+    ],
+  },
+  {
+    name: 'Хозтовары',
+    icon: '🧴',
+    types: [
+      { name: 'Моющее',      icon: '🧴' },
+      { name: 'Салфетки',    icon: '🧻' },
+      { name: 'Мешки',       icon: '🗑️' },
+    ],
+  },
+];
+
+// { corp_id, name, unit, category (имя), type (имя), qty_range, min_range }
+const ITEM_DATA = [
+  { name: 'Бумага А4, 500 л.',      unit: 'пачка', category: 'Бумага и канцелярия', type: 'Бумага',      qty: [10, 50],  min: [5, 10] },
+  { name: 'Бумага А3, 500 л.',      unit: 'пачка', category: 'Бумага и канцелярия', type: 'Бумага',      qty: [5, 20],   min: [2, 5]  },
+  { name: 'Ручка шариковая синяя',  unit: 'шт',    category: 'Бумага и канцелярия', type: 'Ручки',       qty: [20, 100], min: [10, 20] },
+  { name: 'Ручка шариковая чёрная', unit: 'шт',    category: 'Бумага и канцелярия', type: 'Ручки',       qty: [20, 100], min: [10, 20] },
+  { name: 'Карандаш простой HB',    unit: 'шт',    category: 'Бумага и канцелярия', type: 'Карандаши',   qty: [15, 60],  min: [5, 10]  },
+  { name: 'Папка-регистратор',      unit: 'шт',    category: 'Бумага и канцелярия', type: 'Папки',       qty: [5, 30],   min: [3, 5]   },
+  { name: 'Папка-скоросшиватель',   unit: 'шт',    category: 'Бумага и канцелярия', type: 'Папки',       qty: [10, 50],  min: [5, 10]  },
+  { name: 'Картридж HP 26A',        unit: 'шт',    category: 'Печать и картриджи',  type: 'Картридж',    qty: [2, 10],   min: [1, 3]   },
+  { name: 'Картридж Canon 052',     unit: 'шт',    category: 'Печать и картриджи',  type: 'Картридж',    qty: [2, 8],    min: [1, 3]   },
+  { name: 'Тонер HP 26A',           unit: 'шт',    category: 'Печать и картриджи',  type: 'Тонер',       qty: [3, 15],   min: [2, 5]   },
+  { name: 'Фотобарабан HP',         unit: 'шт',    category: 'Печать и картриджи',  type: 'Фотобарабан', qty: [1, 5],    min: [1, 2]   },
+  { name: 'Средство для мытья',     unit: 'л',     category: 'Хозтовары',           type: 'Моющее',      qty: [2, 10],   min: [1, 3]   },
+  { name: 'Салфетки бумажные',      unit: 'упак',  category: 'Хозтовары',           type: 'Салфетки',    qty: [5, 20],   min: [3, 5]   },
+  { name: 'Мешки для мусора 30 л',  unit: 'упак',  category: 'Хозтовары',           type: 'Мешки',       qty: [5, 25],   min: [3, 5]   },
+];
+
+
 // ============================================================
 // ПРОВЕРКА СТРУКТУРЫ БД
 // ============================================================
@@ -418,6 +473,134 @@ async function createEquipmentModels() {
   }
   log(`   ✅ Создано моделей: ${created}`, true);
   return keyToId;
+}
+
+// ============================================================
+// 5.16.2b: СПРАВОЧНИКИ И ОСТАТКИ РАСХОДНИКОВ
+// ============================================================
+
+async function seedItemCategoriesAndTypes() {
+  const existing = await get('SELECT COUNT(*) as count FROM item_categories');
+  if (existing.count > 0) {
+    log(`📊 Категории расходников уже есть (${existing.count}), пропуск`, true);
+    return;
+  }
+
+  log('\n📝 Создание категорий и типов расходников...', true);
+
+  for (const [ci, cat] of ITEM_CATALOG.entries()) {
+    const r = await run(`
+      INSERT INTO item_categories (name, icon, sort_order, is_active)
+      VALUES (?, ?, ?, 1)
+    `, [cat.name, cat.icon, ci]);
+
+    for (const [ti, type] of cat.types.entries()) {
+      await run(`
+        INSERT INTO item_types (category_id, name, icon, sort_order, is_active)
+        VALUES (?, ?, ?, ?, 1)
+      `, [r.lastID, type.name, type.icon, ti]);
+    }
+    log(`   ✅ ${cat.icon} ${cat.name} (${cat.types.length} типов)`, true);
+  }
+}
+
+async function seedItemModels() {
+  const existing = await get('SELECT COUNT(*) as count FROM item_models');
+  if (existing.count > 0) {
+    log(`📊 Номенклатура расходников уже есть (${existing.count}), пропуск`, true);
+    return new Map();
+  }
+
+  log('\n🧴 Создание номенклатуры расходников...', true);
+
+  // Карта: "category|type" → { category_id, type_id }
+  const cats = await all(`SELECT id, name FROM item_categories`);
+  const types = await all(`SELECT id, category_id, name FROM item_types`);
+
+  const catMap = Object.fromEntries(cats.map(c => [c.name, c.id]));
+  const typeMap = {};
+  for (const t of types) {
+    const catName = cats.find(c => c.id === t.category_id)?.name;
+    if (catName) typeMap[`${catName}|${t.name}`] = { type_id: t.id, category_id: t.category_id };
+  }
+
+  const keyToId = new Map();
+  let counter = 1;
+
+  for (const it of ITEM_DATA) {
+    const catId = catMap[it.category];
+    const typeInfo = typeMap[`${it.category}|${it.type}`];
+    if (!catId || !typeInfo) {
+      log(`   ⚠️  Не найдена категория/тип: ${it.category} / ${it.type}`, true);
+      continue;
+    }
+
+    const corporateId = `ITM-${String(counter).padStart(4, '0')}`;
+    const result = await run(`
+      INSERT INTO item_models
+        (corporate_id, name, unit, kind, category_id, type_id, description, is_active)
+      VALUES (?, ?, ?, 'consumable', ?, ?, NULL, 1)
+    `, [corporateId, it.name, it.unit, catId, typeInfo.type_id]);
+
+    keyToId.set(`${it.name}|${it.unit}`, result.lastID);
+    log(`   ✅ ${corporateId} — ${it.name} (${it.unit})`, true);
+    counter++;
+  }
+
+  log(`   ✅ Создано номенклатуры: ${keyToId.size}`, true);
+  return keyToId;
+}
+
+async function seedItems(modelKeyToId) {
+  const existing = await get('SELECT COUNT(*) as count FROM items');
+  if (existing.count > 0) {
+    log(`📊 Остатки расходников уже есть (${existing.count}), пропуск`, true);
+    return;
+  }
+  if (!modelKeyToId || modelKeyToId.size === 0) {
+    log('   ⚠️  Нет номенклатуры для остатков', true);
+    return;
+  }
+
+  log('\n📦 Создание остатков расходников на складах...', true);
+
+  const warehouses = await all(`SELECT id, name FROM warehouses WHERE is_active = 1`);
+  if (warehouses.length === 0) {
+    log('   ⚠️  Нет складов для остатков', true);
+    return;
+  }
+
+  let created = 0;
+  let lowStockCount = 0;
+
+  for (const it of ITEM_DATA) {
+    const modelId = modelKeyToId.get(`${it.name}|${it.unit}`);
+    if (!modelId) continue;
+
+    // Каждый расходник кладём на 1–2 случайных склада
+    const shuffled = [...warehouses].sort(() => Math.random() - 0.5);
+    const count = Math.min(warehouses.length, Math.random() < 0.6 ? 1 : 2);
+
+    for (let i = 0; i < count; i++) {
+      const wh = shuffled[i];
+      const qty = Math.floor(Math.random() * (it.qty[1] - it.qty[0] + 1)) + it.qty[0];
+      const min = Math.floor(Math.random() * (it.min[1] - it.min[0] + 1)) + it.min[0];
+
+      // 20% — заведомо ниже минимума (для проверки алертов)
+      const finalQty = Math.random() < 0.2 ? Math.max(0, min - 1) : qty;
+      if (finalQty <= min) lowStockCount++;
+
+      await run(`
+        INSERT INTO items (model_id, warehouse_id, quantity, min_quantity, is_active)
+        VALUES (?, ?, ?, ?, 1)
+      `, [modelId, wh.id, finalQty, min]);
+
+      created++;
+    }
+  }
+
+  log(`   ✅ Создано остатков: ${created}`, true);
+  log(`   ⚠️  Из них ниже минимума: ${lowStockCount}`, true);
 }
 
 // ============================================================
@@ -700,6 +883,11 @@ async function seed() {
     await createMolResponsibles(users);
     const equipment = await createEquipment(modelKeyToId, users);
     await createAssignments(users, equipment);
+        // 5.16.2b: расходные материалы
+    await seedItemCategoriesAndTypes();
+    const itemModelKeyToId = await seedItemModels();
+    await seedItems(itemModelKeyToId);
+    
     await createActivityLog(users);
     
     console.log('');

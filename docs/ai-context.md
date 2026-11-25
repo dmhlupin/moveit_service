@@ -32,7 +32,16 @@ Node.js 18+ / Express 4.18 / SQLite3 / Vanilla JS (ES6+).
   `getKindWhere` / `getKindMeta` / `normalizeKindToFlags` /
   `getKindFromFlags` / `getKindFromRow`.
 - Роуты (HTML): `/manage/fixed-assets`, `/manage/tangible`,
-  `/manage/low-value`, `/manage/consumables` (заглушка).
+  `/manage/low-value`, `/manage/consumables`
+
+  ### Номенклатура: расходники (5.16.2)
+- БД: `database/modules/items/` — index, helpers, models, crud, scope.
+- Роуты: `routes/manage/consumables/` — index, pages, api, helpers.
+- UI: `views/manage-consumables.html`, `public/js/manage-consumables/`
+  (filters, init).
+- API: `/manage/consumables/api/{item-models,items}` (8 эндпоинтов).
+- `item_categories` → `item_types` → `item_models` → `items` (остатки).
+- `kind` на `item_models`: `'consumable'` (5.16.2) | `'spare_part'` (5.17).
 
 ### Склады
 - БД: `database/modules/warehouses/` — index, scope, crud, tree, stats, inventory, batch, equipment-in-cell.
@@ -72,6 +81,14 @@ Node.js 18+ / Express 4.18 / SQLite3 / Vanilla JS (ES6+).
 - fixed_assets(equipment_id PK, commissioning_date, initial_cost, useful_life_months)
 - «kind» — вычисляемый (не колонка): EXISTS fixed_assets → fixed_asset;
   is_quantity_accounted = 1 → tangible; = 0 → low_value (5.16.1).
+
+- item_categories(id, name, description, icon, sort_order, is_active)
+- item_types(id, category_id, name, description, icon, sort_order, is_active)
+- item_models(id, corporate_id, name, unit, kind, category_id, type_id,
+  description, is_active)
+  — kind: 'consumable' | 'spare_part' (валидация в helpers.js, без CHECK)
+- items(id, model_id, warehouse_id, quantity, min_quantity, is_active)
+  — UNIQUE(model_id, warehouse_id), quantity/min_quantity REAL
 - warehouses / zones / racks / cells; offices / rooms / workplaces
 - warehouse_responsibles, office_responsibles (many-to-many МОЛ)
 - categories / types; logs
@@ -113,6 +130,9 @@ Node.js 18+ / Express 4.18 / SQLite3 / Vanilla JS (ES6+).
 - 5.16.1: разделы учёта — `/manage/fixed-assets`, `/manage/tangible`,
   `/manage/low-value`; kind-хелперы; sidebar с 4 пунктами; `?kind=`
   в форме add, read-only в edit; API принимает `kind`.
+- 5.16.2: расходные материалы — `item_*` таблицы, `/manage/consumables`
+  (список + CRUD + seed), API `item-models` / `items`, `kind` на модели
+  (задел на 5.17 — запчасти).
 
 ## 9. Границы применимости моделей
 

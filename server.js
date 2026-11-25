@@ -58,7 +58,6 @@ const {
 
     // 🆕 5.16.1: разделы
   renderEquipmentKindPage,
-  renderConsumablesStub,
 } = require('./routes/manage');
 
 const {
@@ -209,6 +208,9 @@ const {
   setEquipmentResponsibleAPI,
   getEquipmentResponsibleAPI,
 } = require('./routes/admin-responsibles');
+
+// 🆕 5.16.2: расходные материалы
+const consumablesRoutes = require('./routes/manage/consumables');
 
 // ============================================
 // MIDDLEWARE
@@ -370,9 +372,13 @@ app.get('/manage/tangible', requireRole(['admin', 'supervisor', 'mol']),
 app.get('/manage/low-value', requireRole(['admin', 'supervisor', 'mol']),
   (req, res) => renderEquipmentKindPage(req, res, 'low_value'));
 
-// 🆕 5.16.2: заглушка расходников
+// 🆕 5.16.2: расходные материалы
+// API — до страницы (визуально логичнее)
+app.use('/manage/consumables/api',
+  requireRole(['admin', 'supervisor', 'mol']),
+  consumablesRoutes.apiRouter);
 app.get('/manage/consumables', requireRole(['admin', 'supervisor', 'mol']),
-  renderConsumablesStub);
+  consumablesRoutes.renderPage);
 
 // ============================================
 // УПРАВЛЕНИЕ ПОЛЬЗОВАТЕЛЯМИ

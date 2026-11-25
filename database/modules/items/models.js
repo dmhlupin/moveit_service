@@ -115,12 +115,64 @@ module.exports = function(ctx) {
     const result = await run('DELETE FROM item_models WHERE id = ?', [id]);
     return { changes: result.changes };
   }
+  // ============================================================
+  // 5.16.2b.1: справочники для фильтров / селектов (только чтение)
+  // ============================================================
 
+  async function getItemCategories(onlyActive = true) {
+    const whereSql = onlyActive ? 'WHERE is_active = 1' : '';
+    const rows = await all(`
+      SELECT id, name, icon, sort_order, is_active
+        FROM item_categories
+        ${whereSql}
+       ORDER BY sort_order, name COLLATE NOCASE
+    `);
+    return rows || [];
+  }
+
+  async function getItemTypes(categoryId = null, onlyActive = true) {
+    const where = [];
+    const params = [];
+
+    if (onlyActive) {
+      where.push('is_active = 1');
+    }
+    if (categoryId) {
+      where.push('category_id = ?');
+      params.push(categoryId);
+    }
+
+    const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+
+    const rows = await all(`
+      SELECT id, category_id, name, icon, sort_order, is_active
+        FROM item_types
+        ${whereSql}
+       ORDER BY sort_order, name COLLATE NOCASE
+    `, params);
+
+    return rows || [];
+  }
+
+  async function getItemWarehouses(onlyActive = true) {
+    const whereSql = onlyActive ? 'WHERE is_active = 1' : '';
+    const rows = await all(`
+      SELECT id, name, address, is_default
+        FROM warehouses
+        ${whereSql}
+       ORDER BY is_default DESC, name COLLATE NOCASE
+    `);
+    return rows || [];
+  }
   return {
     getItemModels,
     getItemModelById,
     createItemModel,
     updateItemModel,
     deleteItemModel,
+        // 5.16.2b.1: справочники
+    getItemCategories,
+    getItemTypes,
+    getItemWarehouses,
   };
 };

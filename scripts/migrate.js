@@ -1717,6 +1717,7 @@ async function createItemModelsTable() {
       category_id  INTEGER NOT NULL,
       type_id      INTEGER NOT NULL,
       description  TEXT,
+      is_active    INTEGER NOT NULL DEFAULT 1,     -- 🆕 5.16.2b
       created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (category_id) REFERENCES item_categories(id) ON DELETE RESTRICT,
@@ -1775,6 +1776,22 @@ async function createItemsIndexes() {
   await createIndexIfMissing('idx_items_active',    'items', 'is_active');
 
   console.log('✅ Индексы для номенклатуры созданы\n');
+}
+
+async function addItemModelsIsActive() {
+  const exists = await tableExists('item_models');
+  if (!exists) return;
+
+  console.log('📋 Проверка поля is_active в item_models...');
+  const added = await addColumnIfMissing(
+    'item_models',
+    'is_active',
+    'INTEGER NOT NULL DEFAULT 1'
+  );
+  if (added) {
+    console.log('   ℹ️  Все существующие модели помечены как активные (1)');
+  }
+  console.log('');
 }
 
 // ============================================================
@@ -1874,6 +1891,7 @@ async function migrate() {
     await createItemCategoriesTable();
     await createItemTypesTable();
     await createItemModelsTable();
+    await addItemModelsIsActive();
     await createItemsTable();
     await createItemsIndexes();
 

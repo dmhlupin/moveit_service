@@ -6,7 +6,7 @@
 [![Express](https://img.shields.io/badge/Express-4.18-000000?logo=express&logoColor=white)](https://expressjs.com/)
 [![SQLite](https://img.shields.io/badge/SQLite-5.1-003B57?logo=sqlite&logoColor=white)](https://www.sqlite.org/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-5.16.1-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-5.16.2b-blue.svg)](CHANGELOG.md)
 
 ---
 
@@ -117,6 +117,11 @@
   Фильтр: `fa.equipment_id IS NULL AND is_quantity_accounted = 0`.
   В колонке «Инв. №» — `#ID` экземпляра (инв. № у малоценки нет).
 - **🧴 `/manage/consumables`** — Расходные материалы (заглушка, 5.16.2).
+
+- **🧴 Расходные материалы** — `/manage/consumables`: остатки номенклатуры
+  на складах, минимальные запасы, фильтры (склад / категория / тип /
+  «ниже минимума» / «неактивные»), CRUD остатков и номенклатуры через
+  модалку. Движения (приход/расход) — в 5.16.2c.
 
 **Общее:** sidebar с 4 пунктами, `data-page` для подсветки, формы
 add/edit с предзаполнением по `?kind=`, API принимает `kind`
@@ -512,11 +517,25 @@ Read-only ко всему, кроме логов. Директор / бухга�
 | GET | /manage/fixed-assets | 🏦 Основные средства |
 | GET | /manage/tangible | 📦 ТМЦ на кол. учёте |
 | GET | /manage/low-value | 🏷️ Малоценка |
-| GET | /manage/consumables | 🧴 Расходные материалы (заглушка 5.16.2) |
 
 Все — `requireRole(['admin', 'supervisor', 'mol'])`, фильтрация через
 `getEquipmentWithLocation({ kind })`. Пагинация / сортировка сохраняют
 `basePath` раздела.
+
+### API — Расходные материалы (`/manage/consumables/api`)
+
+| Метод | Путь | Описание | Роли |
+|---|---|---|---|
+| GET | `/item-models` | Список номенклатуры (для селекта) | admin, supervisor, mol |
+| POST | `/item-models` | Создать номенклатуру | admin, mol |
+| PUT | `/item-models/:id` | Обновить номенклатуру | admin, mol |
+| DELETE | `/item-models/:id` | Удалить номенклатуру (409, если есть остатки) | admin |
+| GET | `/items/:id` | Данные остатка | admin, supervisor, mol |
+| POST | `/items` | Создать остаток | admin, mol |
+| PUT | `/items/:id` | Обновить остаток | admin, mol |
+| DELETE | `/items/:id` | Удалить остаток | admin |
+
+Для МОЛ — `404` на чужой склад (правило проекта).
 
 ---
 

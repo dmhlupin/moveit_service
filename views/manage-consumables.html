@@ -1,0 +1,171 @@
+<!-- views/manage-consumables.html — расходные материалы (5.16.2b) -->
+
+<input type="hidden" id="currentRole" value="{{current_role}}">
+<input type="hidden" id="currentUserId" value="{{current_user_id}}">
+<input type="hidden" id="basePath" value="{{base_path}}">
+
+<!-- ============================================================ -->
+<!-- PAGE HEADER                                                   -->
+<!-- ============================================================ -->
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">🧴 Расходные материалы</h1>
+        <div class="page-subtitle">Остатки номенклатуры на складах</div>
+    </div>
+    <div class="page-actions">
+        {{page_actions}}
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- STATS                                                         -->
+<!-- ============================================================ -->
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <span class="icon">🧴</span>
+        <div class="number accent">{{total_items}}</div>
+        <div class="label">Всего позиций</div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- ФИЛЬТРЫ                                                       -->
+<!-- ============================================================ -->
+
+<div class="filters-panel">
+    <div class="filter-group filter-group--search">
+        <label>Поиск</label>
+        <div class="search-wrapper">
+            <span class="search-icon">🔍</span>
+            <input type="search"
+                id="filterSearch"
+                placeholder="Название, корп. ИД..."
+                autocomplete="off"
+                value="{{filter_search}}">
+        </div>
+    </div>
+    <div class="filter-group">
+        <label>Склад</label>
+        <select id="filterWarehouse">
+            {{filter_warehouse_options}}
+        </select>
+    </div>
+    <div class="filter-group">
+        <label>Категория</label>
+        <select id="filterCategory">
+            {{filter_category_options}}
+        </select>
+    </div>
+    <div class="filter-group">
+        <label>Тип</label>
+        <select id="filterType">
+            {{filter_type_options}}
+        </select>
+    </div>
+    <div class="filter-group filter-group--checkbox">
+        <label class="checkbox-label">
+            <input type="checkbox" id="filterLowStock" value="1" {{filter_low_stock_checked}}>
+            <span>Только ниже минимума</span>
+        </label>
+        <label class="checkbox-label">
+            <input type="checkbox" id="filterShowInactive" value="1" {{filter_show_inactive_checked}}>
+            <span>Показывать неактивные</span>
+        </label>
+    </div>
+    <div class="filter-group filter-group--narrow">
+        <label>Показывать по</label>
+        <select id="filterPageSize">
+            {{page_size_options}}
+        </select>
+    </div>
+    <div class="filter-actions">
+        <button type="button" class="btn btn-primary" onclick="applyConsumableFilters()">✔ Применить</button>
+        <button type="button" class="btn btn-ghost" onclick="resetConsumableFilters()">✕ Сбросить</button>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- ТАБЛИЦА                                                       -->
+<!-- ============================================================ -->
+
+<div class="table-container">
+    <div class="table-header">
+        <h2>Список: Расходные материалы</h2>
+        <div class="table-actions">
+            <div class="columns-menu-wrapper">
+                <button type="button" class="btn btn-ghost btn-sm" onclick="toggleColumnsMenu()" title="Скрыть / показать колонки">
+                    ⚙️ Колонки
+                </button>
+                <div id="columnsMenu" class="columns-menu" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+    <table class="manage-table">
+        <thead>
+            <tr>{{table_head}}</tr>
+        </thead>
+        <tbody id="consumableTableBody">
+            {{consumable_rows}}
+        </tbody>
+    </table>
+</div>
+
+{{pagination}}
+
+<!-- ============================================================ -->
+<!-- МОДАЛКИ (заглушки — реальные обработчики в init.js / 5.16.2c) -->
+<!-- ============================================================ -->
+
+<!-- Модалка создания/редактирования остатка (5.16.2b) -->
+<div class="modal-overlay" id="consumableModal" style="display: none;">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 id="consumableModalTitle">Добавить позицию</h3>
+            <button onclick="closeConsumableModal()" class="modal-close">✕</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="consumableId" value="">
+
+            <div class="form-group">
+                <label>Номенклатура <span class="required">*</span></label>
+                <select id="consumableModelId" required>
+                    <option value="">— Выберите номенклатуру —</option>
+                </select>
+                <div class="form-hint" style="font-size:12px;color:var(--text-muted);margin-top:4px;">
+                    Нет нужной? <a href="#" onclick="event.preventDefault(); alert('Создание номенклатуры — в 5.16.2d');">Создать номенклатуру</a>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Склад <span class="required">*</span></label>
+                <select id="consumableWarehouseId" required>
+                    <option value="">— Выберите склад —</option>
+                </select>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Остаток</label>
+                    <input type="number" id="consumableQuantity" value="0" min="0" step="0.01">
+                </div>
+                <div class="form-group">
+                    <label>Мин. остаток</label>
+                    <input type="number" id="consumableMinQuantity" value="0" min="0" step="0.01">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="consumableIsActive" checked>
+                    <span>Активна</span>
+                </label>
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button onclick="closeConsumableModal()" class="btn btn-ghost">Отмена</button>
+            <button onclick="submitConsumable()" class="btn btn-primary" id="consumableSubmitBtn">Сохранить</button>
+        </div>
+    </div>
+</div>

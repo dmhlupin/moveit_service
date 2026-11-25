@@ -25,13 +25,24 @@
 `fixed_assets` нет). Добавить: мониторы, док-станции, сетевые
 коммутаторы — 10–15 единиц. Закрывается в v5.16.1.2.
 
-## [открыт] 5.16.2 — Расходные материалы
+## [открыт] 5.16.2c: движения расходников (приход/расход)
+`adjustItemQuantity` в `database/modules/items/crud.js` готов (BEGIN
+IMMEDIATE/COMMIT/ROLLBACK), но UI-модалка и API-эндпоинт
+`POST /api/items/:id/adjust` — нет. Нужно: модалка «Приход / Расход»,
+история движений (таблица `item_movements` — 5.16.2c/d), статистика
+«расход за период» (дашборд).
 
-Отдельная таблица `consumables` (`id, name, unit, quantity,
-min_quantity, warehouse_id, ...`) + CRUD + роут `/manage/consumables`
-+ карточка + seed + CSV. Отличие от `equipment`: нет экземпляров,
-нет инв. №, есть остаток и единица измерения. См. передаточную
-записку 5.16, вариант B (отдельная таблица).
+## [открыт] 5.16.2d: управление справочником item_categories / item_types
+Сейчас справочник `item_categories` / `item_types` доступен только через
+БД / seed. Нет UI-страницы `/manage/consumables/categories` (по образцу
+`/admin/catalog`). `GET /api/item-models` пока без фильтров для UI.
+
+## [открыт] 5.17: запчасти (spare_part)
+`item_models.kind = 'spare_part'` уже поддержан схемой. Нужно:
+`spare_part_profiles(model_id, equipment_model_id)` — совместимость;
+`spare_part_installations(item_id, equipment_id, installed_at, removed_at)` —
+факт установки; UI `/manage/spare-parts`; неснижаемый остаток «на парк»
+с выбором пользователя (фикс / формула от числа ТМЦ).
 
 
 
@@ -49,6 +60,11 @@ min_quantity, warehouse_id, ...`) + CRUD + роут `/manage/consumables`
 ---
 
 # 🟢 ЗАКРЫТО
+
+## [закрыт v5.16.2b] Расходные материалы
+Реализовано: `item_categories` / `item_types` / `item_models` / `items`,
+страница `/manage/consumables`, CRUD номенклатуры и остатков, seed.
+Движения (приход/расход) — 5.16.2c. Управление справочником — 5.16.2d.
 
 ## 5.16.3 — Реструктуризация sidebar: группы и подразделы
 
