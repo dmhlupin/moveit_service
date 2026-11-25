@@ -1633,6 +1633,151 @@ async function createFixedAssetsTrigger() {
 }
 
 // ============================================================
+// 5.16.2: НОМЕНКЛАТУРА (расходники + запчасти, единый движок)
+// ============================================================
+//
+// Четырёхуровневая модель (по образцу equipment_*):
+//   item_categories → item_types → item_models → items (остатки)
+//
+// kind на item_models:
+//   - 'consumable'  — расходники (5.16.2, сейчас);
+//   - 'spare_part'  — запчасти (5.17, задел).
+// CHECK НЕ ставим: валидация в database/modules/items/helpers.js
+// (ITEM_KINDS). Расширение списка (tool/ppe/...) — без миграции схемы.
+//
+// Задел на 5.17 (НЕ создаём сейчас):
+//   spare_part_profiles(model_id, equipment_model_id, ...) — совместимость;
+//   spare_part_installations(item_id, equipment_id, ...)   — факт установки.
+// ============================================================
+
+async function createItemCategoriesTable() {
+  const exists = await tableExists('item_categories');
+  if (exists) {
+    console.log('⏭️  Таблица item_categories уже существует\n');
+    return;
+  }
+
+  console.log('📋 Создание таблицы item_categories (категории номенклатуры)...');
+  await run(`
+    CREATE TABLE item_categories (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      name        TEXT    NOT NULL UNIQUE,
+      description TEXT,
+      icon        TEXT,
+      sort_order  INTEGER DEFAULT 0,
+      is_active   INTEGER NOT NULL DEFAULT 1,
+      created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  console.log('✅ Таблица item_categories создана\n');
+}
+
+async function createItemTypesTable() {
+  const exists = await tableExists('item_types');
+  if (exists) {
+    console.log('⏭️  Таблица item_types уже существует\n');
+    return;
+  }
+
+  console.log('📋 Создание таблицы item_types (типы номенклатуры)...');
+  await run(`
+    CREATE TABLE item_types (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      category_id INTEGER NOT NULL,
+      name        TEXT    NOT NULL,
+      description TEXT,
+      icon        TEXT,
+      sort_order  INTEGER DEFAULT 0,
+      is_active   INTEGER NOT NULL DEFAULT 1,
+      created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (category_id) REFERENCES item_categories(id) ON DELETE RESTRICT,
+      UNIQUE(category_id, name)
+    )
+  `);
+  console.log('✅ Таблица item_types создана\n');
+}
+
+async function createItemModelsTable() {
+  const exists = await tableExists('item_models');
+  if (exists) {
+    console.log('⏭️  Таблица item_models уже существует\n');
+    return;
+  }
+
+  console.log('📋 Создание таблицы item_models (номенклатура)...');
+  await run(`
+    CREATE TABLE item_models (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      corporate_id TEXT    NOT NULL UNIQUE,
+      name         TEXT    NOT NULL,
+      unit         TEXT    NOT NULL DEFAULT 'шт',
+      kind         TEXT    NOT NULL DEFAULT 'consumable',
+      category_id  INTEGER NOT NULL,
+      type_id      INTEGER NOT NULL,
+      description  TEXT,
+      created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (category_id) REFERENCES item_categories(id) ON DELETE RESTRICT,
+      FOREIGN KEY (type_id)     REFERENCES item_types(id)      ON DELETE RESTRICT
+    )
+  `);
+  console.log('✅ Таблица item_models создана\n');
+}
+
+async function createItemsTable() {
+  const exists = await tableExists('items');
+  if (exists) {
+    console.log('⏭️  Таблица items уже существует\n');
+    return;
+  }
+
+  console.log('📋 Создание таблицы items (остатки на складах)...');
+  await run(`
+    CREATE TABLE items (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      model_id      INTEGER NOT NULL,
+      warehouse_id  INTEGER NOT NULL,
+      quantity      REAL    NOT NULL DEFAULT 0,
+      min_quantity  REAL    NOT NULL DEFAULT 0,
+      is_active     INTEGER NOT NULL DEFAULT 1,
+      created_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (model_id)     REFERENCES item_models(id) ON DELETE RESTRICT,
+      FOREIGN KEY (warehouse_id) REFERENCES warehouses(id)  ON DELETE RESTRICT,
+      UNIQUE(model_id, warehouse_id)
+    )
+  `);
+  console.log('✅ Таблица items создана\n');
+}
+
+async function createItemsIndexes() {
+  console.log('📋 Создание индексов для номенклатуры...');
+
+  // Справочники
+  await createIndexIfMissing('idx_item_cat_sort',   'item_categories', 'sort_order');
+  await createIndexIfMissing('idx_item_cat_active', 'item_categories', 'is_active');
+  await createIndexIfMissing('idx_item_type_cat',   'item_types',      'category_id');
+  await createIndexIfMissing('idx_item_type_sort',  'item_types',      'sort_order');
+  await createIndexIfMissing('idx_item_type_active','item_types',      'is_active');
+
+  // Модели
+  await createIndexIfMissing('idx_item_models_corporate', 'item_models', 'corporate_id');
+  await createIndexIfMissing('idx_item_models_name',      'item_models', 'name');
+  await createIndexIfMissing('idx_item_models_kind',      'item_models', 'kind');
+  await createIndexIfMissing('idx_item_models_cat',       'item_models', 'category_id');
+  await createIndexIfMissing('idx_item_models_type',      'item_models', 'type_id');
+
+  // Остатки
+  await createIndexIfMissing('idx_items_model',     'items', 'model_id');
+  await createIndexIfMissing('idx_items_warehouse', 'items', 'warehouse_id');
+  await createIndexIfMissing('idx_items_active',    'items', 'is_active');
+
+  console.log('✅ Индексы для номенклатуры созданы\n');
+}
+
+// ============================================================
 // ГЛАВНАЯ ФУНКЦИЯ МИГРАЦИИ
 // ============================================================
 
@@ -1723,6 +1868,15 @@ async function migrate() {
     await createFixedAssetsTable();
     await createFixedAssetsTrigger();
 
+        // ===== ЭТАП 5.16.2: Номенклатура (расходники + запчасти) =====
+    console.log('🧴 ЭТАП 5.16.2: Номенклатура (расходники + запчасти)\n');
+
+    await createItemCategoriesTable();
+    await createItemTypesTable();
+    await createItemModelsTable();
+    await createItemsTable();
+    await createItemsIndexes();
+
     // ===== ИТОГИ =====
     console.log('═══════════════════════════════════════════════');
     console.log('✅ МИГРАЦИЯ ЗАВЕРШЕНА УСПЕШНО');
@@ -1748,7 +1902,13 @@ async function migrate() {
         (SELECT COUNT(*) FROM workplaces) as workplaces,
         (SELECT COUNT(*) FROM equipment WHERE status = 'placed') as equipment_placed,
         (SELECT COUNT(*) FROM equipment WHERE is_quantity_accounted = 0) as equipment_minor,
-        (SELECT COUNT(*) FROM fixed_assets) as fixed_assets
+        (SELECT COUNT(*) FROM fixed_assets) as fixed_assets,
+        (SELECT COUNT(*) FROM item_categories)                   as item_categories,
+        (SELECT COUNT(*) FROM item_types)                        as item_types,
+        (SELECT COUNT(*) FROM item_models)                       as item_models,
+        (SELECT COUNT(*) FROM item_models WHERE kind='consumable') as item_models_cons,
+        (SELECT COUNT(*) FROM item_models WHERE kind='spare_part') as item_models_spare,
+        (SELECT COUNT(*) FROM items)                             as items_stock
     `);
     
     console.log('📊 Итоговая статистика:');
@@ -1767,6 +1927,12 @@ async function migrate() {
     console.log(`   🧩 Моделей ТМЦ:    ${stats.models}`);
     console.log(`   📊 Малоценка (без кол. учёта): ${stats.equipment_minor}`);
     console.log(`   🏦 Основных средств:           ${stats.fixed_assets}`);
+    console.log(`   🧴 Категорий номенклатуры:   ${stats.item_categories}`);
+    console.log(`   🧴 Типов номенклатуры:       ${stats.item_types}`);
+    console.log(`   🧴 Номенклатуры (всего):     ${stats.item_models}`);
+    console.log(`      ├ расходники:             ${stats.item_models_cons}`);
+    console.log(`      └ запчасти:               ${stats.item_models_spare}`);
+    console.log(`   🧴 Остатков на складах:      ${stats.items_stock}`);
     console.log(`   👔 МОЛ:            ${stats.mol_users}`);
     console.log(`   🔗 Связок МОЛ↔склад: ${stats.wh_responsibles}`);
     console.log(`   🔗 Связок МОЛ↔офис:  ${stats.office_responsibles}`);

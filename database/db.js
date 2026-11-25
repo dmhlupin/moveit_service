@@ -95,6 +95,7 @@ const warehouses = require('./modules/warehouses')(ctx);
 const workplaces = require('./modules/workplaces')(ctx);
 const importModule = require('./modules/import')(ctx);
 const equipmentModels = require('./modules/equipment-models')(ctx);
+const items = require('./modules/items')(ctx);
 
 
 // ============================================================
@@ -132,6 +133,7 @@ module.exports = {
   ...warehouses, 
   ...workplaces,
   ...equipmentModels, 
+  ...items,
                             
 
   // Управление БД
